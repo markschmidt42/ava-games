@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Word Card Party Game</title>
+    <title>Splurt Word Game — Ava's Games</title>
+    <meta name="theme-color" content="#121212">
+    <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
     <style>
         :root {
             --bg-color: #121212;
@@ -26,6 +29,31 @@
             padding: 20px;
             box-sizing: border-box;
             overflow-x: hidden;
+        }
+
+        .site-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            align-self: flex-start;
+            text-decoration: none;
+            color: var(--text-color);
+            opacity: 0.85;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            transition: opacity 0.2s;
+        }
+
+        .site-header:hover {
+            opacity: 1;
+        }
+
+        .site-header img {
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
         }
 
         h1 {
@@ -319,7 +347,12 @@
 </head>
 <body>
 
-    <h1>Word Card Party Game</h1>
+    <a class="site-header" href="../">
+        <img src="../assets/icon.svg" alt="">
+        ← Ava's Games
+    </a>
+
+    <h1>Splurt Word Game</h1>
 
     <div class="game-container">
         <div class="card-perspective">

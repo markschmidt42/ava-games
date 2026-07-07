@@ -1,0 +1,13 @@
+{
+  "name": "Ava's Games",
+  "short_name": "Ava's Games",
+  "description": "A collection of fun games to play!",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1b1035",
+  "theme_color": "#a855f7",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

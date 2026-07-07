@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Ava's Games</title>
+    <meta name="description" content="A collection of fun games to play!">
+    <meta name="theme-color" content="#a855f7">
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <style>
+        :root {
+            --bg-1: #1b1035;
+            --bg-2: #2d1457;
+            --card-bg: rgba(255, 255, 255, 0.07);
+            --card-border: rgba(255, 255, 255, 0.14);
+            --text: #ffffff;
+            --text-dim: #c3b8e3;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: var(--text);
+            background: linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 55%, #46186b 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        /* Floating background shapes */
+        .bg-shapes {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .bg-shapes span {
+            position: absolute;
+            display: block;
+            opacity: 0.16;
+            font-size: 2rem;
+            animation: floaty 14s ease-in-out infinite;
+        }
+
+        .bg-shapes span:nth-child(1) { left: 8%;  top: 18%; animation-delay: 0s;   font-size: 2.4rem; }
+        .bg-shapes span:nth-child(2) { left: 82%; top: 12%; animation-delay: -3s;  font-size: 1.8rem; }
+        .bg-shapes span:nth-child(3) { left: 70%; top: 62%; animation-delay: -6s;  font-size: 2.8rem; }
+        .bg-shapes span:nth-child(4) { left: 14%; top: 74%; animation-delay: -9s;  font-size: 2rem; }
+        .bg-shapes span:nth-child(5) { left: 45%; top: 40%; animation-delay: -12s; font-size: 1.6rem; }
+        .bg-shapes span:nth-child(6) { left: 90%; top: 82%; animation-delay: -5s;  font-size: 2.2rem; }
+
+        @keyframes floaty {
+            0%, 100% { transform: translateY(0) rotate(-8deg); }
+            50%      { transform: translateY(-28px) rotate(10deg); }
+        }
+
+        .page {
+            position: relative;
+            z-index: 1;
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            margin-bottom: 34px;
+        }
+
+        .logo {
+            width: 96px;
+            height: 96px;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(236, 72, 153, 0.45);
+            animation: logo-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        @keyframes logo-pop {
+            from { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+            to   { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        h1 {
+            font-size: clamp(2.6rem, 11vw, 3.8rem);
+            font-weight: 900;
+            letter-spacing: 1px;
+            margin: 14px 0 6px;
+            line-height: 1.05;
+        }
+
+        h1 .letter {
+            display: inline-block;
+            animation: bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        @keyframes bounce-in {
+            from { transform: translateY(-30px) scale(0.5); opacity: 0; }
+            to   { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .tagline {
+            color: var(--text-dim);
+            font-size: 1.05rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        /* --- Game cards --- */
+        .games {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+        }
+
+        .game-card {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 20px;
+            border-radius: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            text-decoration: none;
+            color: var(--text);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .game-card:hover, .game-card:focus-visible {
+            transform: translateY(-4px) scale(1.01);
+            border-color: rgba(255, 255, 255, 0.35);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        .game-card:active {
+            transform: scale(0.98);
+        }
+
+        .game-icon {
+            flex-shrink: 0;
+            width: 84px;
+            height: 84px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.6rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .game-text {
+            min-width: 0;
+        }
+
+        .game-name {
+            font-size: 1.45rem;
+            font-weight: 800;
+            margin: 0 0 6px;
+            line-height: 1.15;
+        }
+
+        .game-desc {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            margin: 0 0 10px;
+            line-height: 1.45;
+        }
+
+        .play-pill {
+            display: inline-block;
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #2ed573, #1dd1a1);
+            color: #073b26;
+            box-shadow: 0 4px 12px rgba(46, 213, 115, 0.4);
+        }
+
+        .loading, .error-msg {
+            text-align: center;
+            color: var(--text-dim);
+            padding: 30px 10px;
+            font-weight: 600;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            opacity: 0.75;
+        }
+
+        /* A little wider on tablets/desktop: two columns once there are enough games */
+        @media (min-width: 700px) {
+            .page { max-width: 900px; }
+            .games.multi { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .bg-shapes span, .logo, h1 .letter { animation: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-shapes" aria-hidden="true">
+        <span>🎲</span><span>⭐</span><span>🎮</span><span>🃏</span><span>✨</span><span>🎯</span>
+    </div>
+
+    <div class="page">
+        <header>
+            <img class="logo" src="assets/icon.svg" alt="Ava's Games logo">
+            <h1 id="site-title">Ava's Games</h1>
+            <p class="tagline">Pick a game and have fun! 🎉</p>
+        </header>
+
+        <main class="games" id="games-list">
+            <div class="loading">Loading games…</div>
+        </main>
+
+        <footer>Made with ❤️ for Ava</footer>
+    </div>
+
+    <script>
+        // Fallback list used if games.json can't be fetched (e.g. opening the
+        // file directly from disk). Keep in sync with games.json.
+        const FALLBACK_GAMES = [
+            {
+                id: "splurt-word-game",
+                name: "Splurt Word Game",
+                description: "Flip a topic card and a letter card, then race to shout a word that fits! Track everyone's points on the built-in scoreboard.",
+                path: "splurt-word-game/",
+                emoji: "💥",
+                gradient: ["#ff4757", "#2e86de"]
+            }
+        ];
+
+        // Rainbow-ify the title letters with a staggered bounce
+        (function decorateTitle() {
+            const colors = ["#ff6b81", "#ffa502", "#ffe66d", "#2ed573", "#54a0ff", "#a855f7", "#ec4899"];
+            const el = document.getElementById("site-title");
+            const text = el.textContent;
+            el.textContent = "";
+            [...text].forEach((ch, i) => {
+                if (ch === " ") {
+                    el.appendChild(document.createTextNode(" "));
+                    return;
+                }
+                const span = document.createElement("span");
+                span.className = "letter";
+                span.textContent = ch;
+                span.style.color = colors[i % colors.length];
+                span.style.animationDelay = (0.15 + i * 0.06) + "s";
+                span.style.textShadow = "0 4px 14px rgba(0,0,0,0.45)";
+                el.appendChild(span);
+            });
+        })();
+
+        function renderGames(games) {
+            const list = document.getElementById("games-list");
+            list.innerHTML = "";
+            list.classList.toggle("multi", games.length > 1);
+
+            if (!games.length) {
+                list.innerHTML = '<div class="error-msg">No games yet — check back soon!</div>';
+                return;
+            }
+
+            games.forEach((game, i) => {
+                const [c1, c2] = game.gradient || ["#a855f7", "#ec4899"];
+                const card = document.createElement("a");
+                card.className = "game-card";
+                card.href = game.path;
+                card.style.animation = `bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.35 + i * 0.1}s both`;
+                card.innerHTML = `
+                    <div class="game-icon" style="background: linear-gradient(135deg, ${c1}, ${c2});">${game.emoji || "🎮"}</div>
+                    <div class="game-text">
+                        <h2 class="game-name"></h2>
+                        <p class="game-desc"></p>
+                        <span class="play-pill">Play ▶</span>
+                    </div>
+                `;
+                card.querySelector(".game-name").textContent = game.name;
+                card.querySelector(".game-desc").textContent = game.description;
+                list.appendChild(card);
+            });
+        }
+
+        fetch("games.json")
+            .then(res => res.ok ? res.json() : Promise.reject(new Error(res.status)))
+            .then(data => renderGames(data.games || []))
+            .catch(() => renderGames(FALLBACK_GAMES));
+    </script>
+</body>
+</html>

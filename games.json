@@ -1,0 +1,12 @@
+{
+  "games": [
+    {
+      "id": "splurt-word-game",
+      "name": "Splurt Word Game",
+      "description": "Flip a topic card and a letter card, then race to shout a word that fits! Track everyone's points on the built-in scoreboard.",
+      "path": "splurt-word-game/",
+      "emoji": "💥",
+      "gradient": ["#ff4757", "#2e86de"]
+    }
+  ]
+}
