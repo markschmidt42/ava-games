@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Card Party Game</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-topic: #ff4757;
+            --card-letter: #2e86de;
+            --text-color: #ffffff;
+            --panel-bg: #1e1e1e;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            margin-top: 10px;
+            margin-bottom: 25px;
+            font-size: 2.2rem;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        /* Container for side-by-side cards */
+        .game-container {
+            display: flex;
+            gap: 25px;
+            width: 100%;
+            max-width: 800px;
+            justify-content: center;
+            flex-wrap: wrap; 
+        }
+
+        /* Card Container for 3D Flip Effect */
+        .card-perspective {
+            perspective: 1000px;
+            flex: 1;
+            min-width: 280px;
+            max-width: 380px;
+            height: 240px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .card-topic .card-front {
+            background: linear-gradient(135deg, var(--card-topic), #ff6b81);
+        }
+
+        .card-letter .card-front {
+            background: linear-gradient(135deg, var(--card-letter), #54a0ff);
+        }
+
+        .card-front {
+            transform: rotateY(180deg);
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #2f3542, #57606f);
+            border: 3px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .card-label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.8;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        /* Rule modifier dynamic label */
+        .card-modifier {
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 4px 15px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+
+        .card-content {
+            font-size: 2.2rem;
+            font-weight: 800;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+
+        .card-letter .card-content {
+            font-size: 4.5rem;
+            line-height: 1;
+        }
+
+        .card-back .card-content {
+            font-size: 3rem;
+            opacity: 0.3;
+        }
+
+        .controls {
+            margin-top: 30px;
+            margin-bottom: 40px;
+        }
+
+        .primary-btn {
+            background-color: #2ed573;
+            color: white;
+            border: none;
+            padding: 15px 45px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(46, 213, 115, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .primary-btn:hover {
+            background-color: #26af5f;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(46, 213, 115, 0.6);
+        }
+
+        .primary-btn:active {
+            transform: translateY(1px);
+        }
+        
+        .primary-btn:disabled {
+            background-color: #747d8c;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* --- Scoreboard Section --- */
+        .scoreboard-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--panel-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .scoreboard-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .scoreboard-header input {
+            flex: 1;
+            background-color: #2f3542;
+            border: 2px solid #57606f;
+            border-radius: 10px;
+            padding: 12px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .scoreboard-header input:focus {
+            border-color: var(--card-letter);
+        }
+
+        .add-btn {
+            background-color: var(--card-letter);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .add-btn:hover {
+            background-color: #1e74cc;
+        }
+
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .player-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .player-list::-webkit-scrollbar-thumb {
+            background-color: #57606f;
+            border-radius: 10px;
+        }
+
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #2f3542;
+            padding: 12px 20px;
+            border-radius: 12px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .leader-crown {
+            color: #ffa502;
+            font-size: 1.2rem;
+            display: none;
+        }
+
+        .player-row.leader .leader-crown {
+            display: inline;
+        }
+
+        .score-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .score-display {
+            font-size: 1.3rem;
+            font-weight: 800;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .score-btn {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: opacity 0.2s;
+        }
+
+        .score-btn:hover {
+            opacity: 0.85;
+        }
+
+        .minus-btn { background-color: #ff4757; }
+        .plus-btn { background-color: #2ed573; }
+
+        .remove-player-btn {
+            background: none;
+            border: none;
+            color: #a4b0be;
+            cursor: pointer;
+            font-size: 1.1rem;
+            margin-left: 10px;
+            padding: 5px;
+        }
+
+        .remove-player-btn:hover {
+            color: #ff4757;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Word Card Party Game</h1>
+
+    <div class="game-container">
+        <div class="card-perspective">
+            <div class="card card-topic" id="topic-card">
+                <div class="card-face card-back"><div class="card-content">?</div></div>
+                <div class="card-face card-front">
+                    <div class="card-label">Topic</div>
+                    <div class="card-content" id="topic-display">...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-perspective">
+            <div class="card card-letter" id="letter-card">
+                <div class="card-face card-back"><div class="card-content">?</div></div>
+                <div class="card-face card-front">
+                    <div class="card-modifier" id="modifier-display">Starts With</div>
+                    <div class="card-content" id="letter-display">...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="next-btn" class="primary-btn" onclick="drawCards()">Next Round</button>
+    </div>
+
+    <div class="scoreboard-container">
+        <div class="scoreboard-header">
+            <input type="text" id="player-name-input" placeholder="Enter player name..." onkeydown="if(event.key === 'Enter') addPlayer()">
+            <button class="add-btn" onclick="addPlayer()">Add Player</button>
+        </div>
+        <div class="player-list" id="player-list-container"></div>
+    </div>
+
+    <script>
+        // Game lists
+        const topics = [
+            "Animals", "Countries", "Brands", "Movies", "TV Shows", 
+            "Video Games", "Foods", "Superheroes", "Historical Figures", 
+            "Things in a Kitchen", "Hobbies", "Musical Instruments", 
+            "Sports", "Jobs/Professions", "Cartoon Characters",
+            "Websites", "Apparel & Clothing", "Board Games"
+        ];
+
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+        // Rules array to vary the criteria each round
+        const rules = [
+            { type: "text", text: "Starts With" },
+            { type: "text", text: "Ends With" },
+            { type: "text", text: "Contains" },
+            { type: "text", text: "Double Letter" }, // e.g. Contains "EE", "LL" etc
+            { type: "special", text: "Vowel Count", customValue: "2+ Vowels" },
+            { type: "special", text: "Vowel Count", customValue: "3+ Vowels" },
+            { type: "special", text: "Word Length", customValue: "6+ Letters" },
+            { type: "special", text: "Word Length", customValue: "Short! (≤4 Ltrs)" }
+        ];
+
+        let availableTopics = [...topics];
+        let availableLetters = [...letters];
+        let availableRules = [...rules];
+        
+        let players = [];
+
+        function drawCards() {
+            const topicCard = document.getElementById("topic-card");
+            const letterCard = document.getElementById("letter-card");
+            const nextBtn = document.getElementById("next-btn");
+
+            nextBtn.disabled = true;
+
+            topicCard.classList.remove("flipped");
+            letterCard.classList.remove("flipped");
+
+            // Reset decks if exhausted
+            if (availableTopics.length === 0) availableTopics = [...topics];
+            if (availableLetters.length === 0) availableLetters = [...letters];
+            if (availableRules.length === 0) availableRules = [...rules];
+
+            // Pull items from pools
+            const topicIndex = Math.floor(Math.random() * availableTopics.length);
+            const letterIndex = Math.floor(Math.random() * availableLetters.length);
+            const ruleIndex = Math.floor(Math.random() * availableRules.length);
+
+            const chosenTopic = availableTopics.splice(topicIndex, 1)[0];
+            const chosenLetter = availableLetters.splice(letterIndex, 1)[0];
+            const chosenRule = availableRules.splice(ruleIndex, 1)[0];
+
+            // Decide content display based on rule category
+            let modifierText = chosenRule.text;
+            let targetContent = chosenLetter;
+
+            if (chosenRule.type === "special") {
+                targetContent = chosenRule.customValue;
+                // Scale text down a tiny bit dynamically if it's a long rule string
+                document.getElementById("letter-display").style.fontSize = "2.8rem";
+            } else {
+                if (chosenRule.text === "Double Letter") {
+                    targetContent = chosenLetter + chosenLetter;
+                }
+                document.getElementById("letter-display").style.fontSize = "4.5rem";
+            }
+
+            setTimeout(() => {
+                document.getElementById("topic-display").innerText = chosenTopic;
+                document.getElementById("modifier-display").innerText = modifierText;
+                document.getElementById("letter-display").innerText = targetContent;
+
+                topicCard.classList.add("flipped");
+                letterCard.classList.add("flipped");
+
+                setTimeout(() => {
+                    nextBtn.disabled = false;
+                }, 600);
+            }, 300);
+        }
+
+        // Scoreboard Core Engine
+        function addPlayer() {
+            const input = document.getElementById("player-name-input");
+            const name = input.value.trim();
+            if (name === "") return;
+
+            const player = {
+                id: Date.now() + Math.random().toString(36).substr(2, 5),
+                name: name,
+                score: 0
+            };
+
+            players.push(player);
+            input.value = "";
+            updateScoreboardDOM();
+        }
+
+        function changeScore(id, amount) {
+            const player = players.find(p => p.id === id);
+            if (player) {
+                player.score += amount;
+                updateScoreboardDOM();
+            }
+        }
+
+        function removePlayer(id) {
+            players = players.filter(p => p.id !== id);
+            updateScoreboardDOM();
+        }
+
+        function updateScoreboardDOM() {
+            const container = document.getElementById("player-list-container");
+            container.innerHTML = "";
+
+            if (players.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#a4b0be; padding: 10px;">No players added yet.</div>`;
+                return;
+            }
+
+            const maxScore = Math.max(...players.map(p => p.score));
+
+            players.forEach(player => {
+                const isLeader = maxScore > 0 && player.score === maxScore;
+
+                const row = document.createElement("div");
+                row.className = `player-row ${isLeader ? 'leader' : ''}`;
+                row.innerHTML = `
+                    <div class="player-info">
+                        <span class="leader-crown">👑</span>
+                        <span>${escapeHTML(player.name)}</span>
+                    </div>
+                    <div class="score-controls">
+                        <button class="score-btn minus-btn" onclick="changeScore('${player.id}', -1)">-</button>
+                        <span class="score-display">${player.score}</span>
+                        <button class="score-btn plus-btn" onclick="changeScore('${player.id}', 1)">+</button>
+                        <button class="remove-player-btn" onclick="removePlayer('${player.id}')">✕</button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        }
+
+        window.onload = () => {
+            drawCards();
+            updateScoreboardDOM();
+        };
+    </script>
+</body>
+</html>
