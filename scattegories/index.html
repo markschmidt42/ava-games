@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Categories Party Game</title>
+
+<style>
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#1f2435;
+    color:white;
+}
+
+header{
+    background:#304a8d;
+    text-align:center;
+    padding:20px;
+}
+
+h1{
+    margin:0;
+}
+
+#letterBox{
+    text-align:center;
+    margin:25px;
+}
+
+#letter{
+    font-size:90px;
+    font-weight:bold;
+    color:#ffd54a;
+}
+
+#board{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:15px;
+    padding:20px;
+}
+
+.card{
+    background:#364869;
+    border-radius:12px;
+    padding:20px;
+    min-height:90px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+}
+
+.controls{
+    display:flex;
+    justify-content:center;
+    gap:15px;
+    flex-wrap:wrap;
+    padding:20px;
+}
+
+button{
+    background:#4d73ff;
+    color:white;
+    border:none;
+    border-radius:10px;
+    padding:12px 22px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#365de8;
+}
+
+#players{
+    padding:20px;
+}
+
+.player{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin:10px 0;
+}
+
+.player input[type=text]{
+    width:160px;
+    padding:8px;
+}
+
+.score{
+    width:60px;
+    text-align:center;
+    font-size:18px;
+}
+
+footer{
+    text-align:center;
+    padding:20px;
+    opacity:.75;
+}
+</style>
+
+</head>
+<body>
+
+<header>
+<h1>🎲 Categories Party Game</h1>
+</header>
+
+<div id="letterBox">
+<h2>Your Letter</h2>
+<div id="letter">A</div>
+</div>
+
+<div class="controls">
+<button onclick="newRound()">🎲 New Round</button>
+<button onclick="resetScores()">Reset Scores</button>
+</div>
+
+<div id="board"></div>
+
+<div id="players">
+<h2>Players</h2>
+
+<button onclick="addPlayer()">
+Add Player
+</button>
+
+<div id="playerList"></div>
+
+</div>
+
+<footer>
+Answer every category using the letter above!
+</footer>
+
+<script>
+
+const letters=[
+"A","B","C","D","E","F","G","H","J","K","L","M","N","P","R","S","T","W"
+];
+
+const categories=[
+
+"Boy's Name",
+"Girl's Name",
+"Animal",
+"Pet",
+"Bird",
+"Fish",
+"Insect",
+"Country",
+"State",
+"Capital City",
+"City",
+"Fruit",
+"Vegetable",
+"Food",
+"Dessert",
+"Candy",
+"Restaurant",
+"Drink",
+"Coffee Drink",
+"Ice Cream Flavor",
+"Pizza Topping",
+"Breakfast Food",
+"Snack",
+"Movie",
+"TV Show",
+"Book",
+"Author",
+"Song",
+"Singer",
+"Band",
+"Musical Instrument",
+"Celebrity",
+"Actor",
+"Actress",
+"Cartoon Character",
+"Disney Character",
+"Pixar Character",
+"Superhero",
+"Villain",
+"Video Game",
+"Board Game",
+"Card Game",
+"Toy",
+"Sport",
+"Sports Team",
+"Olympic Sport",
+"School Subject",
+"Occupation",
+"College Major",
+"Language",
+"Color",
+"Shape",
+"Planet",
+"Flower",
+"Tree",
+"Plant",
+"Gemstone",
+"Metal",
+"Weather",
+"Holiday",
+"Season",
+"Month",
+"App",
+"Website",
+"Brand",
+"Car Brand",
+"Phone Brand",
+"Computer Brand",
+"Clothing Brand",
+"Shoe Brand",
+"Store",
+"Kitchen Item",
+"Bathroom Item",
+"Bedroom Item",
+"Garage Item",
+"Office Supply",
+"Tool",
+"Furniture",
+"Appliance",
+"Something Cold",
+"Something Hot",
+"Something Soft",
+"Something Hard",
+"Something Sticky",
+"Something Sweet",
+"Something Sour",
+"Something Loud",
+"Something Quiet",
+"Something That Flies",
+"Something That Swims",
+"Something That Rolls",
+"Something You Wear",
+"Something You Eat",
+"Something You Drink",
+"Something Green",
+"Something Blue",
+"Something Red",
+"Something Yellow",
+"Something Made of Wood",
+"Something Made of Metal",
+"Something Expensive",
+"Something Cheap",
+"Something Found at School",
+"Something Found at the Beach",
+"Something Found in a Park",
+"Something Found in a Hospital",
+"Something Found at the Mall",
+"Something Found in Space"
+
+];
+
+let players=[];
