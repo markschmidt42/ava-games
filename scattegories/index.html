@@ -264,3 +264,74 @@ const categories=[
 ];
 
 let players=[];
+
+function newRound() {
+    const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+    document.getElementById("letter").innerText = randomLetter;
+
+    const shuffledCategories = [...categories].sort(() => 0.5 - Math.random());
+    const selectedCategories = shuffledCategories.slice(0, 12);
+
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+    
+    selectedCategories.forEach(cat => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerText = cat;
+        board.appendChild(card);
+    });
+}
+
+function addPlayer() {
+    const playerIndex = players.length;
+    players.push({ name: Player ${playerIndex + 1}, score: 0 });
+
+    renderPlayers();
+}
+
+function renderPlayers() {
+    const playerList = document.getElementById("playerList");
+    playerList.innerHTML = "";
+
+    players.forEach((player, index) => {
+        const playerDiv = document.createElement("div");
+        playerDiv.className = "player";
+
+        playerDiv.innerHTML = `
+            <input type="text" value="${player.name}" onchange="updatePlayerName(${index}, this.value)">
+            <input type="number" class="score" value="${player.score}" onchange="updatePlayerScore(${index}, this.value)">
+            <button onclick="removePlayer(${index})" style="background:#e74c3c; padding:8px 12px;">✕</button>
+        `;
+
+        playerList.appendChild(playerDiv);
+    });
+}
+
+function updatePlayerName(index, name) {
+    players[index].name = name;
+}
+
+function updatePlayerScore(index, score) {
+    players[index].score = parseInt(score) || 0;
+}
+
+function removePlayer(index) {
+    players.splice(index, 1);
+    renderPlayers();
+}
+
+function resetScores() {
+    players.forEach(p => p.score = 0);
+    renderPlayers();
+}
+
+window.onload = function() {
+    addPlayer();
+    addPlayer();
+    newRound();
+};
+
+</script>
+</body>
+</html>
