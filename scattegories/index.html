@@ -20,7 +20,7 @@ body{
 header{
     background:#304a8d;
     text-align:center;
-    padding:20px;
+    padding:10px;
 }
 
 h1{
@@ -29,41 +29,66 @@ h1{
 
 #letterBox{
     text-align:center;
-    margin:25px;
+    margin:8px;
+}
+
+#letterBox h2{
+    margin:0 0 2px;
+    font-size:18px;
 }
 
 #letter{
-    font-size:90px;
+    font-size:clamp(56px,8vh,90px);
+    line-height:1;
+    font-weight:bold;
+    color:#ffd54a;
+}
+
+#timer{
+    text-align:center;
+    margin:4px 25px;
+    font-size:clamp(28px,4vh,34px);
     font-weight:bold;
     color:#ffd54a;
 }
 
 #board{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    gap:15px;
-    padding:20px;
+    grid-template-columns:1fr;
+    gap:6px 12px;
+    max-width:1200px;
+    margin:0 auto;
+    padding:0 14px 16px;
+    list-style:none;
 }
 
 .card{
     background:#364869;
     border-radius:12px;
-    padding:20px;
-    min-height:90px;
+    padding:8px 12px;
+    margin:0;
+    min-height:42px;
     display:flex;
-    justify-content:center;
     align-items:center;
-    text-align:center;
-    font-size:22px;
+    font-size:clamp(16px,2.2vw,22px);
     font-weight:bold;
+}
+
+.category-number{
+    color:#ffd54a;
+    font-size:clamp(16px,2.2vw,22px);
+    font-weight:bold;
+    min-width:32px;
+    text-align:right;
+    margin-right:10px;
 }
 
 .controls{
     display:flex;
     justify-content:center;
-    gap:15px;
+    gap:8px;
     flex-wrap:wrap;
-    padding:20px;
+    padding:8px;
 }
 
 button{
@@ -71,8 +96,8 @@ button{
     color:white;
     border:none;
     border-radius:10px;
-    padding:12px 22px;
-    font-size:16px;
+    padding:8px 14px;
+    font-size:15px;
     cursor:pointer;
 }
 
@@ -105,8 +130,20 @@ button:hover{
 
 footer{
     text-align:center;
-    padding:20px;
+    padding:12px;
     opacity:.75;
+}
+
+@media (min-width:620px){
+    #board{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+:fullscreen #board{
+    max-width:1500px;
+}
+
+@media (min-width:1000px){
+    :fullscreen #board{ grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
 </style>
 
@@ -122,12 +159,16 @@ footer{
 <div id="letter">A</div>
 </div>
 
+<div id="timer" aria-live="polite">3:00</div>
+
 <div class="controls">
 <button onclick="newRound()">🎲 New Round</button>
+<button onclick="startTimer()">Start 3-Minute Timer</button>
+<button onclick="enterFullscreen()">Fullscreen</button>
 <button onclick="resetScores()">Reset Scores</button>
 </div>
 
-<div id="board"></div>
+<ol id="board"></ol>
 
 <div id="players">
 <h2>Players</h2>
@@ -264,6 +305,37 @@ const categories=[
 ];
 
 let players=[];
+let timerId;
+let remainingSeconds = 180;
+
+function updateTimer() {
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    document.getElementById("timer").innerText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function startTimer() {
+    clearInterval(timerId);
+    remainingSeconds = 180;
+    updateTimer();
+
+    timerId = setInterval(() => {
+        remainingSeconds--;
+        updateTimer();
+
+        if (remainingSeconds === 0) {
+            clearInterval(timerId);
+        }
+    }, 1000);
+}
+
+function enterFullscreen() {
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+        document.documentElement.requestFullscreen();
+    }
+}
 
 function newRound() {
     const randomLetter = letters[Math.floor(Math.random() * letters.length)];
@@ -275,12 +347,18 @@ function newRound() {
     const board = document.getElementById("board");
     board.innerHTML = "";
     
-    selectedCategories.forEach(cat => {
-        const card = document.createElement("div");
+    selectedCategories.forEach((cat, index) => {
+        const card = document.createElement("li");
         card.className = "card";
-        card.innerText = cat;
+        const number = document.createElement("span");
+        number.className = "category-number";
+        number.innerText = `${index + 1}.`;
+        card.appendChild(number);
+        card.appendChild(document.createTextNode(cat));
         board.appendChild(card);
     });
+
+    startTimer();
 }
 
 function addPlayer() {

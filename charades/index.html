@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charades | Ava's Games</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; font-family: Arial, Helvetica, sans-serif; background: #1e2430; color: #fff; text-align: center; }
+header { padding: 24px 16px 8px; }
+h1 { margin: 0; }
+.subtitle { color: #cbd5e1; margin: 8px 0 0; }
+.controls { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px; padding: 16px; }
+button, input { font: inherit; border: 0; border-radius: 10px; padding: 10px 16px; }
+button { cursor: pointer; background: #3c82ff; color: #fff; font-weight: bold; }
+button:hover:not(:disabled) { background: #2566d9; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+input { width: 78px; text-align: center; }
+#timer { font-size: clamp(44px, 9vw, 66px); font-weight: bold; color: #ffd54a; margin: 2px 0; }
+#status { min-height: 24px; color: #cbd5e1; }
+#prompt { width: min(90%, 820px); min-height: 190px; margin: 18px auto; padding: 28px; border-radius: 20px; background: #2d3648; display: flex; justify-content: center; align-items: center; font-size: clamp(32px, 7vw, 54px); font-weight: bold; }
+#teams { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 14px auto 28px; padding: 0 16px; }
+.team { min-width: 160px; padding: 14px; border: 3px solid transparent; border-radius: 12px; background: #30384d; }
+.team.active { border-color: #ffd54a; }
+.score { margin-top: 5px; font-size: 32px; font-weight: bold; }
+canvas { position: fixed; inset: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎭 Charades</h1>
+  <p class="subtitle">Act out the prompt. Your team gets one point for each correct answer.</p>
+</header>
+
+<div class="controls">
+  <button onclick="addTeam()">Add Team</button>
+  <label>Seconds <input id="seconds" type="number" value="60" min="10" max="600"></label>
+  <button onclick="startRound()">Start Round</button>
+  <button id="correctButton" onclick="correct()" disabled>Correct</button>
+  <button id="skipButton" onclick="skip()" disabled>Skip</button>
+</div>
+
+<div id="timer">1:00</div>
+<div id="status" aria-live="polite">Team 1 starts. Press Start Round when you're ready.</div>
+<div id="prompt">Press Start Round!</div>
+
+<h2>Scoreboard</h2>
+<div id="teams"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+const nouns = ["Dog", "Cat", "Elephant", "Lion", "Tiger", "Monkey", "Bear", "Cow", "Horse", "Pig", "Chicken", "Duck", "Rabbit", "Shark", "Whale", "Fish", "Spider", "Bee", "Snake", "Giraffe", "Pizza", "Hamburger", "Taco", "Ice Cream", "Cake", "Cookie", "Popcorn", "Apple", "Banana", "Orange", "Teacher", "Doctor", "Firefighter", "Astronaut", "Chef", "Pilot", "Pirate", "Knight", "Wizard", "Farmer", "Robot", "Ghost", "Zombie", "Vampire", "Superhero", "Dragon", "Dinosaur", "Alien", "Unicorn", "Fairy"];
+const actions = ["Dancing", "Sleeping", "Running", "Jumping", "Swimming", "Flying", "Cooking", "Singing", "Laughing", "Crying", "Reading", "Writing", "Driving", "Eating", "Painting", "Climbing", "Fishing", "Bowling", "Skating", "Camping"];
+const places = ["At the Beach", "In School", "At the Zoo", "In Space", "On a Mountain", "At a Birthday Party", "At the Movies", "On a Farm", "In a Castle", "At the Park"];
+const allPrompts = [...actions.flatMap(action => nouns.map(noun => `${action} ${noun}`)), ...nouns.flatMap(noun => places.map(place => `${noun} ${place}`)), ...actions.flatMap(action => places.map(place => `${action} ${place}`))];
+
+let deck = [];
+let teams = [{ name: "Team 1", score: 0 }, { name: "Team 2", score: 0 }];
+let currentTeam = 0;
+let currentPrompt = "";
+let timerId;
+let remaining = 60;
+let roundActive = false;
+
+function shuffle(items) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
+function formatTime(seconds) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function updateTimer() {
+  document.getElementById("timer").textContent = formatTime(remaining);
+}
+
+function drawTeams() {
+  const div = document.getElementById("teams");
+  div.innerHTML = "";
+  teams.forEach((team, index) => {
+    const card = document.createElement("div");
+    card.className = `team ${index === currentTeam ? "active" : ""}`;
+    const teamName = document.createElement("strong");
+    teamName.textContent = team.name;
+    const score = document.createElement("div");
+    score.className = "score";
+    score.textContent = team.score;
+    card.append(teamName, score);
+    div.appendChild(card);
+  });
+}
+
+function addTeam() {
+  const name = window.prompt("Team name:", `Team ${teams.length + 1}`)?.trim();
+  if (!name) return;
+  teams.push({ name, score: 0 });
+  drawTeams();
+}
+
+function nextPrompt() {
+  if (deck.length === 0) deck = shuffle(allPrompts);
+  currentPrompt = deck.pop();
+  document.getElementById("prompt").textContent = currentPrompt;
+}
+
+function setRoundControls(enabled) {
+  document.getElementById("correctButton").disabled = !enabled;
+  document.getElementById("skipButton").disabled = !enabled;
+}
+
+function startRound() {
+  if (roundActive) return;
+  remaining = Math.min(600, Math.max(10, Number.parseInt(document.getElementById("seconds").value, 10) || 60));
+  updateTimer();
+  roundActive = true;
+  setRoundControls(true);
+  document.getElementById("status").textContent = `${teams[currentTeam].name}'s turn — act it out!`;
+  nextPrompt();
+  clearInterval(timerId);
+  timerId = setInterval(() => {
+    remaining -= 1;
+    updateTimer();
+    if (remaining <= 0) endRound();
+  }, 1000);
+  drawTeams();
+}
+
+function endRound() {
+  clearInterval(timerId);
+  roundActive = false;
+  setRoundControls(false);
+  document.getElementById("prompt").textContent = "Time's up!";
+  currentTeam = (currentTeam + 1) % teams.length;
+  document.getElementById("status").textContent = `${teams[currentTeam].name} is next. Press Start Round!`;
+  drawTeams();
+}
+
+function correct() {
+  if (!roundActive) return;
+  teams[currentTeam].score += 1;
+  drawTeams();
+  confetti();
+  nextPrompt();
+}
+
+function skip() {
+  if (roundActive) nextPrompt();
+}
+
+const canvas = document.getElementById("confetti");
+const ctx = canvas.getContext("2d");
+function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+window.addEventListener("resize", resize);
+resize();
+function confetti() {
+  const pieces = Array.from({ length: 100 }, () => ({ x: Math.random() * canvas.width, y: -20, vy: 2 + Math.random() * 5, vx: (Math.random() - .5) * 4, size: 4 + Math.random() * 6, hue: Math.random() * 360 }));
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(piece => { piece.x += piece.vx; piece.y += piece.vy; ctx.fillStyle = `hsl(${piece.hue}, 100%, 60%)`; ctx.fillRect(piece.x, piece.y, piece.size, piece.size); });
+    if (++frame < 90) requestAnimationFrame(animate); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  animate();
+}
+
+updateTimer();
+drawTeams();
+</script>
+</body>
+</html>
