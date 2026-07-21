@@ -27,60 +27,90 @@ h1{
     margin:0;
 }
 
+#gameArea{
+    display:flex;
+    align-items:stretch;
+    gap:14px;
+    max-width:1200px;
+    margin:0 auto;
+    padding:10px 14px 16px;
+}
+
+.left-panel{
+    flex:2 1 0;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+}
+
+.right-panel{
+    flex:1 1 0;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    gap:6px;
+    background:#26304a;
+    border-radius:14px;
+    padding:12px 8px;
+}
+
 #letterBox{
     text-align:center;
-    margin:8px;
+    margin:0;
+    width:100%;
 }
 
 #letterBox h2{
     margin:0 0 2px;
-    font-size:18px;
+    font-size:clamp(12px,1.6vh,16px);
+    opacity:.85;
 }
 
 #letter{
-    font-size:clamp(56px,8vh,90px);
+    font-size:clamp(48px,9vh,90px);
     line-height:1;
     font-weight:bold;
     color:#ffd54a;
+    transition:transform .08s ease;
+}
+
+#letter.waiting{
+    color:#7d89b0;
+    font-size:clamp(36px,7vh,64px);
+    animation:pulse 1.4s ease-in-out infinite;
+}
+
+#letter.landed{
+    animation:pop .35s ease;
+}
+
+@keyframes pulse{
+    0%,100%{ opacity:.5; transform:scale(1); }
+    50%{ opacity:1; transform:scale(1.08); }
+}
+
+@keyframes pop{
+    0%{ transform:scale(1.5); }
+    60%{ transform:scale(.9); }
+    100%{ transform:scale(1); }
 }
 
 #timer{
     text-align:center;
-    margin:4px 25px;
-    font-size:clamp(28px,4vh,34px);
-    font-weight:bold;
-    color:#ffd54a;
-}
-
-#board{
-    display:grid;
-    grid-template-columns:1fr;
-    gap:6px 12px;
-    max-width:1200px;
-    margin:0 auto;
-    padding:0 14px 16px;
-    list-style:none;
-}
-
-.card{
-    background:#364869;
-    border-radius:12px;
-    padding:8px 12px;
     margin:0;
-    min-height:42px;
-    display:flex;
-    align-items:center;
-    font-size:clamp(16px,2.2vw,22px);
+    font-size:clamp(24px,4vh,34px);
     font-weight:bold;
+    color:#ffd54a;
 }
 
-.category-number{
-    color:#ffd54a;
-    font-size:clamp(16px,2.2vw,22px);
-    font-weight:bold;
-    min-width:32px;
-    text-align:right;
-    margin-right:10px;
+.btn-group{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    width:100%;
+    align-items:stretch;
 }
 
 .controls{
@@ -89,6 +119,54 @@ h1{
     gap:8px;
     flex-wrap:wrap;
     padding:8px;
+}
+
+#board{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.card{
+    background:#364869;
+    border-radius:10px;
+    padding:6px 12px;
+    margin:0;
+    flex:1;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    font-size:clamp(14px,2vh,20px);
+    font-weight:bold;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+}
+
+.card.blank{
+    opacity:.55;
+}
+
+.card.blank .cat-text::after{
+    content:"choose a letter to begin";
+    font-weight:normal;
+    font-style:italic;
+    opacity:.7;
+}
+
+.category-number{
+    color:#ffd54a;
+    font-size:clamp(14px,2vh,20px);
+    font-weight:bold;
+    min-width:28px;
+    text-align:right;
+    margin-right:10px;
+    flex-shrink:0;
 }
 
 button{
@@ -103,6 +181,14 @@ button{
 
 button:hover{
     background:#365de8;
+}
+
+button.secondary{
+    background:#4a5678;
+}
+
+button.secondary:hover{
+    background:#5a6890;
 }
 
 #players{
@@ -134,16 +220,16 @@ footer{
     opacity:.75;
 }
 
-@media (min-width:620px){
-    #board{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-}
-
-:fullscreen #board{
-    max-width:1500px;
-}
-
-@media (min-width:1000px){
-    :fullscreen #board{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+@media (max-width:680px){
+    #gameArea{
+        flex-direction:column;
+    }
+    .right-panel{
+        order:-1;
+    }
+    #board{
+        min-height:320px;
+    }
 }
 </style>
 
@@ -154,21 +240,47 @@ footer{
 <h1>🎲 Categories Party Game</h1>
 </header>
 
+<div id="gameArea">
+
+<div class="left-panel">
+<ol id="board"></ol>
+</div>
+
+<div class="right-panel">
+
 <div id="letterBox">
-<h2>Your Letter</h2>
-<div id="letter">A</div>
+<h2 id="letterLabel">Tap Start to Choose a Letter</h2>
+<div id="letter" class="waiting">?</div>
 </div>
 
 <div id="timer" aria-live="polite">3:00</div>
 
+<div class="controls" id="stateControls" style="flex-direction:column;width:100%;padding:4px 0;">
+
+<div class="btn-group" id="idleControls">
+<button onclick="startGame()">🎲 Start Game</button>
+</div>
+
+<div class="btn-group" id="chosenControls" style="display:none">
+<button class="secondary" onclick="chooseAnotherLetter()">🔄 Choose Another Letter</button>
+<button onclick="showCategoriesAndStartTimer()">✅ Show Categories &amp; Start Timer</button>
+</div>
+
+<div class="btn-group" id="playingControls" style="display:none">
+<button id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
+<button class="secondary" onclick="newRound()">🔁 New Round</button>
+</div>
+
+</div>
+
 <div class="controls">
-<button onclick="newRound()">🎲 New Round</button>
-<button onclick="startTimer()">Start 3-Minute Timer</button>
 <button onclick="enterFullscreen()">Fullscreen</button>
 <button onclick="resetScores()">Reset Scores</button>
 </div>
 
-<ol id="board"></ol>
+</div>
+
+</div>
 
 <div id="players">
 <h2>Players</h2>
@@ -307,6 +419,48 @@ const categories=[
 let players=[];
 let timerId;
 let remainingSeconds = 180;
+let paused = false;
+let selectedCategories = [];
+let audioCtx;
+
+/* ---------- audio ---------- */
+
+function getAudioCtx() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+    }
+    return audioCtx;
+}
+
+function playTone(freq, duration, type = "square", volume = 0.15, delay = 0) {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = volume;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const startTime = ctx.currentTime + delay;
+    osc.start(startTime);
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.stop(startTime + duration);
+}
+
+function playTick() {
+    playTone(660, 0.06, "square", 0.12);
+}
+
+function playChime() {
+    playTone(880, 0.18, "sine", 0.18);
+    playTone(1175, 0.25, "sine", 0.18, 0.1);
+}
+
+/* ---------- timer ---------- */
 
 function updateTimer() {
     const minutes = Math.floor(remainingSeconds / 60);
@@ -317,6 +471,7 @@ function updateTimer() {
 function startTimer() {
     clearInterval(timerId);
     remainingSeconds = 180;
+    paused = false;
     updateTimer();
 
     timerId = setInterval(() => {
@@ -329,6 +484,27 @@ function startTimer() {
     }, 1000);
 }
 
+function togglePause() {
+    const pauseBtn = document.getElementById("pauseBtn");
+
+    if (paused) {
+        paused = false;
+        pauseBtn.innerText = "⏸ Pause";
+        timerId = setInterval(() => {
+            remainingSeconds--;
+            updateTimer();
+
+            if (remainingSeconds === 0) {
+                clearInterval(timerId);
+            }
+        }, 1000);
+    } else {
+        paused = true;
+        pauseBtn.innerText = "▶️ Resume";
+        clearInterval(timerId);
+    }
+}
+
 function enterFullscreen() {
     if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -337,16 +513,36 @@ function enterFullscreen() {
     }
 }
 
-function newRound() {
-    const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-    document.getElementById("letter").innerText = randomLetter;
+/* ---------- game flow ---------- */
 
-    const shuffledCategories = [...categories].sort(() => 0.5 - Math.random());
-    const selectedCategories = shuffledCategories.slice(0, 12);
+function showControls(state) {
+    document.getElementById("idleControls").style.display = state === "idle" ? "flex" : "none";
+    document.getElementById("chosenControls").style.display = state === "chosen" ? "flex" : "none";
+    document.getElementById("playingControls").style.display = state === "playing" ? "flex" : "none";
+}
 
+function renderBlankBoard() {
     const board = document.getElementById("board");
     board.innerHTML = "";
-    
+
+    for (let i = 1; i <= 12; i++) {
+        const card = document.createElement("li");
+        card.className = "card blank";
+        const number = document.createElement("span");
+        number.className = "category-number";
+        number.innerText = `${i}.`;
+        const text = document.createElement("span");
+        text.className = "cat-text";
+        card.appendChild(number);
+        card.appendChild(text);
+        board.appendChild(card);
+    }
+}
+
+function renderCategories() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+
     selectedCategories.forEach((cat, index) => {
         const card = document.createElement("li");
         card.className = "card";
@@ -357,9 +553,76 @@ function newRound() {
         card.appendChild(document.createTextNode(cat));
         board.appendChild(card);
     });
-
-    startTimer();
 }
+
+function animateLetterPick(onDone) {
+    const letterEl = document.getElementById("letter");
+    letterEl.classList.remove("waiting", "landed");
+
+    let ticks = 0;
+    const totalTicks = 14;
+
+    const spin = setInterval(() => {
+        letterEl.innerText = letters[Math.floor(Math.random() * letters.length)];
+        playTick();
+        ticks++;
+
+        if (ticks >= totalTicks) {
+            clearInterval(spin);
+            const finalLetter = letters[Math.floor(Math.random() * letters.length)];
+            letterEl.innerText = finalLetter;
+            letterEl.classList.add("landed");
+            playChime();
+            onDone(finalLetter);
+        }
+    }, 70);
+}
+
+function pickCategories() {
+    const shuffled = [...categories].sort(() => 0.5 - Math.random());
+    selectedCategories = shuffled.slice(0, 12);
+}
+
+function startGame() {
+    document.getElementById("letterLabel").innerText = "Your Letter";
+    pickCategories();
+    renderBlankBoard();
+
+    animateLetterPick(() => {
+        showControls("chosen");
+    });
+}
+
+function chooseAnotherLetter() {
+    animateLetterPick(() => {
+        showControls("chosen");
+    });
+}
+
+function showCategoriesAndStartTimer() {
+    renderCategories();
+    startTimer();
+    document.getElementById("pauseBtn").innerText = "⏸ Pause";
+    showControls("playing");
+}
+
+function newRound() {
+    clearInterval(timerId);
+    remainingSeconds = 180;
+    paused = false;
+    updateTimer();
+
+    const letterEl = document.getElementById("letter");
+    letterEl.classList.remove("landed");
+    letterEl.classList.add("waiting");
+    letterEl.innerText = "?";
+    document.getElementById("letterLabel").innerText = "Tap Start to Choose a Letter";
+
+    renderBlankBoard();
+    showControls("idle");
+}
+
+/* ---------- players ---------- */
 
 function addPlayer() {
     const playerIndex = players.length;
@@ -407,7 +670,8 @@ function resetScores() {
 window.onload = function() {
     addPlayer();
     addPlayer();
-    newRound();
+    renderBlankBoard();
+    showControls("idle");
 };
 
 </script>
