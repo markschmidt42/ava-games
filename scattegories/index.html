@@ -141,7 +141,7 @@ h1{
     min-height:0;
     display:flex;
     align-items:center;
-    font-size:clamp(14px,2vh,20px);
+    font-size:clamp(15px,2.4vh,21px);
     font-weight:bold;
     overflow:hidden;
     white-space:nowrap;
@@ -161,7 +161,7 @@ h1{
 
 .category-number{
     color:#ffd54a;
-    font-size:clamp(14px,2vh,20px);
+    font-size:clamp(15px,2.4vh,21px);
     font-weight:bold;
     min-width:28px;
     text-align:right;
@@ -192,26 +192,41 @@ button.secondary:hover{
 }
 
 #players{
-    padding:20px;
+    width:100%;
+    padding:10px 2px 4px;
+    margin-top:8px;
+    border-top:1px solid rgba(255,255,255,.12);
+}
+
+#players h2{
+    font-size:16px;
+    text-align:center;
+    margin:0 0 8px;
 }
 
 .player{
     display:flex;
     align-items:center;
-    gap:10px;
+    gap:6px;
     flex-wrap:wrap;
-    margin:10px 0;
+    margin:0 0 8px;
 }
 
 .player input[type=text]{
-    width:160px;
-    padding:8px;
+    flex:1;
+    min-width:0;
+    padding:6px;
 }
 
 .score{
-    width:60px;
+    width:50px;
     text-align:center;
-    font-size:18px;
+    font-size:16px;
+}
+
+#addPlayerBtn{
+    width:100%;
+    margin-top:4px;
 }
 
 footer{
@@ -278,18 +293,18 @@ footer{
 <button onclick="resetScores()">Reset Scores</button>
 </div>
 
-</div>
-
-</div>
-
 <div id="players">
 <h2>Players</h2>
 
-<button onclick="addPlayer()">
+<div id="playerList"></div>
+
+<button id="addPlayerBtn" onclick="addPlayer()">
 Add Player
 </button>
 
-<div id="playerList"></div>
+</div>
+
+</div>
 
 </div>
 
