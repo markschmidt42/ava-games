@@ -469,6 +469,7 @@ let timerId;
 let remainingSeconds = 180;
 let paused = false;
 let selectedCategories = [];
+let usedCategories = new Set();
 let audioCtx;
 
 /* ---------- audio ---------- */
@@ -619,9 +620,29 @@ function animateLetterPick(onDone) {
     }, 70);
 }
 
+function shuffle(list) {
+    return [...list].sort(() => 0.5 - Math.random());
+}
+
 function pickCategories() {
-    const shuffled = [...categories].sort(() => 0.5 - Math.random());
-    selectedCategories = shuffled.slice(0, 12);
+    let available = categories.filter(c => !usedCategories.has(c));
+    let selected;
+
+    if (available.length >= 12) {
+        selected = shuffle(available).slice(0, 12);
+    } else {
+        // Not enough unused categories left: use them all, start a fresh
+        // cycle, and fill the rest from categories not already selected.
+        selected = available;
+        usedCategories = new Set();
+
+        const remainingNeeded = 12 - selected.length;
+        const fillPool = categories.filter(c => !selected.includes(c));
+        selected = selected.concat(shuffle(fillPool).slice(0, remainingNeeded));
+    }
+
+    selected.forEach(c => usedCategories.add(c));
+    selectedCategories = selected;
 }
 
 function startGame() {
