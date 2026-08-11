@@ -13,6 +13,7 @@ must change, change this file in the same commit.
 | `odds.js` | Probability model + scoring. **Zero dependencies.** Shared by game, Quick Toss, harness |
 | `physics.js` | cannon-es world, pig compound collider, headless sim, trajectory recording/search/cache, pose classification |
 | `pig.js` | Three.js pig mesh + materials + scene helpers (pen, lights, camera) |
+| `replay.js` | Recording playback math: interpolates a 120 Hz Recording to any display refresh. **Zero dependencies.** Shared by game.js and the replay test |
 | `fx.js` | Reveal sequence, particles, audio (WebAudio), haptics |
 | `vendor/` | Pinned three.module.js, three.core.js, cannon-es.js — never edit |
 | `dev/` | Test/dev pages: collider-lab.html, pig-viewer.html, odds-harness.html, *-test.mjs node scripts |
@@ -83,7 +84,15 @@ Mirror augmentation allowed (pen is symmetric): a recording may be reflected
 across the pen's long axis to double pool variety.
 
 **Coordinates:** Y up, floor plane y=0, pen centered on origin, camera looks
-down the −Z with pitch ≈ 52° for portrait framing.
+down the −Z. Pitch is chosen by aspect in game.js (`adapter.applyFraming`):
+**52° on desktop, 64° in portrait** — at 52° a 5.4 × 7.4 pen projects nearly
+square, which on a phone leaves the top ~40% of the canvas as empty felt.
+
+**Framing volume:** the camera frames the *reachable* volume, not the whole pen.
+Measured over 144 recordings (six poses × both lanes): nothing ever travels past
+z = −1.8, |x| = 2.45, or y = 1.9. The focus box is therefore
+`x ±2.66, y −0.05…1.55, z −2.35…3.45` (it also contains the cup at z 2.3,
+y 1.45), which makes the pigs ~25% bigger than framing the full pen.
 
 **Approach B invariants (PRD §6.3):** outcome is drawn from odds.js BEFORE the
 search; hold duration/shake NEVER feeds the outcome; search runs during shake
@@ -128,6 +137,31 @@ mid-air (separate lanes), which sacrifices the occasional harmless mid-flight
 (side/side, side/razorback — cheap joint probability), occasionally run a JOINT
 sim and accept if both final poses match the drawn outcome and the pigs are NOT
 touching at rest. Gives authentic pig-on-pig contact without touching the odds.
+
+## Presentation model (owner-designed in `_watch/arena.html` — the reference implementation)
+
+The demo arena evolved into the approved presentation design. fx.js / game.js
+must reproduce these beats (constants in one editable block each):
+
+1. **Per-pig settle calls.** Each pig is classified the moment IT settles
+   (per-pig thresholds ≈ speed<0.08, spin<0.18 rad/s held ~0.1s; engine sleep
+   assist) — label chip + scorecard row appear immediately, before the second
+   pig stops. A settled pig that gets bumped (>3.5cm, >4°, or speed again)
+   flips to "resettling…" and the round waits. Round finalizes when both hold.
+2. **Round classification names:** matching siders → "Sider" (1pt, never
+   "Double Sider"); sider + scorer → named by the scorer ("Trotter");
+   two different scorers → "Trotter + Razorback Combo"; matching scorers →
+   "Double Trotter Bonus"; "Pig Out"; "Oinker!". scoreToss headlines in
+   odds.js should adopt this vocabulary.
+3. **Camera reveal:** on round call, ease in ~1.3s to frame both pigs (camera on
+   the perpendicular of the pig-pig line, looking at their midpoint, distance ∝
+   separation, shortest-side choice) → hold ~3.0s with slow orbit drift
+   (~0.1 rad/s) → ease out ~0.9s → next action. Exponential glide, so any
+   interruption (player input) pulls out smoothly. Chips re-project every frame.
+4. **Failure feedback:** Pig Out → both pigs blink red (~180ms cadence, ~2.4s).
+   Oinker → blink red until ~1.2s after the camera settles, then the pigs
+   squash-pop away and burst into particles (~90/pig, additive, gravity,
+   ~1.3s fade) — gone until the next toss brings them back.
 
 ## Geometry realism (owner requirement — applies to BOTH collider and visual pig)
 
@@ -200,12 +234,57 @@ blush snout/trotters, tiny tail.
 ACESFilmic tone mapping, soft shadows (one directional + hemisphere + env),
 contact shadow under pigs, felt table with subtle procedural texture.
 
+## replay.js — exports
+
+```js
+export function isPair(rec);                 // PairRecording? (Oinker)
+export function frameCount(rec);
+export function duration(rec);               // seconds
+export function sampleAt(rec, t, out, which=0);
+//   out = { p:[3], q:[4] } — reused, never allocated per frame.
+//   which: 0 single · 1 pair pig A · 2 pair pig B
+//   Before t=0 it holds frame 0; past the end it holds the final rest, which is
+//   how the shorter of two recordings waits for the longer one.
+export function firstState(rec, out, which=0);
+export function lastState(rec, out, which=0);
+export function tweenInto(out, from, to, f); // cup -> release, and cancel-return
+export function slerpInto(out, qa, qb, f);
+export function lerpInto(out, pa, pb, f);
+export function ease(t);                     // smoothstep
+export function makeState();                 // -> { p:[0,0,0], q:[0,0,0,1] }
+```
+
+Why it exists: the sim is a fixed 1/120 s and displays are 60/120/144 Hz, so every
+frame the game shows is an interpolation. Keeping that math dependency-free is
+what lets `dev/replay-test.mjs` verify it headlessly against real recordings —
+sampling at a frame time returns that frame exactly, and no sampled step ever
+outruns two physics frames of real motion (i.e. the pigs cannot teleport).
+
 ## game.js — state machine
 
 States: `setup → ready → shaking → tossing → settling → resolved → (ready | turnEnd) → win`
 (PRD §7.1). Persistence (PRD §9): localStorage key `hogwild.v1`, saved AFTER each
 resolution, auto-resume, cleared on win/new-game. Wake lock per PRD §10 —
 acquire on game start, re-acquire on visibilitychange, release on win/setup.
+
+**Order of a toss (not negotiable, it is what keeps Approach B honest and the
+reveal a surprise):** `drawToss()` → persist it as `pending` → take recordings →
+replay → *only then* labels, result card, score, `fx.revealToss`. The save
+carries `pending` so a reload mid-flight resumes straight into that result
+(no tumble): the outcome was committed before the pigs were in the air, so a
+refresh can never be used to duck a Pig Out.
+
+**Pen pose labels:** both Side poses are labelled `Sider` in odds.js, which is
+right for scoring copy but leaves "Sider / Sider → Pig Out!" unexplained in the
+pen, so the two pen labels read `Side · blank` / `Side · dot`. That names the
+POSE, never the pig — the pigs stay identical and interchangeable.
+
+**Replay lifetime:** the replay is driven by requestAnimationFrame, which does
+not run in a hidden tab, so `play()` also arms a wall-clock deadline
+(`total + 900 ms`) that lands the pigs on their real final frames and resolves
+the turn. Without it, switching apps mid-toss leaves the turn stuck in
+`tossing` with every control disabled. A skip tap (PRD §8.3) goes through the
+same path (`adapter.requestSkip()`) so it works regardless of frame throttling.
 
 UI copy: port from the 2D game (`git show 7be8349:hog-wild/index.html`) — the
 rules table, headlines, button labels ("Go Hog Wild" / "Stop" per PRD §4).
@@ -227,6 +306,7 @@ Font: system stack, headings 800 weight. Rounded 16px panels, soft shadows.
 node hog-wild/dev/odds-test.mjs        # odds distribution vs PRD §5, 400k draws
 node hog-wild/dev/collider-test.mjs    # six-pose stability + emergent frequencies
 node hog-wild/dev/search-test.mjs      # trajectory search: finds every pose, timing
+node hog-wild/dev/replay-test.mjs      # integration: drawn outcome -> recording -> screen
 ```
 
 Browser pages under http://localhost:4173/hog-wild/ (python http.server, no build).
