@@ -83,40 +83,167 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
 
 /* ---------- setup ---------- */
 
-#screen-setup{ max-width:520px; width:100%; margin:0 auto; padding:18px 14px 40px; }
-
-.setup-title{
-    text-align:center;
-    font-size:clamp(1.7rem,7vw,2.3rem);
-    margin-bottom:18px;
+#screen-setup{
+    max-width:560px; width:100%; margin:0 auto;
+    padding:12px 14px 24px;
+    /* the panels are a column that ENDS somewhere, and round 4 measured 253 of
+       900 px empty below it. The stage takes the slack instead: it grows to fill
+       whatever is left, so the screen is never bottom-heavy on a tall viewport
+       and never crowded on a short one. */
+    display:flex;
+    flex-direction:column;
+    gap:12px;
 }
+#screen-setup .panel{ margin-bottom:0; }
+
+/* ---- the stage: felt, two real pigs, and the mark ------------------------ */
+.setup-stage{
+    position:relative;
+    flex:1 1 auto;
+    min-height:196px;
+    max-height:46vh;
+    border-radius:20px;
+    overflow:hidden;
+    background:radial-gradient(120% 90% at 50% 18%, var(--felt-1) 0%, var(--felt-2) 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.05), 0 12px 34px rgba(0,0,0,.4);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+}
+#setupCanvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    display:block;
+}
+/* the same vignette the pen wears, so the two surfaces are the same object */
+.setup-stage::after{
+    content:"";
+    position:absolute; inset:0;
+    pointer-events:none;
+    background:radial-gradient(126% 110% at 50% 40%,
+        rgba(0,0,0,0) 54%, rgba(4,10,8,.30) 84%, rgba(4,10,8,.58) 100%);
+}
+.setup-hero{
+    position:relative;
+    z-index:1;
+    text-align:center;
+    padding:12px 14px 18px;
+    width:100%;
+    /* the mark sits at the TOP of the stage and the pigs live under it — the
+       camera aims high (setupStage.target) so the two never overlap */
+    background:linear-gradient(rgba(8,17,13,.72), rgba(8,17,13,.45) 62%, rgba(8,17,13,0));
+}
+
+/* ---- the logotype -------------------------------------------------------
+   Typographic, no external fonts: 900 weight, negative tracking, a shallow arc
+   built per letter, and a moulded edge from stacked shadows. The two words are
+   told apart by COLOUR (cream / gold), which is also the game's own pair. */
+.logotype{
+    display:flex;
+    justify-content:center;
+    align-items:flex-end;
+    gap:.16em;
+    margin:0;
+    font-size:clamp(2.5rem,13vw,4rem);
+    line-height:.92;
+    font-weight:900;
+    letter-spacing:-.03em;
+    text-transform:uppercase;
+    font-style:italic;
+}
+.logotype .lt-word{ display:flex; align-items:flex-end; }
+.logotype i{
+    display:block;
+    font-style:inherit;
+    transform:rotate(var(--r,0deg)) translateY(var(--y,0));
+    transform-origin:50% 90%;
+}
+.logotype .hog i{
+    color:var(--ink);
+    text-shadow:
+        0 2px 0 #b8536f,
+        0 4px 0 #8a3550,
+        0 7px 14px rgba(0,0,0,.55);
+}
+.logotype .wild i{
+    color:var(--gold);
+    text-shadow:
+        0 2px 0 #b07d12,
+        0 4px 0 #7c5606,
+        0 7px 14px rgba(0,0,0,.55);
+}
+.setup-tagline{
+    margin:6px 0 0;
+    font-size:.8rem;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+}
+/* MEASURED at 375 px: the line wants 391 px and gets 319, so it wraps — and the
+   greedy break left "BANK BEFORE / IT'S GONE", splitting the one phrase in it that
+   has to arrive whole. `text-wrap:balance` did not move it, so the break point is
+   stated instead: two unbreakable halves that fall apart at the middle separator
+   on a phone and sit on one line everywhere wider. */
+.setup-tagline span{ white-space:nowrap; }
+
+.panel-title{
+    display:flex; align-items:center; gap:8px;
+    font-size:1.02rem;
+    margin-bottom:12px;
+    color:var(--ink);
+}
+.panel-title .icon{ color:var(--pink); }
 
 .player-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
 .player-row input{
     flex:1; min-width:0;
-    background:var(--bg-1);
-    border:2px solid var(--panel-2);
+    /* the inputs used to be --bg-1, i.e. DARKER than the panel holding them —
+       a field is a lifted surface, not a hole (round-4 ledger) */
+    background:var(--panel-2);
+    border:2px solid #34614e;
     border-radius:10px;
     padding:11px 12px;
     color:var(--ink);
     font-size:16px;
 }
-.player-row input:focus{ outline:none; border-color:var(--gold); }
+.player-row input::placeholder{ color:#8fb3a2; }
+.player-row input:focus{ outline:none; border-color:var(--gold); background:#2d5142; }
 .remove-btn{ background:var(--panel-2); color:var(--ink); padding:10px 13px; font-size:15px; flex-shrink:0; }
 
-.target-options{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-.target-options button{ flex:1; min-width:88px; background:var(--panel-2); color:var(--ink); }
+.target-options{ display:flex; gap:8px; flex-wrap:wrap; }
+.target-options button{
+    flex:1; min-width:76px;
+    background:var(--panel-2); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    padding:9px 10px;
+    line-height:1.1;
+}
+.target-options button small{
+    font-size:.66rem; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-dim);
+}
 .target-options button.active{ background:var(--gold); color:#3a2c05; }
+.target-options button.active small{ color:#6a5209; }
+.target-options .target-custom{ flex:0 0 auto; min-width:0; font-size:.9rem; }
+#customTargetWrap{ margin-top:10px; }
+.field-label{
+    display:block;
+    font-size:.72rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-bottom:6px;
+}
 #customTarget{
     width:100%;
-    background:var(--bg-1);
-    border:2px solid var(--panel-2);
+    background:var(--panel-2);
+    border:2px solid #34614e;
     border-radius:10px;
     padding:11px 12px;
     color:var(--ink);
     font-size:16px;
 }
 #customTarget:focus{ outline:none; border-color:var(--gold); }
+.setup-go{ margin-bottom:0; }
 
 .setup-actions{ display:flex; gap:10px; flex-wrap:wrap; }
 .setup-actions button{ flex:1; min-width:130px; }
@@ -140,19 +267,70 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     justify-content:space-between;
     gap:12px;
     flex:1;
+    /* …and it must be ALLOWED to shrink. `min-width:0` on `.turn-who` alone does
+       not do it: a flex item's automatic minimum is its MIN-CONTENT size, and the
+       pill's min-content still contains the name's nowrap text width, so the pill
+       refused to go below it and pushed the icon row off the viewport instead.
+       MEASURED in portrait 375x812 before this line, with a name of exactly the
+       input's own `maxLength` of 14: pill 300 px wide, the mute button at x378-426
+       (fully off canvas) and the document scrolling to 426 px — 485 px with wide
+       glyphs. The ellipsis on `.turn-name` could never fire because nothing ever
+       squeezed it. */
+    min-width:0;
     background:var(--panel);
     border-radius:16px;
     padding:10px 16px;
 }
+.turn-who{ min-width:0; }
 .turn-label{
-    font-size:.72rem; text-transform:uppercase; letter-spacing:1.3px;
+    font-size:.7rem; text-transform:uppercase; letter-spacing:1.2px;
     color:var(--ink-dim); margin:0 0 2px;
+    /* a label that wraps is a label that has become two labels */
+    white-space:nowrap;
 }
+.turn-label .lbl-full{ display:none; }
 .turn-name{
     font-size:clamp(1.1rem,4.5vw,1.5rem); font-weight:800; margin:0;
     color:var(--gold); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+.turn-sub{
+    display:none;
+    margin:3px 0 0;
+    font-size:.78rem; font-weight:700;
+    color:var(--ink-dim);
+    white-space:nowrap;
+}
+.turn-sub b{ color:var(--ink); font-weight:800; }
 .turn-points{ text-align:right; flex-shrink:0; }
+
+/* ---- this turn's tosses (desktop) ---------------------------------------
+   The header's own middle. Hidden below 900 px, where the pill has no spare
+   width at all — the portrait fix is the short labels above, not this. */
+.turn-ledger{
+    display:none;
+    flex:1;
+    min-width:0;
+    list-style:none;
+    margin:0; padding:0;
+    gap:6px;
+    overflow:hidden;
+}
+.turn-ledger li{
+    display:flex; align-items:baseline; gap:6px;
+    background:var(--bg-1);
+    border-radius:999px;
+    padding:3px 10px;
+    font-size:.78rem;
+    font-weight:700;
+    color:var(--ink-dim);
+    white-space:nowrap;
+    animation:ledger-in .22s ease;
+}
+.turn-ledger li b{ color:var(--good); font-size:.82rem; }
+.turn-ledger li.zero b{ color:var(--danger); }
+.turn-ledger li.empty{ background:none; padding:3px 0; opacity:.75; }
+@keyframes ledger-in{ from{ opacity:0; transform:translateY(-4px) } to{ opacity:1; transform:none } }
+.reduced-motion .turn-ledger li{ animation:none; }
 .turn-points .num{
     font-size:clamp(1.7rem,7vw,2.3rem); font-weight:800; line-height:1;
     display:block; transition:transform .15s ease;
@@ -164,16 +342,31 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     100%{ transform:scale(1); }
 }
 
+/* A LABELLED icon button. The caption costs 10 px of height and nothing in
+   width, which is why the answer to "three unlabelled glyphs" is a word under
+   each one rather than a tooltip nobody on a phone can hover. */
 .icon-btn{
     background:var(--panel-2);
     color:var(--ink);
-    width:42px; height:42px;
+    width:48px; min-height:48px;
     border-radius:12px;
-    padding:0;
+    padding:5px 2px 4px;
     font-size:19px;
-    display:flex; align-items:center; justify-content:center;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:1px;
     flex-shrink:0;
 }
+.icon-btn .icon{ width:20px; height:20px; }
+.icon-btn-label{
+    font-size:8.5px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    line-height:1;
+}
+.icon-btn[aria-expanded="true"]{ background:#3a6b56; color:var(--ink); }
+.icon-btn[aria-expanded="true"] .icon-btn-label{ color:var(--gold); }
 
 /* ---------- pen (3D canvas area) ---------- */
 
@@ -378,6 +571,22 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
    odds.js. When there is one it sits under the headline; most rounds have none. */
 .result-detail{ margin:3px 0 0; font-size:.9rem; color:var(--ink-dim); }
 .result-detail:empty{ display:none; }
+/* ---- the HOLD tone --------------------------------------------------------
+   ROUND-4 LEDGER: "the text layer still never acknowledges the gesture — the
+   card reads 'Ava starts! / Toss the pigs to begin.' unchanged for the entire
+   hold". It does now (game.js `renderShakeCopy`), and while it is doing so the
+   card is its own thing: a pink-lit slab with a slow breath, so the anticipation
+   is in the copy AND in the surface carrying it. */
+.result-card.hold{
+    background:linear-gradient(rgba(58,20,36,.62), rgba(24,10,18,.90));
+    border:1px solid rgba(242,145,172,.45);
+}
+.result-card.hold .result-headline{ color:var(--pink); }
+.result-card.hold:not(.pending){ animation:hold-breathe 1.1s ease-in-out infinite; }
+@keyframes hold-breathe{
+    0%,100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(242,145,172,0) }
+    50%{ transform:scale(1.018); box-shadow:0 0 22px 0 rgba(242,145,172,.16) }
+}
 .result-card.good .result-headline{ color:var(--good); }
 .result-card.big  .result-headline{ color:var(--gold); }
 .result-card.bad  .result-headline{ color:#ff8f6b; }
@@ -545,8 +754,43 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
 .score-list .marker.p1{ color:var(--gold); }
 .score-list .marker.p2{ color:#dae7e0; }
 .score-list .marker.p3{ color:#d79a6a; }
+.score-list li{ flex-wrap:wrap; }
 .score-list .who{ flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .score-list .pts{ font-weight:800; font-size:1.1rem; color:var(--gold); flex-shrink:0; }
+/* how far along that player is — the one number a scoreboard is missing when it
+   only lists totals, and the thing that makes a row worth its height */
+.score-list .prog{
+    flex:1 0 100%;
+    height:5px;
+    border-radius:3px;
+    background:rgba(255,255,255,.10);
+    overflow:hidden;
+}
+.score-list .prog i{
+    display:block; height:100%;
+    border-radius:3px;
+    background:linear-gradient(90deg, var(--pink), var(--gold));
+    transition:width .35s ease;
+}
+.reduced-motion .score-list .prog i{ transition:none; }
+
+/* the desktop-only scoring ladder in the scoreboard column */
+.sb-ladder{ display:none; margin:2px 0 14px; }
+.sb-ladder h3{
+    font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-dim); margin:0 0 8px;
+}
+.sb-ladder ul{ list-style:none; margin:0 0 10px; padding:0; }
+.sb-ladder li{
+    display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    padding:6px 2px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    font-size:.86rem;
+}
+.sb-ladder li b{ color:var(--gold); font-weight:800; white-space:nowrap; }
+.sb-ladder li b i{ color:var(--ink-dim); font-style:normal; font-weight:700; font-size:.82em; }
+.sb-ladder li.bad b{ color:var(--danger); font-size:.8rem; }
+.sb-note{ margin:0; font-size:.76rem; line-height:1.45; color:var(--ink-dim); }
 
 table.rules-table{ width:100%; border-collapse:collapse; font-size:.88rem; margin-bottom:12px; }
 table.rules-table th, table.rules-table td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--panel-2); }
@@ -660,7 +904,24 @@ footer a{ color:var(--ink-dim); }
         border-radius:16px;
         max-height:none;
         box-shadow:0 8px 24px rgba(0,0,0,.28);
+        /* the column is a COLUMN: the scoring ladder takes the slack and New Game
+           sits at its foot, instead of 555 px of empty panel under two rows */
+        display:flex;
+        flex-direction:column;
+        overflow:auto;
     }
+    #scoreList{ margin-bottom:12px; }
+    /* The ladder is the column's SLACK-TAKER. Pinning New Game to the foot alone
+       moved the void rather than removing it: MEASURED at 1280x860 with two
+       players, content ran y131-568 in a panel ending at y768, i.e. 141 px of
+       empty panel in one block above the button. The ladder grows into it (capped,
+       so four players still fit and it can shrink back), and the rows centre their
+       content so a taller row reads as a roomier row and not as text pushed to its
+       top edge. */
+    .sb-ladder{ display:flex; flex-direction:column; flex:1 1 auto; max-height:392px; }
+    .sb-ladder ul{ flex:1 1 auto; display:flex; flex-direction:column; }
+    .sb-ladder li{ flex:1 1 auto; align-items:center; }
+    #newGameBtn{ margin-top:auto; }
     .slide-panel#rulesPanel{
         position:fixed;
         max-width:480px;
@@ -669,7 +930,19 @@ footer a{ color:var(--ink-dim); }
         border-radius:16px;
         bottom:20px;
     }
-    #scoreboardToggle{ display:none; }
+
+    /* the header's long labels, and its middle */
+    .turn-label .lbl-full{ display:inline; }
+    .turn-label .lbl-short{ display:none; }
+    .turn-sub{ display:block; }
+    .turn-ledger{ display:flex; flex-wrap:wrap; justify-content:center; align-content:center; max-height:52px; }
+
+    /* The scoreboard toggle stays on stage at every breakpoint (round-4 ledger:
+       "desktop still renders only 2 of the 3"). Here it does what it says in a
+       different way: the scoreboard is a column, so the button collapses and
+       restores it — and a collapsed column hands its width to the pen. */
+    #screen-game.no-board{ grid-template-columns:1fr; }
+    #screen-game.no-board .slide-panel#scoreboardPanel{ display:none; }
 
     .keyboard-hint{
         grid-row:4;
@@ -814,10 +1087,36 @@ footer a{ color:var(--ink-dim); }
 
 <!-- ============ SETUP ============ -->
 <section id="screen-setup" class="screen">
-    <h1 class="setup-title"><svg class="icon" aria-hidden="true"><use href="#i-pig"/></svg>Hog Wild</h1>
+
+    <!-- THE DOOR TO THE GAME, and it is the same game behind it.
+         ROUND-4 LEDGER: "the one surface every session opens on is untouched …
+         Everything behind this screen is now 9-grade; the door to it is still a
+         dialog box." So the stage is the game's own felt, its own two 3D pigs
+         (buildScene/buildPig on this canvas — game.js `setupStage`, disposed the
+         moment the screen leaves), and a drawn logotype instead of an H1 in the
+         system stack at its default tracking.
+
+         The logotype is typographic, per the brief — no external fonts. Each
+         letter is its own span on a shallow arc (`--r` rotation, `--y` lift), the
+         two words are split by colour rather than by a gap, and the whole mark
+         has one hard shadow so it reads as a moulded object on felt rather than
+         as heading text. The accessible name is on the <h1>; the letters are
+         aria-hidden so a screen reader hears "Hog Wild", not "H O G W I L D". -->
+    <div class="setup-stage">
+        <canvas id="setupCanvas" aria-hidden="true"></canvas>
+        <div class="setup-hero">
+            <h1 class="logotype" aria-label="Hog Wild">
+                <span class="lt-word hog" aria-hidden="true"
+                    ><i style="--r:-13.5deg;--y:9px">H</i><i style="--r:-9deg;--y:4px">O</i><i style="--r:-4.5deg;--y:1px">G</i></span
+                ><span class="lt-word wild" aria-hidden="true"
+                    ><i style="--r:0deg;--y:0px">W</i><i style="--r:4.5deg;--y:1px">I</i><i style="--r:9deg;--y:4px">L</i><i style="--r:13.5deg;--y:9px">D</i></span>
+            </h1>
+            <p class="setup-tagline"><span>Toss · push your luck ·</span> <span>bank before it's gone</span></p>
+        </div>
+    </div>
 
     <div class="panel">
-        <h2 style="margin-bottom:12px">Who's playing?</h2>
+        <h2 class="panel-title"><svg class="icon" aria-hidden="true"><use href="#i-people"/></svg> Who's playing?</h2>
         <div id="playerRows"></div>
         <div class="setup-actions">
             <button type="button" class="secondary" id="addPlayerBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Add Player</button>
@@ -825,16 +1124,23 @@ footer a{ color:var(--ink-dim); }
     </div>
 
     <div class="panel">
-        <h2 style="margin-bottom:12px">Play to…</h2>
+        <h2 class="panel-title"><svg class="icon" aria-hidden="true"><use href="#i-trophy"/></svg> Play to…</h2>
         <div class="target-options" id="targetOptions">
-            <button type="button" data-target="50">50 — Quick</button>
-            <button type="button" data-target="100" class="active">100 — Classic</button>
-            <button type="button" data-target="150">150 — Long</button>
+            <button type="button" data-target="50">50 <small>Quick</small></button>
+            <button type="button" data-target="100" class="active">100 <small>Classic</small></button>
+            <button type="button" data-target="150">150 <small>Long</small></button>
+            <!-- The custom field REVEALS on demand (round-4 ledger: it "is still
+                 permanently visible beside the three presets"), so the common case
+                 is three choices and nothing else. -->
+            <button type="button" id="customTargetBtn" class="target-custom" aria-expanded="false" aria-controls="customTargetWrap">Custom…</button>
         </div>
-        <input type="number" id="customTarget" placeholder="Custom target score" min="1" inputmode="numeric">
+        <div id="customTargetWrap" hidden>
+            <label class="field-label" for="customTarget">Target score</label>
+            <input type="number" id="customTarget" placeholder="e.g. 75" min="1" inputmode="numeric">
+        </div>
     </div>
 
-    <div class="panel">
+    <div class="panel setup-go">
         <button type="button" class="big" id="startGameBtn" style="width:100%"><svg class="icon" aria-hidden="true"><use href="#i-toss"/></svg> Start Game</button>
         <p class="hint" id="setupHint">Toss the pigs, stack up points, then bank them before a Pig Out wipes your turn.</p>
     </div>
@@ -845,18 +1151,39 @@ footer a{ color:var(--ink-dim); }
 
     <div class="top-chrome">
         <div class="turn-banner">
-            <div>
-                <p class="turn-label">Now tossing</p>
+            <div class="turn-who">
+                <!-- ROUND-4 LEDGER, portrait: "`.turn-label` 'Now tossing'
+                     measures 78x27px at font-size 11.52px (two lines)". Two
+                     lines in a 195 px pill is the label wrapping under itself.
+                     Both labels are now `nowrap` AND have a short form for the
+                     narrow breakpoint, so the pill never has to fold a word to
+                     fit the score beside it. -->
+                <p class="turn-label"><span class="lbl-full">Now tossing</span><span class="lbl-short">Tossing</span></p>
                 <p class="turn-name" id="turnName">—</p>
+                <!-- desktop only: banked total and the distance left to run. The
+                     header had 662 px of void and the player had to read the
+                     scoreboard to know either number. -->
+                <p class="turn-sub" id="turnSub"></p>
             </div>
+            <!-- DESKTOP-ONLY, and it exists because of the void: round 4 measured
+                 662 px of nothing between the player name and THIS TURN. What
+                 belongs in a push-your-luck game's header is what you are risking
+                 — this turn's tosses, in order, so the decision to bank or toss
+                 again has its evidence next to it. -->
+            <ol class="turn-ledger" id="turnLedger" aria-label="This turn's tosses"></ol>
             <div class="turn-points">
-                <p class="turn-label">This turn</p>
+                <p class="turn-label"><span class="lbl-full">This turn</span><span class="lbl-short">Turn</span></p>
                 <span class="num" id="turnPoints">0</span>
             </div>
         </div>
-        <button type="button" class="icon-btn" id="rulesToggle" aria-expanded="false" aria-label="How to play"><svg class="icon" aria-hidden="true"><use href="#i-book"/></svg></button>
-        <button type="button" class="icon-btn" id="scoreboardToggle" aria-expanded="false" aria-label="Scoreboard"><svg class="icon" aria-hidden="true"><use href="#i-trophy"/></svg></button>
-        <button type="button" class="icon-btn" id="muteBtn" aria-label="Mute sound"><svg class="icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
+        <!-- Labelled, not just aria-labelled (round-4 ledger: "there is still no
+             visible text, badge or tooltip, so a sighted first-time player cannot
+             tell the trophy opens the scoreboard"). The caption is part of the
+             control at every breakpoint, and `title` adds the pointer tooltip on
+             top of the accessible name. -->
+        <button type="button" class="icon-btn" id="rulesToggle" aria-expanded="false" aria-label="How to play" title="How to play"><svg class="icon" aria-hidden="true"><use href="#i-book"/></svg><span class="icon-btn-label">Rules</span></button>
+        <button type="button" class="icon-btn" id="scoreboardToggle" aria-expanded="true" aria-label="Scoreboard" title="Scoreboard"><svg class="icon" aria-hidden="true"><use href="#i-trophy"/></svg><span class="icon-btn-label">Scores</span></button>
+        <button type="button" class="icon-btn" id="muteBtn" aria-label="Mute sound" title="Mute sound"><svg class="icon" aria-hidden="true"><use href="#i-sound"/></svg><span class="icon-btn-label" id="muteLabel">Sound</span></button>
     </div>
 
     <div class="pen-wrap" id="penWrap">
@@ -894,7 +1221,7 @@ footer a{ color:var(--ink-dim); }
     <div class="action-bar">
         <button type="button" class="big hold-btn" id="hogWildBtn">
             <span class="hold-fill" id="holdFill"></span>
-            <span class="label"><svg class="icon" aria-hidden="true"><use href="#i-toss"/></svg> Go Hog Wild</span>
+            <span class="label"><svg class="icon" aria-hidden="true"><use href="#i-toss"/></svg> <span id="hogWildLabel">Go Hog Wild</span></span>
         </button>
         <button type="button" class="big secondary" id="stopBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-bank"/></svg> Stop</button>
         <div class="quick-row">
@@ -906,6 +1233,25 @@ footer a{ color:var(--ink-dim); }
     <aside class="slide-panel" id="scoreboardPanel" hidden>
         <h2>Scoreboard <span style="font-weight:400;color:var(--ink-dim);font-size:.85rem">— first to <span id="targetLabel">100</span></span></h2>
         <ul class="score-list" id="scoreList"></ul>
+        <!-- DESKTOP-ONLY. Round 4 measured this column at 300x702 px holding
+             147 px of content — 555 px of empty panel beside a dense 3D scene.
+             The scoring ladder is the one reference a player wants mid-turn and
+             it is otherwise behind a modal, so on a screen with room it just
+             lives here. Portrait keeps it in the rules panel, where the space
+             genuinely is not free. -->
+        <div class="sb-ladder" aria-hidden="true">
+            <h3>Scoring</h3>
+            <ul>
+                <li><span>Sider</span><b>1</b></li>
+                <li><span>Razorback</span><b>5<i>/20</i></b></li>
+                <li><span>Trotter</span><b>5<i>/20</i></b></li>
+                <li><span>Snouter</span><b>10<i>/40</i></b></li>
+                <li><span>Leaning Jowler</span><b>15<i>/60</i></b></li>
+                <li class="bad"><span>Pig Out</span><b>turn → 0</b></li>
+                <li class="bad"><span>Oinker</span><b>score → 0</b></li>
+            </ul>
+            <p class="sb-note">A double scores the bigger number. Bank before a Pig Out takes the turn.</p>
+        </div>
         <button type="button" class="secondary" id="newGameBtn" style="width:100%"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> New Game</button>
     </aside>
 

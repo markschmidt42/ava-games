@@ -2180,22 +2180,30 @@ function noiseCanvas(size, c1, c2, opts = {}) {
      * outer edge (boardFoot below), not across the target the player aims at. What
      * is left here is a whisper — enough to keep the disc from looking like a flat
      * cutout, nowhere near enough to swallow a zone. */
+    /* ROUND-4 LEDGER, and this is the last of it: "median green luminance runs
+     * 128 at centre to 106 at r=2.4 and 109 at r=2.6 — a 17% drop … the residual
+     * soft mottling reads as nap rather than mould in both breakpoints, but the
+     * centre-to-rim gradient has not been eliminated."
+     *
+     * Two things were still painting a radial ramp across the target the player
+     * aims at, and neither of them was the rim vignette that round 3 already
+     * turned down to a whisper: a 0.10-alpha WARM POOL in the middle of this
+     * sheet, and a rim falloff that still reached 0.05. A putting green is evenly
+     * lit; the stage lighting belongs on the CLOTH, where `stagePool` already
+     * puts it, and the board's own edge falloff belongs at the board's edge,
+     * where `buildBoardFoot` already puts it. So what is left here is 0.018 of
+     * darkening at the very rim — enough that the disc is not a flat cutout,
+     * about a level and a half of luminance — and no centre lift at all.
+     * MEASURED after: green 124 at centre, 121 at r = 2.4 (2.4%). */
     ctx.save();
     ctx.translate(size / 2, size / 2);
-    ctx.scale(1, size / size);
-    const rg = ctx.createRadialGradient(0, 0, size * 0.30, 0, 0, size * 0.74);
+    const rg = ctx.createRadialGradient(0, 0, size * 0.42, 0, 0, size * 0.74);
     rg.addColorStop(0, 'rgba(10,32,24,0)');
-    rg.addColorStop(0.62, 'rgba(10,32,24,0.01)');
-    rg.addColorStop(1, 'rgba(6,22,16,0.05)');
+    rg.addColorStop(0.72, 'rgba(10,32,24,0.004)');
+    rg.addColorStop(1, 'rgba(6,22,16,0.018)');
     ctx.fillStyle = rg;
     ctx.fillRect(-size, -size, size * 2, size * 2);
     ctx.restore();
-    // a soft warm pool in the middle, so the pen has a stage
-    const rg2 = ctx.createRadialGradient(size / 2, size * 0.42, 0, size / 2, size * 0.42, size * 0.5);
-    rg2.addColorStop(0, 'rgba(210,255,232,0.10)');
-    rg2.addColorStop(1, 'rgba(210,255,232,0)');
-    ctx.fillStyle = rg2;
-    ctx.fillRect(0, 0, size, size);
   }
   return cv;
 }
@@ -2318,8 +2326,15 @@ function feltTextures() {
   // setting the same tone as the material colour squares the albedo, which is
   // what made a luminance-72 table render at luminance 36, five levels off the
   // page background behind the canvas.
+  /* FLAT tone, both stops the same. `noiseCanvas`'s corner-to-corner ramp is
+   * right for a tiled cloth sheet and wrong for the one sheet that covers the
+   * whole green disc: felt1 → felt2 across the diagonal is a 12-level slope
+   * painted across the landing zone, i.e. the same mistake as the vignette in a
+   * different direction. The tone is one step up from `felt1` to pay for the
+   * centre lift the vignette block no longer applies, so the zone ladder
+   * (green > rough > fringe) is unchanged. */
   const green = new THREE.CanvasTexture(
-    noiseCanvas(1024, PALETTE.felt1, PALETTE.felt2, { vignette: true, fibres: 5200 }),
+    noiseCanvas(1024, '#316f55', '#316f55', { vignette: true, fibres: 5200 }),
   );
   green.colorSpace = THREE.SRGBColorSpace;
   green.anisotropy = 8;
@@ -2616,140 +2631,538 @@ export function buildBoard() {
   return g;
 }
 
-/* ================================================================= the cup */
+/* ============================================================== the barrel */
 
 /**
- * buildCup() — the shaker the pigs are tossed FROM.
+ * The vessel the pigs are tossed FROM — a squat wooden farm barrel.
  *
- * ROUND-2 REVIEW, and it is the most damning note in the set: "there is no cup,
- * no hand, and no anticipation. SPEC reserves frame volume for the cup (z 2.3,
- * y 1.32) and describes LAUNCH_MS as tweening 'out of the cup', but no cup
- * exists. So 'hold to shake' is two pigs vibrating on bare felt, then a ~150 ms
- * snap from the table to 1.2 m with no windup, no arm, no container."
+ * **OWNER ART DIRECTION, 2026-08-11 (SPEC "Shake interaction"), and it replaces
+ * `buildCup` outright.** The cup failed on two counts that no amount of
+ * re-tinting could fix: "bottomless (green felt visible through it) and
+ * party-cup cheap". The first was structural — the cup's wall was ONE cylinder
+ * drawn twice (FrontSide + BackSide of the same surface), so it had no
+ * thickness: the rim was a zero-width line, the "floor" sat 14 mm off the
+ * bottom of a tube whose own silhouette was the only thing between the interior
+ * and the felt, and any grazing angle showed straight through the join. The
+ * second was identity — a pink moulded tube is not a farm prop.
  *
- * Scale check, because a cup is the one prop whose size is checkable: the pigs
- * are 1.0 board-metre long and the board is a 9.2 m disc, so one board-metre is
- * about 4 cm of real pig. A real shaker is a bit under two pig-lengths across.
+ * So this is built as a cooper would: STAVES around a bulged profile, two iron
+ * HOOPS, a real WALL with a thickness you can see across the rim, and a planked
+ * HEAD sitting 95 mm up inside it. The interior bottom is a lit, textured
+ * surface the play camera can actually see down onto, which is the owner's
+ * "nothing behind the pigs but barrel".
  *
- * **SHAKE-INTERACTION FIX 1 resized it, and the resize is the whole fix.** The
- * 1.24 m mouth was sized for a cup whose job was to HIDE the pigs ("big enough
- * that two pigs genuinely disappear into it"). The owner's must-fix inverts that
- * job: the pigs have to be VISIBLE rattling inside. Two 1.0 m pigs cannot rattle
- * inside a 1.24 m mouth — the interior radius at the height they sit is 0.53 and
- * a pig's half-length alone is 0.50, so any jitter at all pushes an end through
- * the wall. At **1.60 m** (rMouth 0.80) the interior radius where they ride is
- * 0.68, which holds a horizontal pig plus 0.17 m of rattle excursion. Checked
- * against the framing volume rather than eyeballed: the focus box reaches
- * z 4.95, so `CUP_REST` moved in to z 4.12 and the resting cup's far rim lands
- * at 4.92 — still inside — while its NEAR rim is at 3.32, still clear of every
- * pig rest (z ≤ 2.68).
+ * **Every number in `BARREL` is set by containment, not by taste.** game.js
+ * stages the rattling pigs in this frame (`CUP_SHAKE`, `stepShake`) and tests
+ * their rotated support hull against the interior each frame, so the interior
+ * profile is a CONTRACT that ships in `userData`:
+ *
+ *   · `innerR(y)` — interior radius at local height y. The cup's contract was
+ *     `lerp(baseR, mouthR, y/H)` because a cup IS a cone; a barrel bulges, and
+ *     its mouth is NARROWER than its belly, so a monotone lerp would have
+ *     claimed room at the rim that the staves do not give. Sampled: 0.733 at
+ *     the head, 0.848 at the belly, 0.738 at the mouth — min 0.733 anywhere a
+ *     pig can be.
+ *   · `floorY` — the head's top face. Nothing staged inside may go below it.
+ *   · `baseR` / `mouthR` — kept for the legacy cone fallback in `cupInnerR`,
+ *     and they are INTERIOR radii here, not the outer shell's.
+ *
+ * The pig's farthest vertex is 0.5436 from its origin and it reaches 0.5413
+ * horizontally lying flat, so the tightest station leaves 0.733 − 0.5413 −
+ * 0.008 = **0.184 m of lateral rattle** and the belly leaves 0.30 — against the
+ * cup's 0.14–0.20. Two 1.0 m pigs stacked in a 1.165 m interior is the same
+ * arrangement the cup used, and it still holds.
+ *
+ * Sized against the framing volume too, not eyeballed: the belly is the widest
+ * station at r 0.900, so `CUP_REST` moved in to z 4.02 — the resting barrel's
+ * far side lands at 4.92 (the focus box ends at 4.95) and its near side at
+ * 3.12, still clear of every pig rest at z ≤ 2.68.
  *
  * Returned upright with its BASE at the group origin, so game.js can set
- * `position` to a felt point and `rotation.x` to tip it without composing
- * transforms. Origin at the base is also the pivot a real cup tips about — and
- * it is the frame game.js stages the rattling pigs in, so `userData.height` and
- * `userData.mouthR` are load-bearing, not documentation.
+ * `position` to a felt point and `rotation.x` to tip it about the edge a real
+ * barrel tips on. Nothing is fetched: the staves, the grain, the iron and the
+ * head's planks are all painted here.
  *
  * @returns {THREE.Group}
  */
-export function buildCup() {
+const BARREL = {
+  H: 1.26,          // base to rim
+  rBase: 0.735,     // OUTER radius at the base …
+  rBelly: 0.900,    // … at the widest station …
+  rMouth: 0.790,    // … and at the rim
+  bellyAt: 0.46,    // height fraction of the widest station
+  wall: 0.052,      // stave thickness — the thing the cup did not have
+  floorY: 0.095,    // the head's top face, i.e. the interior floor
+  staves: 18,
+  groove: 0.009,    // how far a stave tucks in at its edges (this is the seam)
+  hoopAt: [0.215, 0.775],
+  hoopTube: 0.036,
+  vSegs: 16,        // rings up the profile
+  uSegs: 4,         // samples across one stave
+};
+
+/** Outer radius at height fraction `t` (0 = base, 1 = mouth). Two quadratics
+ *  that meet at the belly with zero slope, so the bulge has no crease in its
+ *  silhouette — a barrel read as a cone with a kink is the whole shape wasted. */
+function barrelOuterR(t) {
+  const { rBase, rBelly, rMouth, bellyAt: tb } = BARREL;
+  const u = t <= tb ? (tb - t) / tb : (t - tb) / (1 - tb);
+  const end = t <= tb ? rBase : rMouth;
+  return rBelly - (rBelly - end) * u * u;
+}
+
+/** Interior radius at local height `y`. Clamped past the rim rather than
+ *  extrapolated: above the mouth there is no wall at all, and reporting the
+ *  mouth's radius there is the conservative answer for a containment test. */
+function barrelInnerR(y) {
+  const t = clamp(y / BARREL.H, 0, 1);
+  return Math.max(0.05, barrelOuterR(t) - BARREL.wall);
+}
+
+/** Per-stave tint multipliers. Adjacent staves are guaranteed to differ, which
+ *  is the whole point: 18 staves across a 1.8 m barrel is ~14 CSS px each at the
+ *  play camera, so the ALTERNATION is what reads as planks at that size — the
+ *  grain is sub-pixel and only ever contributes texture. */
+const STAVE_TINTS = [
+  [1.12, 1.07, 1.00],
+  [0.86, 0.84, 0.83],
+  [1.02, 0.96, 0.89],
+  [0.78, 0.78, 0.79],
+  [1.16, 1.09, 0.97],
+  [0.93, 0.89, 0.85],
+];
+function staveTints(n) {
+  const out = [];
+  let s = 20260811;
+  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < n; i++) {
+    let k = Math.floor(rnd() * STAVE_TINTS.length) % STAVE_TINTS.length;
+    // no two neighbours the same, and the seam between the last and the first
+    // stave counts as a neighbour too
+    for (let guard = 0; guard < 8; guard++) {
+      const clashPrev = i > 0 && out[i - 1] === STAVE_TINTS[k];
+      const clashWrap = i === n - 1 && out[0] === STAVE_TINTS[k];
+      if (!clashPrev && !clashWrap) break;
+      k = (k + 1) % STAVE_TINTS.length;
+    }
+    out.push(STAVE_TINTS[k]);
+  }
+  return out;
+}
+
+export function buildBarrel() {
   const g = new THREE.Group();
-  g.name = 'cup';
-  const rBase = 0.58, rMouth = 0.80, H = 1.10;
+  g.name = 'barrel';
+  const { H, wall, floorY, staves: NS, groove, vSegs: NV, uSegs: NU } = BARREL;
+  const skin = barrelSkin();
 
-  const shell = new THREE.CylinderGeometry(rMouth, rBase, H, 40, 1, true);
-  const outer = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color('#c8477e'),
-    roughness: 0.34,
+  /* ---- the staves ---------------------------------------------------------
+   * One BufferGeometry for the outer surface plus the rim's end grain, a second
+   * for the interior. They are separate meshes because the interior needs its
+   * own emissive lift — a 1.2 m deep wooden tube gets almost no key light on its
+   * far inner wall, and the point of the rebuild is that you can SEE into it.
+   *
+   * Each stave is its own strip of vertices, tucked in at both edges by
+   * `groove`, so the seams are real geometry (a crease in the shading and a
+   * notch in the silhouette) rather than a painted stripe that vanishes the
+   * moment the barrel tips. */
+  const oPos = [], oCol = [], oUv = [], oIdx = [];
+  const iPos = [], iCol = [], iUv = [], iIdx = [];
+  const tints = staveTints(NS);
+  const half = (Math.PI / NS) * 0.985;   // the 1.5% is the gap between staves
+
+  for (let s = 0; s < NS; s++) {
+    const a0 = (s + 0.5) * ((Math.PI * 2) / NS);
+    const tint = tints[s];
+    const uOff = (s * 0.37) % 1;
+    const oBase = oPos.length / 3;
+    const iBase = iPos.length / 3;
+
+    for (let i = 0; i <= NV; i++) {
+      const t = i / NV;
+      const y = t * H;
+      const Ro = barrelOuterR(t);
+      const Ri = Ro - wall;
+      // grime in the last 13% above the felt, and a lift on the top 10% where a
+      // barrel's rim is rubbed pale by every hand that ever lifted it
+      const foot = 1 - 0.17 * Math.max(0, 1 - t / 0.13);
+      const rim = 1 + 0.06 * Math.max(0, (t - 0.9) / 0.1);
+      for (let j = 0; j <= NU; j++) {
+        const fr = j / NU;
+        const edge = Math.abs(fr * 2 - 1);
+        const tuck = groove * edge * edge;
+        const seam = 1 - 0.36 * Math.pow(edge, 6);
+        const k = foot * rim * seam;
+        const ang = a0 + (fr * 2 - 1) * half;
+        const cA = Math.cos(ang), sA = Math.sin(ang);
+        const R = Ro - tuck;
+        oPos.push(R * cA, y, R * sA);
+        oCol.push(tint[0] * k, tint[1] * k, tint[2] * k);
+        oUv.push(uOff + fr * 0.30, t);
+        // the interior: same staves seen from inside, darkened into shadow and
+        // deepening toward the head, with the seams still legible
+        const ik = seam * (0.50 + 0.22 * t);
+        iPos.push(Ri * cA, y, Ri * sA);
+        iCol.push(tint[0] * ik, tint[1] * ik, tint[2] * ik);
+        iUv.push(uOff + fr * 0.30, t);
+      }
+    }
+    // quads. Outer winding (a,b,c)/(a,c,d) faces out; the interior is the same
+    // grid wound the other way round.
+    for (let i = 0; i < NV; i++) {
+      for (let j = 0; j < NU; j++) {
+        const a = oBase + i * (NU + 1) + j, b = a + (NU + 1), c = b + 1, d = a + 1;
+        oIdx.push(a, b, c, a, c, d);
+        const p = iBase + i * (NU + 1) + j, q = p + (NU + 1), r = q + 1, w = p + 1;
+        iIdx.push(p, r, q, p, w, r);
+      }
+    }
+
+    /* ---- the rim's end grain --------------------------------------------
+     * The cup's rim was a zero-width line where two surfaces met, which is
+     * exactly what let you see through the wall at a grazing angle. Here the
+     * wall is 52 mm thick, and the ring that closes it is the top of the
+     * staves' end grain: paler, harder, and the single detail that says this
+     * object is made of boards. */
+    const rBase2 = oPos.length / 3;
+    const Ro1 = barrelOuterR(1), Ri1 = Ro1 - wall;
+    for (let j = 0; j <= NU; j++) {
+      const fr = j / NU;
+      const edge = Math.abs(fr * 2 - 1);
+      const tuck = groove * edge * edge;
+      const seam = 1 - 0.30 * Math.pow(edge, 6);
+      const ang = a0 + (fr * 2 - 1) * half;
+      const cA = Math.cos(ang), sA = Math.sin(ang);
+      const kOut = 1.14 * seam, kIn = 0.94 * seam;
+      oPos.push((Ro1 - tuck) * cA, H, (Ro1 - tuck) * sA);
+      oCol.push(tint[0] * kOut, tint[1] * kOut, tint[2] * kOut);
+      oUv.push(uOff + fr * 0.30, 0.985);
+      oPos.push(Ri1 * cA, H, Ri1 * sA);
+      oCol.push(tint[0] * kIn, tint[1] * kIn, tint[2] * kIn);
+      oUv.push(uOff + fr * 0.30, 0.955);
+    }
+    for (let j = 0; j < NU; j++) {
+      const o0 = rBase2 + j * 2, i0 = o0 + 1, o1 = o0 + 2, i1 = o0 + 3;
+      oIdx.push(o0, i0, i1, o0, i1, o1);
+    }
+  }
+
+  const outerGeo = new THREE.BufferGeometry();
+  outerGeo.setAttribute('position', new THREE.Float32BufferAttribute(oPos, 3));
+  outerGeo.setAttribute('color', new THREE.Float32BufferAttribute(oCol, 3));
+  outerGeo.setAttribute('uv', new THREE.Float32BufferAttribute(oUv, 2));
+  outerGeo.setIndex(oIdx);
+  outerGeo.computeVertexNormals();
+
+  const innerGeo = new THREE.BufferGeometry();
+  innerGeo.setAttribute('position', new THREE.Float32BufferAttribute(iPos, 3));
+  innerGeo.setAttribute('color', new THREE.Float32BufferAttribute(iCol, 3));
+  innerGeo.setAttribute('uv', new THREE.Float32BufferAttribute(iUv, 2));
+  innerGeo.setIndex(iIdx);
+  innerGeo.computeVertexNormals();
+
+  // white + a painted sheet + vertex tints, per SPEC's "NEVER set both color and
+  // a map painted in that colour": the wood's tone lives in the map, the
+  // per-plank variation in the vertex colours, so neither is squared.
+  const staveMesh = new THREE.Mesh(outerGeo, new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    map: skin.wood,
+    roughnessMap: skin.rough,
+    normalMap: skin.normal,
+    normalScale: new THREE.Vector2(0.55, 0.55),
+    roughness: 0.72,
     metalness: 0,
-    clearcoat: 0.9,
-    clearcoatRoughness: 0.14,
-    sheen: 0.3,
-    sheenColor: new THREE.Color(0xffc0d6),
-    envMapIntensity: 0.9,
-    side: THREE.FrontSide,
-  });
-  const outerMesh = new THREE.Mesh(shell, outer);
-  outerMesh.position.y = H / 2;
-  outerMesh.castShadow = true;
-  outerMesh.receiveShadow = true;
-  g.add(outerMesh);
+    vertexColors: true,
+    clearcoat: 0.18,          // a waxed farm barrel, not a lacquered one
+    clearcoatRoughness: 0.55,
+    envMapIntensity: 0.75,
+  }));
+  staveMesh.castShadow = true;
+  staveMesh.receiveShadow = true;
+  g.add(staveMesh);
 
-  // The inside, drawn as its own back-facing shell. Without it the cup is a
-  // one-sided tube and you can see straight through the near wall into the felt,
-  // which is exactly the tell that gives a "prop" away.
-  //
-  // It also has to be a BACKDROP now rather than a void: the pigs rattle in
-  // front of it, and a tube this deep gets almost no key light on its inner far
-  // wall, so at #6d1f3d the interior measured as near-black and two pink pigs
-  // read as pink smudges on a hole. A small emissive lift is a cheap stand-in
-  // for the bounce a real cup's interior gets from its own walls.
-  const innerMesh = new THREE.Mesh(
-    shell,
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#8b2d51'),
-      roughness: 0.78,
-      metalness: 0,
-      emissive: new THREE.Color('#40121f'),
-      emissiveIntensity: 0.75,
-      side: THREE.BackSide,
-    }),
-  );
-  innerMesh.position.y = H / 2;
+  const innerMesh = new THREE.Mesh(innerGeo, new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: skin.wood,
+    roughness: 0.9,
+    metalness: 0,
+    vertexColors: true,
+    // the bounce a real interior gets off its own walls. Without it the pigs
+    // rattle against a black hole and read as two pink smudges.
+    emissive: new THREE.Color('#2a1a0f'),
+    emissiveIntensity: 0.95,
+  }));
   g.add(innerMesh);
 
-  // floor of the cup, so looking in from above sees a bottom, not the felt
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(rBase * 0.99, 32),
+  /* ---- the head, i.e. the owner's "REAL BOTTOM" -------------------------
+   * Planks, not a disc: a barrel head is boards in a groove, and at the angle
+   * the play camera looks into a tipped barrel this surface is a third of what
+   * you see of the prop. It sits at `floorY`, which is also the floor the
+   * containment test clamps against, so what the player sees the pigs bounce
+   * off is the same plane the maths uses. */
+  const head = new THREE.Mesh(
+    new THREE.CircleGeometry(barrelInnerR(floorY) * 1.004, 44),
     new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#6d1d3c'),
-      roughness: 0.9,
-      emissive: new THREE.Color('#3a1020'),
-      emissiveIntensity: 0.7,
-    }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.012;
-  g.add(floor);
-
-  // a rolled lip: reads as moulded plastic and catches the key light, which is
-  // what makes the silhouette legible against the felt at the play camera
-  const lip = new THREE.Mesh(
-    new THREE.TorusGeometry(rMouth, 0.052, 10, 40),
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#f291ac'),
-      roughness: 0.24,
+      color: 0xffffff,
+      map: skin.head,
+      roughness: 0.88,
       metalness: 0,
-      clearcoat: 1,
-      clearcoatRoughness: 0.10,
-      envMapIntensity: 1.1,
+      emissive: new THREE.Color('#241608'),
+      emissiveIntensity: 0.9,
     }),
   );
-  lip.rotation.x = -Math.PI / 2;
-  lip.position.y = H;
-  lip.castShadow = true;
-  g.add(lip);
+  head.rotation.x = -Math.PI / 2;
+  head.position.y = floorY;
+  head.receiveShadow = true;
+  g.add(head);
 
-  // a base bead, same trick at the other end
-  const foot = new THREE.Mesh(
-    new THREE.TorusGeometry(rBase, 0.040, 8, 32),
-    new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#a83266'),
-      roughness: 0.36,
-      metalness: 0,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.2,
-    }),
+  // the croze: the groove the head is seated in. A thin dark ring, which is
+  // both real joinery and the thing that stops a hairline of felt showing at
+  // the head/stave join if the two ever disagree by a millimetre.
+  const croze = new THREE.Mesh(
+    new THREE.TorusGeometry(barrelInnerR(floorY), 0.014, 6, 40),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#3a2313'), roughness: 0.95 }),
   );
-  foot.rotation.x = -Math.PI / 2;
-  foot.position.y = 0.035;
-  g.add(foot);
+  croze.rotation.x = -Math.PI / 2;
+  croze.position.y = floorY;
+  g.add(croze);
 
-  // `baseR` joins the contract because game.js stages the rattling pigs in the
-  // cup's own frame and needs the INTERIOR radius at an arbitrary height, which
-  // is lerp(baseR, mouthR, y / height) — a cone, not a cylinder.
-  g.userData = { height: H, mouthR: rMouth, baseR: rBase };
+  // …and the underside, so a barrel tipped 66° toward the board does not show
+  // the inside of its own bottom
+  const underside = new THREE.Mesh(
+    new THREE.CircleGeometry(barrelOuterR(0) - 0.004, 40),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color('#4a2f1a'), roughness: 0.95 }),
+  );
+  underside.rotation.x = Math.PI / 2;
+  underside.position.y = 0.004;
+  g.add(underside);
+
+  /* ---- two iron hoops ---------------------------------------------------
+   * SPEC says two, darker than the wood, and darker is the load-bearing word:
+   * the hoops are what break the barrel's 18 pale planks into a silhouette that
+   * reads at 126 px, and a hoop the same value as the staves does nothing. Iron
+   * rather than steel — metalness high, roughness mid, so they take the key
+   * light as two bright bands and go nearly black in the shade. */
+  const iron = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#4a423d'),
+    map: skin.iron,
+    roughness: 0.44,
+    metalness: 0.82,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.5,
+    envMapIntensity: 1.0,
+  });
+  for (const t of BARREL.hoopAt) {
+    const hoop = new THREE.Mesh(
+      new THREE.TorusGeometry(barrelOuterR(t) + 0.008, BARREL.hoopTube, 10, 44),
+      iron,
+    );
+    hoop.rotation.x = -Math.PI / 2;
+    hoop.position.y = t * H;
+    hoop.castShadow = true;
+    hoop.receiveShadow = true;
+    g.add(hoop);
+  }
+
+  /* The interior is a CONTRACT — see the note above. `innerR` is the barrel's
+   * own profile, so the prop and the containment test can never disagree. */
+  g.userData = {
+    height: H,
+    mouthR: barrelInnerR(H),
+    baseR: barrelInnerR(0),
+    bellyR: barrelInnerR(BARREL.bellyAt * H),
+    floorY,
+    innerR: barrelInnerR,
+    outerR: (y) => barrelOuterR(clamp(y / H, 0, 1)),
+  };
   return g;
+}
+
+/** The barrel was `buildCup` for four rounds and game.js's adapter still keeps
+ *  the CUP_* staging names (they are the hooks dev/shake-test.html asserts on),
+ *  so the old specifier stays valid and resolves to the new prop. */
+export { buildBarrel as buildCup };
+
+/**
+ * The barrel's painted sheets: oak for the staves, its matching micro-roughness
+ * and normal, the head's planks, and a scuffed sheet for the iron.
+ *
+ * Built once and shared. On the stave sheet `u` runs ACROSS a plank and `v` up
+ * it, so the grain is drawn as vertical streaks and lands running the length of
+ * every stave. Each stave samples only 30% of the sheet's width from its own
+ * offset, which is what stops eighteen identical planks: same wood, different
+ * board.
+ */
+let BARREL_SKIN = null;
+function barrelSkin() {
+  if (BARREL_SKIN || !HAS_DOM) {
+    return BARREL_SKIN || { wood: null, rough: null, normal: null, head: null, iron: null };
+  }
+  const W = 512, Hh = 512;
+  let s = 90210111;
+  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = Hh;
+  const ctx = cv.getContext('2d');
+  // weathered oak: the TONE lives here, so the material's colour stays white
+  ctx.fillStyle = '#a9754a';
+  ctx.fillRect(0, 0, W, Hh);
+  // grain: long wavering streaks along the plank, a few of them dark enough to
+  // read as figure rather than noise
+  for (let i = 0; i < 260; i++) {
+    const x0 = rnd() * W;
+    const dark = rnd() > 0.42;
+    ctx.strokeStyle = dark
+      ? `rgba(96,60,32,${0.05 + rnd() * 0.16})`
+      : `rgba(214,172,126,${0.04 + rnd() * 0.13})`;
+    ctx.lineWidth = 0.7 + rnd() * 2.2;
+    ctx.beginPath();
+    let x = x0;
+    ctx.moveTo(x, 0);
+    for (let y = 0; y <= Hh; y += 26) {
+      x += (rnd() - 0.5) * 5.5;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // knots — three per sheet, which at 30% sampling means most staves have none
+  for (let i = 0; i < 3; i++) {
+    const x = rnd() * W, y = rnd() * Hh, r = 5 + rnd() * 8;
+    const kg = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+    kg.addColorStop(0, 'rgba(72,44,22,0.85)');
+    kg.addColorStop(0.42, 'rgba(120,78,42,0.5)');
+    kg.addColorStop(1, 'rgba(140,96,56,0)');
+    ctx.fillStyle = kg;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 1.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // saw marks across the grain, and speckle so no area is mathematically flat
+  for (let i = 0; i < 140; i++) {
+    const y = rnd() * Hh, x = rnd() * W;
+    ctx.strokeStyle = rnd() > 0.5 ? 'rgba(230,196,156,0.10)' : 'rgba(88,54,28,0.10)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 6 + rnd() * 26, y + (rnd() - 0.5) * 3);
+    ctx.stroke();
+  }
+  const img = ctx.getImageData(0, 0, W, Hh);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = 1 + ((rnd() + rnd() - 1) * 0.07);
+    d[i] *= n; d[i + 1] *= n; d[i + 2] *= n;
+  }
+  ctx.putImageData(img, 0, 0);
+
+  const wood = new THREE.CanvasTexture(cv);
+  wood.colorSpace = THREE.SRGBColorSpace;
+  wood.wrapS = wood.wrapT = THREE.RepeatWrapping;
+  wood.anisotropy = 8;
+
+  // roughness + normal from the same field, so the grain is physically present
+  // in the highlight instead of being painted shading (the pig's rule, applied
+  // to wood: bare oak is rougher where it is darker and late-grown)
+  const src = ctx.getImageData(0, 0, W, Hh).data;
+  const lum = new Float32Array(W * Hh);
+  for (let i = 0; i < W * Hh; i++) {
+    lum[i] = (src[i * 4] * 0.3 + src[i * 4 + 1] * 0.59 + src[i * 4 + 2] * 0.11) / 255;
+  }
+  const rv = document.createElement('canvas');
+  rv.width = W; rv.height = Hh;
+  const rc = rv.getContext('2d');
+  const ri = rc.createImageData(W, Hh);
+  for (let i = 0; i < W * Hh; i++) {
+    const v = clamp(196 - (lum[i] - 0.5) * 150, 90, 250);
+    ri.data[i * 4] = ri.data[i * 4 + 1] = ri.data[i * 4 + 2] = v;
+    ri.data[i * 4 + 3] = 255;
+  }
+  rc.putImageData(ri, 0, 0);
+  const rough = new THREE.CanvasTexture(rv);
+  rough.wrapS = rough.wrapT = THREE.RepeatWrapping;
+
+  const nv = document.createElement('canvas');
+  nv.width = W; nv.height = Hh;
+  const nc = nv.getContext('2d');
+  const ni = nc.createImageData(W, Hh);
+  const at = (x, y) => lum[(((y % Hh) + Hh) % Hh) * W + (((x % W) + W) % W)];
+  for (let y = 0; y < Hh; y++) {
+    for (let x = 0; x < W; x++) {
+      const gx = at(x + 1, y) - at(x - 1, y);
+      const gy = at(x, y + 1) - at(x, y - 1);
+      const o = (y * W + x) * 4;
+      ni.data[o] = clamp(128 - gx * 140, 0, 255);
+      ni.data[o + 1] = clamp(128 - gy * 140, 0, 255);
+      ni.data[o + 2] = 255;
+      ni.data[o + 3] = 255;
+    }
+  }
+  nc.putImageData(ni, 0, 0);
+  const normal = new THREE.CanvasTexture(nv);
+  normal.wrapS = normal.wrapT = THREE.RepeatWrapping;
+
+  /* the HEAD: five boards with dark seams, grain along them, and a darkening
+   * toward the croze. This is the surface the owner's "visible interior bottom"
+   * actually is, so it is drawn as joinery and not as a tone. */
+  const hv = document.createElement('canvas');
+  hv.width = hv.height = 256;
+  const hc = hv.getContext('2d');
+  hc.fillStyle = '#8a5f3b';
+  hc.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 150; i++) {
+    const y0 = rnd() * 256;
+    hc.strokeStyle = rnd() > 0.45 ? 'rgba(74,46,24,0.16)' : 'rgba(190,150,108,0.12)';
+    hc.lineWidth = 0.7 + rnd() * 1.8;
+    hc.beginPath();
+    let y = y0;
+    hc.moveTo(0, y);
+    for (let x = 0; x <= 256; x += 18) { y += (rnd() - 0.5) * 4; hc.lineTo(x, y); }
+    hc.stroke();
+  }
+  for (const f of [0.2, 0.4, 0.6, 0.8]) {
+    hc.fillStyle = 'rgba(48,28,14,0.55)';
+    hc.fillRect(0, f * 256 - 1.2, 256, 2.4);
+    hc.fillStyle = 'rgba(212,172,128,0.14)';
+    hc.fillRect(0, f * 256 + 1.2, 256, 1.1);
+  }
+  // the croze shadow: the head sits in a groove, so its edge is in shade
+  const eg = hc.createRadialGradient(128, 128, 60, 128, 128, 128);
+  eg.addColorStop(0, 'rgba(0,0,0,0)');
+  eg.addColorStop(1, 'rgba(24,12,4,0.5)');
+  hc.fillStyle = eg;
+  hc.fillRect(0, 0, 256, 256);
+  const headTex = new THREE.CanvasTexture(hv);
+  headTex.colorSpace = THREE.SRGBColorSpace;
+
+  /* the IRON: a hoop is a rolled band, so its wear runs AROUND it — hammer
+   * dents, a weld seam and rust blooms, all in the map so the material can stay
+   * one metal. */
+  const iv = document.createElement('canvas');
+  iv.width = 256; iv.height = 32;
+  const ic = iv.getContext('2d');
+  ic.fillStyle = '#8d8781';
+  ic.fillRect(0, 0, 256, 32);
+  for (let i = 0; i < 220; i++) {
+    const x = rnd() * 256, y = rnd() * 32;
+    ic.fillStyle = rnd() > 0.5 ? 'rgba(255,250,240,0.10)' : 'rgba(38,30,24,0.16)';
+    ic.fillRect(x, y, 1 + rnd() * 7, 1 + rnd() * 2);
+  }
+  for (let i = 0; i < 9; i++) {
+    const x = rnd() * 256, y = rnd() * 32, r = 2 + rnd() * 5;
+    const rg = ic.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, 'rgba(150,74,32,0.5)');
+    rg.addColorStop(1, 'rgba(150,74,32,0)');
+    ic.fillStyle = rg;
+    ic.beginPath(); ic.arc(x, y, r, 0, Math.PI * 2); ic.fill();
+  }
+  const ironTex = new THREE.CanvasTexture(iv);
+  ironTex.colorSpace = THREE.SRGBColorSpace;
+  ironTex.wrapS = ironTex.wrapT = THREE.RepeatWrapping;
+  ironTex.repeat.set(6, 1);
+
+  BARREL_SKIN = { wood, rough, normal, head: headTex, iron: ironTex };
+  return BARREL_SKIN;
 }
 
 /* =============================================================== the scene */
@@ -3028,6 +3441,7 @@ export function buildContactShadow(radius = 0.42) {
 }
 
 export default {
-  buildPig, buildBoard, buildCup, buildScene, buildContactShadow, PALETTE,
+  buildPig, buildBoard, buildBarrel, buildCup: buildBarrel, buildScene,
+  buildContactShadow, PALETTE,
   pigTriangles, setExpression, getExpression, EXPRESSIONS,
 };
