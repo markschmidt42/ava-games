@@ -198,20 +198,26 @@ const CUP = [
  * to see into, and buildCup's mouth grew from 1.24 m to 1.60 m because two 1.0 m
  * pigs physically could not rattle inside the old one. `CUP_SWALLOW` is gone.
  * ==================================================================== */
-// On the FRINGE, not on the green: at z 3.55 the cup sat inside the rough, on the
-// playing surface, and read as a bucket someone had left on the mat. At the very
-// edge of the board is where a shaker is actually put down. z came in from 4.35 to
-// 4.12 when the mouth grew to r 0.80, so the resting cup's far rim (4.92) still
-// sits inside the focus box's z 4.95; its near rim (3.32) is still clear of every
-// pig rest (z ≤ 2.68), so they never meet.
-const CUP_REST = [0.0, 0.0, 4.12];
-const CUP_HOLD = [0.0, 1.05, 2.42];  // hovering, mouth at ≈ y 2.15
+// On the FRINGE, not on the green: at z 3.55 the vessel sat inside the rough, on
+// the playing surface, and read as a bucket someone had left on the mat. At the
+// very edge of the board is where a shaker is actually put down. The barrel's
+// widest station is its upper HOOP at r 0.9066 (MEASURED off the built mesh, not
+// off `rBelly` — the iron stands 44 mm proud of the staves), so z 4.02 puts the
+// resting barrel's far side at 4.93, inside the focus box's z 4.95, and its near
+// side at 3.11, still clear of every pig rest (z ≤ 2.68).
+const CUP_REST = [0.0, 0.0, 4.02];
+// The hold height is set by where the pigs RATTLE, not by the prop: the barrel is
+// 1.26 tall against the round-5 cup's 1.28, so the mouth lands at y 2.13 and the
+// two rattle slots stay within 2 cm of the canvas positions they held before.
+const CUP_HOLD = [0.0, 0.87, 2.42];
 const CUP_LIFT_MS = 300;
-const CUP_TIP_MS = 260;              // the throw
+const CUP_TIP_MS = 210;              // the throw — see POUR
 const CUP_HOME_MS = 480;             // …and back down to the felt
 const CUP_TIP_RAD = -1.15;           // ≈66° forward, mouth toward the board
-const GATHER_MS = 260;   // rest -> cup, when a hold starts
-const LAUNCH_MS = 150;   // cup -> the recording's first frame, on release
+const GATHER_MS = 260;   // rest -> barrel, when a hold starts
+/** barrel -> the recording's first frame, on release. SPEC "Shake interaction"
+ *  requires 250–400 ms of VISIBLE travel; see POUR, which owns the shape of it. */
+const LAUNCH_MS = 340;
 const SETTLE_HOLD_MS = 240; // PRD §8.1 beat 1: let the rest land before the reveal
 const RETURN_MS = 220;   // cup -> back down, when a hold is cancelled
 
@@ -246,26 +252,188 @@ const RETURN_MS = 220;   // cup -> back down, when a hold is cancelled
 const CUP_SHAKE = {
   tiltRad: 0.34,        // extra lean of the mouth TOWARD the camera (≈19°)
   entryY: 0.30,         // local height above the mouth the scoop lifts them to
-  slotY: [0.34, 0.70],  // local height each pig rattles around
-  slotX: [-0.04, 0.04],
-  slotZ: [0.04, -0.04],
+  /** Local height each pig rattles around. RE-DERIVED for the barrel's interior
+   *  (floor at 0.095, rim at 1.26, so 1.165 m of usable depth against a pig whose
+   *  own diameter is 1.087): the two slots sit at 0.46 and 0.92, which leaves the
+   *  lower pig's floor clamp (0.40 flat, 0.65 stood on its nose) and the upper
+   *  pig's rim clamp (1.02 flat, 0.78 stood up) both just off the slot, so each
+   *  clamp bites on the extremes of the tumble and reads as a pig kicking off the
+   *  head or knocking the rim rather than as a wall it lives against. */
+  slotY: [0.46, 0.92],
+  slotX: [-0.03, 0.03],
+  slotZ: [0.03, -0.03],
+  /** The scoop's ARC, in metres at its apex.
+   *
+   *  MEASURED on the barrel, over the first 120 frames of a hold: the pigs were
+   *  74–82 mm INSIDE the staves on 6 frames between t = 80 ms and t = 128 ms, at
+   *  local heights 0.82–1.10 — i.e. exactly at the upper wall. The `entryY`
+   *  waypoint is above the rim precisely so the drop-in cannot cross the wall,
+   *  but the straight world-space line from a pig lying on the felt UP to that
+   *  waypoint still passes through the barrel's shoulder, and a barrel is 1.81 m
+   *  across where a cup was 1.6 and leans 31° back while it lifts. So the gather
+   *  arcs: `sin(π·gIn)` is zero at both ends (no discontinuity at either) and
+   *  lifts the path clear of the rim through the middle, which is also what a
+   *  hand does when it scoops two pigs into a barrel. */
+  scoopArc: 0.62,
   jitterIdle: 0.020,    // rattle amplitude at intensity 0 …
-  jitterFull: 0.070,    // … and flat out
+  jitterFull: 0.078,    // … and flat out
   jitterY: 1.35,        // vertical amplitude multiplier (a bounce, not a slide)
   spinIdle: 0.0022,     // rad per ms of the tumble
   spinFull: 0.0125,
   /** How far into the gather the drop into the slot starts / ends, as multiples
    *  of GATHER_MS. The scoop lifts them to the rim first and THEN drops them in,
-   *  because a straight line from the felt to the slot goes through the wall. */
-  dropFrom: 0.70,
+   *  because a straight line from the felt to the slot goes through the wall.
+   *
+   *  `dropFrom` is 1.0, not 0.70, and the 0.30 of overlap was the last place a pig
+   *  could touch the staves. The scoop's own blend (`gIn`) is what carries the pig
+   *  from the felt to the entry waypoint, and while it is running the DRAWN pose is
+   *  only a fraction of the way to a point the containment has cleared — so a drop
+   *  that starts at 0.70 is asking the pig to descend past the rim while it is
+   *  still 21% short of being over the mouth. MEASURED at 0.70, with the derived
+   *  waypoint and `clearRim` both in place: exactly one frame per hold (t = 183 ms,
+   *  the frame `gDrop` first goes positive and hands the pig from the approach rule
+   *  to the containment rule) still put 11 hull vertices 25.6 mm into the rim. At
+   *  1.0 the two schedules are consecutive rather than overlapping: while the pig
+   *  approaches, `clearRim` owns it; from the instant it arrives, the drawn pose IS
+   *  the contained point. The pigs reach their slots at 507 ms instead of 429 ms,
+   *  which is still half the 1 s intensity ramp. */
+  dropFrom: 1.0,
   dropSpan: 0.95,
-  /** Keep a pig's CENTRE this far inside the interior wall. It is the pig's half
-   *  length, deliberately: at that pad a fully horizontal pig cannot get an end
-   *  through the wall at any yaw, which makes containment geometry rather than a
-   *  tuned guess. The lateral offset is SCALED to fit rather than clipped, so
-   *  when the rattle does reach the limit it rides the wall instead of sticking
-   *  to a flat spot. */
-  wallPad: 0.50,
+  /** Clearance kept between the pig's own extreme vertices and the cup's inner
+   *  surface, in board-metres.
+   *
+   *  It REPLACES `wallPad`, which was 0.50 — "the pig's half length,
+   *  deliberately", and the deliberate part is what made it wrong. A shake audit
+   *  measured the pigs' vertices against this cup's cone over 2461 frames: up to
+   *  61 mm radially OUTSIDE the wall on ~9% of frames and up to 280 mm BELOW the
+   *  closed base on ~53%. Three compounding reasons, and no single constant could
+   *  have fixed any of them:
+   *    · the farthest vertex is 0.5436 from the origin, not 0.50 (0.5413 of it
+   *      horizontal when the pig lies flat), so the pad was 41 mm short before
+   *      anything moved;
+   *    · the interior radius was read at the pig's CENTRE height, while the
+   *      binding constraint is at its LOWEST vertex — up to 0.30 m further down a
+   *      cone that narrows downward;
+   *    · and there was no floor test at all, so a pig standing on its nose in the
+   *      low slot simply went through the base.
+   *
+   *  Containment is now a per-frame support test (`adapter.pigExtent`) against the
+   *  cup's own cone and closed base, and this number is only the margin: 8 mm,
+   *  which is what covers the 4.6 mm worst-case error of the 208-point support
+   *  hull the test uses. The lateral offset is still SCALED rather than clipped,
+   *  so a pig that reaches the wall rides it instead of sticking to a flat spot.
+   *
+   *  RE-DERIVED for the BARREL (2026-08-11): the margin is unchanged because it
+   *  only ever covered the hull's own 4.6 mm approximation error, but what it is
+   *  measured against is not — `cupInnerR` now reads the barrel's real profile
+   *  (`userData.innerR`, a bulge whose mouth is NARROWER than its belly) instead
+   *  of a cup's monotone cone, and the floor it clamps to is the barrel's planked
+   *  HEAD at 95 mm rather than a disc 14 mm off the bottom of a tube. */
+  hullPad: 0.008,
+  /** How far a nose may cross the rim while rattling. The interior is 1.165 m
+   *  deep and a pig's own diameter is 1.087, so with two pigs stacked the ceiling
+   *  clamp and the floor clamp are 78 mm from meeting; letting the top pig break
+   *  the plane of the rim by a tenth of a metre is what buys the rattle its room
+   *  back, and a snout over the rim of a barrel reads as shaking it HARD. */
+  rimOver: 0.10,
+};
+
+/* =========================================================================
+ * POUR — SPEC "Shake interaction": "Pour-out, not pop-out (owner)".
+ *
+ * "On release the pigs must visibly ROLL out of the barrel — currently they
+ * 'kinda appear'." The old release was `tweenInto` over LAUNCH_MS = 150 ms:
+ * a straight line in position, a shortest-arc slerp in orientation, from
+ * wherever the pig was inside the vessel to the recording's frame 0. Three
+ * things were wrong with it and only one of them was the duration.
+ *
+ *   · the PATH was a chord. A pig 0.4 m inside a barrel and a spawn point out
+ *     over the board are separated by the barrel's own WALL, so the shortest
+ *     line between them goes through it. The pour therefore has to leave through
+ *     the MOUTH, which means the first half of it is a move in the BARREL'S
+ *     frame — and because that frame is tipping while the pig is still in it,
+ *     the tip is what carries the pig out. That is the whole reading the owner
+ *     asked for: the pour is the cause of the throw, not a cut to it.
+ *   · the ROTATION was a slerp to the target, i.e. it stopped tumbling the
+ *     instant the hold ended and rotated the short way instead. The rattle's own
+ *     angular velocity is MEASURED at release (`pig.qPrev`, one frame back) and
+ *     the pour keeps spinning at it, easing onto frame 0's attitude — so the
+ *     tumble is continuous through the release and still lands exactly.
+ *   · and 150 ms of it at 60 fps is nine frames, which is not a travel, it is a
+ *     transition. SPEC asks for 250–400 and `LAUNCH_MS` is 340.
+ *
+ * Presentation only: `to[i]` is still the recording's own frame 0 and the pour
+ * ends exactly on it, so recordings and odds are untouched.
+ * ==================================================================== */
+const POUR = {
+  /** Fraction of LAUNCH_MS the pig spends still inside the barrel, riding its
+   *  frame out through the mouth. 0.42 × 340 ms = 143 ms, by which point the
+   *  barrel is 68% of the way through its 210 ms tip — the pigs come out as it
+   *  commits, not before it starts and not after it has stopped. */
+  exitFrac: 0.42,
+  /** How far past the rim, along the barrel's own axis, the exit waypoint sits.
+   *  A pig is 1.0 m long, so clearing the rim by a third of that is what stops
+   *  a rump from sweeping back through the staves as the tumble carries on. */
+  clearY: 0.34,
+  /** The exit waypoint keeps this fraction of the pig's sideways offset in the
+   *  barrel, so a pig rattling against the wall pours out of THAT side of the
+   *  mouth instead of teleporting to the axis first. */
+  keepLateral: 0.35,
+  /** Cubic-Bezier handle lengths for the airborne half, as fractions of the
+   *  exit→spawn distance. `out` leaves along the mouth's own direction, `in`
+   *  arrives along the RECORDING's initial velocity — which is what makes the
+   *  handoff to frame 0 invisible instead of a corner. */
+  handleOut: 0.42,
+  handleIn: 0.34,
+  /** Tumble carried out of the rattle, rad/ms, clamped: below the floor a pour
+   *  reads as a slide, and above the ceiling the pig strobes. */
+  spinMin: 0.004,
+  spinMax: 0.013,
+  /** The barrel's follow-through: the swing carries this fraction PAST its mark
+   *  (0.13 × CUP_TIP_RAD = 7.5°) over the last 40% of the tip, and the return
+   *  phase unwinds it from there. That is the difference between a pour and a
+   *  hinge — see stepCup, where the first arithmetic for this never exceeded the
+   *  mark at all. */
+  recoil: 0.13,
+  /** How far the barrel may swing to aim its mouth at the spawn side (rad), and
+   *  the fraction of the tip over which that swing happens. */
+  aimMax: 0.42,
+  aimFrac: 0.65,
+  /** THE RETREAT: the fraction of CUP_HOME_MS over which the barrel travels back
+   *  to `CUP_REST`, as opposed to the full window it takes to right itself.
+   *
+   *  It exists because the barrel HOVERS INSIDE THE RELEASE VOLUME and the
+   *  recordings do not know that. `CUP_HOLD` is (0, 0.87, 2.42); physics.js's
+   *  `initialConditions` releases at |x| 1.05–2.10, y 0.8–1.9, z 1.5–2.7, so a
+   *  frame 0 can be as little as 1.13 m from the barrel's axis (MEASURED over 30
+   *  tosses) against staves that stand 0.90 m out and a pig that reaches 0.544 m.
+   *  Frame 0 is the RECORDING's, and `clearBarrel` is careful never to move it —
+   *  so the only way for nothing to intersect is for the prop to be gone by the
+   *  time it arrives. With the lift and the tip sharing one 480 ms window the
+   *  barrel was still 82% of the way up at the handoff (MEASURED, `lift` 0.817 at
+   *  t = 340 ms) and the pigs' own settle frames clipped it by up to 25.9 mm. At
+   *  0.45 it is 71% of the way home instead — 1.55 m from that same spawn, which
+   *  clears the 1.444 m the geometry needs. Reads as a barrel pulled back down
+   *  onto the felt while it is still rocking upright, which is what a hand does. */
+  retreatFrac: 0.45,
+  /** Ceiling on the barrel-clearance correction, in metres — see `clearBarrel`.
+   *
+   *  It is here because the last few millimetres are not worth what they cost. The
+   *  cases that need a LOT of pushing are the ones where the pig's body straddles
+   *  the barrel's 52 mm wall, and there the correction is not small: MEASURED,
+   *  clearing the wood completely on those frames displaced the pig by up to
+   *  455 mm, while the overlap it removed was 26 mm — half a stave, 1.9 CSS px at
+   *  the play camera. Uncapped, the fix is the more visible artefact of the two.
+   *
+   *  0.34 is where the ceiling stops being the binding constraint and becomes a
+   *  rail. MEASURED over 40 tosses (840 pour frames): at 0.22 it clipped 31 of the
+   *  256 corrections and left 64 frames overlapping; at 0.34 it clips 2 of 224 and
+   *  leaves 35, i.e. 95.8% of pour frames touch no wood at all. The worst residual
+   *  is 25.8 mm either way, because that is half a stave's thickness — the depth a
+   *  pig ends at when clearing its outside vertices drags its inside ones into the
+   *  wall — and it is screenshot-verified as reading like a pig tumbling over the
+   *  rim rather than through it. */
+  clearMax: 0.34,
 };
 
 /** Chip projection: how far above a pig's COM the chip's tail points. Whether a
@@ -713,7 +881,11 @@ const adapter = {
       const [pigMod, physMod, THREE] = await Promise.all([
         import('./pig.js'), import('./physics.js'), import('three'),
       ]);
-      const { buildScene, buildPig, buildBoard, buildCup, buildContactShadow } = pigMod;
+      // `buildBarrel` is the vessel since the owner's 2026-08-11 art direction;
+      // `buildCup` is the alias pig.js keeps for it, and the fallback is what
+      // makes this adapter survive an older pig.js.
+      const { buildScene, buildPig, buildBoard, buildContactShadow } = pigMod;
+      const buildVessel = pigMod.buildBarrel || pigMod.buildCup;
       const { PigSim, TrajectoryCache, posePlacement } = physMod;
       if (
         typeof buildScene !== 'function' ||
@@ -753,12 +925,24 @@ const adapter = {
       // the silhouette is retuned (round 3 retuned it). The AABB's far corner is the
       // bound, not the farthest vertex: see REVEAL.pigR.
       this._pigR = this.measurePigR();
+      // …and the shape, not just the radius: the cup's containment is a support
+      // test against the pig's own extreme vertices (see measurePigHull).
+      this._pigHull = this.measurePigHull();
 
-      // The shaker. Degrades to nothing if pig.js is an older build without it,
-      // because a missing prop must never cost the player the game.
-      this.cupState = { lift: 0, tip: 0, tilt: 0 };
-      this.cup = typeof buildCup === 'function' ? buildCup() : null;
+      // The shaker — a BARREL since the owner's 2026-08-11 note; the CUP_* names
+      // are kept deliberately (they are the staging hooks dev/shake-test.html
+      // asserts on, and renaming them would only move the risk). Degrades to
+      // nothing if pig.js is an older build without it, because a missing prop
+      // must never cost the player the game.
+      this.cupState = { lift: 0, tip: 0, tilt: 0, aim: 0 };
+      this.cup = typeof buildVessel === 'function' ? buildVessel() : null;
       if (this.cup) {
+        /* The AIM is a world-Y rotation applied OUTSIDE the tip, so the default
+         * XYZ order (R = Rx·Ry·Rz, i.e. yaw INSIDE the tip, where it cannot turn
+         * the mouth at all) is wrong for it. YXZ gives R = Ry·Rx·Rz: the barrel
+         * tips about its own pivot and the whole tipped barrel then swings to
+         * face the spawn side. */
+        this.cup.rotation.order = 'YXZ';
         this.cupShadow = buildContactShadow ? buildContactShadow(0.72) : null;
         if (this.cupShadow) this.scene.scene.add(this.cupShadow);
         this.scene.scene.add(this.cup);
@@ -775,6 +959,13 @@ const adapter = {
       this._qa = new THREE.Quaternion();
       this._qb = new THREE.Quaternion();
       this._qc = new THREE.Quaternion();
+      // the pour's own scratch (see pourInto / rattleSpin): the measured rattle
+      // delta, the barrel-local attitude the containment test needs, the barrel's
+      // world quaternion, and the tumble axis
+      this._qP = new THREE.Quaternion();
+      this._qR = new THREE.Quaternion();
+      this._qE = new THREE.Quaternion();
+      this._axP = new THREE.Vector3(0, 1, 0);
       this._camBase = new THREE.Vector3();
       this._camShake = new THREE.Vector3();
       // reveal-camera scratch: an aim helper (position + lookAt → quaternion),
@@ -940,6 +1131,107 @@ const adapter = {
 
   pigR() { return this._pigR || REVEAL.pigR; },
 
+  /**
+   * The pig's SUPPORT HULL: a small set of its own extreme vertices, kept so that
+   * "is this pig inside the cup" can be answered per frame against the mesh
+   * instead of against a guessed radius.
+   *
+   * Why a set and not a number. A shake audit measured the pigs' vertices against
+   * the cup's cone over 2461 frames and found them 61 mm outside the wall and
+   * 280 mm below the closed base, because `CUP_SHAKE.wallPad` was a single
+   * constant standing in for the pig's reach — and one constant cannot be right
+   * for a tumbling body: a pig lying flat reaches 0.541 m sideways but only
+   * 0.298 m down, while stood on its nose those two swap. A bounding SPHERE is
+   * correct and costs the rattle its whole envelope (0.5436 m in every direction
+   * at once). What the containment actually needs is two numbers PER FRAME —
+   * how far below the origin the lowest vertex is, and how far out the widest
+   * one — and those are support values, so they live on the hull.
+   *
+   * The hull is the argmax vertex over 256 evenly spread directions (208 distinct
+   * points for this mesh). VERIFIED against the full 6611-vertex cloud over 400
+   * random rotations: the subset understates the drop by at most 4.6 mm and the
+   * horizontal reach by at most 1.3 mm, which is what `CUP_SHAKE.hullPad`
+   * (8 mm) covers.
+   *
+   * @returns {Float32Array} xyz triples
+   */
+  measurePigHull() {
+    const g = this.pigs?.[0]?.group;
+    if (!g) return new Float32Array(0);
+    const verts = [];
+    const v = new this.THREE.Vector3();
+    g.updateMatrixWorld(true);
+    g.traverse((o) => {
+      const pos = o.isMesh && o.geometry?.attributes?.position;
+      if (!pos) return;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        verts.push(v.x, v.y, v.z);
+      }
+    });
+    const n = verts.length / 3;
+    if (!n) return new Float32Array(0);
+    const keep = new Set();
+    const DIRS = 256;
+    const ga = Math.PI * (3 - Math.sqrt(5));
+    for (let d = 0; d < DIRS; d++) {
+      const dy = 1 - (2 * d + 1) / DIRS;
+      const rr = Math.sqrt(Math.max(0, 1 - dy * dy));
+      const th = ga * d;
+      const dx = Math.cos(th) * rr, dz = Math.sin(th) * rr;
+      let best = -Infinity, bi = 0;
+      for (let i = 0; i < n; i++) {
+        const s = verts[i * 3] * dx + verts[i * 3 + 1] * dy + verts[i * 3 + 2] * dz;
+        if (s > best) { best = s; bi = i; }
+      }
+      keep.add(bi);
+    }
+    const out = new Float32Array(keep.size * 3);
+    let k = 0;
+    for (const i of keep) {
+      out[k++] = verts[i * 3]; out[k++] = verts[i * 3 + 1]; out[k++] = verts[i * 3 + 2];
+    }
+    return out;
+  },
+
+  /**
+   * The rotated pig's vertical drop and horizontal reach, in the frame `q` is
+   * expressed in. Reused scratch, no allocation: this runs twice a frame during
+   * a hold.
+   * @param {THREE.Quaternion} q
+   * @returns {{yMin:number, yMax:number, rH:number}}
+   */
+  pigExtent(q) {
+    const hull = this._pigHull;
+    const out = this._extent || (this._extent = { yMin: 0, yMax: 0, rH: 0 });
+    if (!hull || !hull.length) {
+      const r = this.pigR();
+      out.yMin = -r; out.yMax = r; out.rH = r;
+      return out;
+    }
+    // quaternion → rotation rows, so each vertex costs 9 multiplies and no
+    // Vector3 round trip
+    const x = q.x, y = q.y, z = q.z, w = q.w;
+    const xx = x * x, yy = y * y, zz = z * z;
+    const xy = x * y, xz = x * z, yz = y * z, wx = w * x, wy = w * y, wz = w * z;
+    const m00 = 1 - 2 * (yy + zz), m01 = 2 * (xy - wz), m02 = 2 * (xz + wy);
+    const m10 = 2 * (xy + wz), m11 = 1 - 2 * (xx + zz), m12 = 2 * (yz - wx);
+    const m20 = 2 * (xz - wy), m21 = 2 * (yz + wx), m22 = 1 - 2 * (xx + yy);
+    let yMin = Infinity, yMax = -Infinity, r2 = 0;
+    for (let i = 0; i < hull.length; i += 3) {
+      const a = hull[i], b = hull[i + 1], c = hull[i + 2];
+      const py = m10 * a + m11 * b + m12 * c;
+      if (py < yMin) yMin = py;
+      if (py > yMax) yMax = py;
+      const px = m00 * a + m01 * b + m02 * c;
+      const pz = m20 * a + m21 * b + m22 * c;
+      const d2 = px * px + pz * pz;
+      if (d2 > r2) r2 = d2;
+    }
+    out.yMin = yMin; out.yMax = yMax; out.rH = Math.sqrt(r2);
+    return out;
+  },
+
   playBox() {
     if (!this._playBox) {
       const V = this.THREE.Vector3;
@@ -981,13 +1273,17 @@ const adapter = {
     // touches the camera this frame, and re-apply it after
     this.unpunch();
     let moved = false;
+    /* The barrel runs on its own clock, not on `mode` — the throw and the walk
+     * back down to the felt both outlive the frame the mode changed on — and it
+     * goes FIRST because the pour is staged in the barrel's frame: a pig riding
+     * out of the mouth reads a `matrixWorld` that has to be this frame's, not
+     * last frame's. (`stepShake` places it itself, with the rattle amplitude, and
+     * `cupPhase` is null while a hold is running, so this is a no-op there.) */
+    if (this.stepCup(now, dt)) moved = true;
     if (this.mode === 'shake') moved = this.stepShake(now);
     else if (this.mode === 'replay') moved = this.stepReplay(now);
     else if (this.mode === 'reveal') moved = this.stepReveal();
     else if (this.mode === 'tween') moved = this.stepTween(now);
-    // The cup runs on its own clock, not on `mode` — the throw and the walk back
-    // down to the felt both outlive the frame the mode changed on.
-    if (this.stepCup(now, dt)) moved = true;
     if (this.stepPunch()) moved = true;
     // the blink / squash-pop / particle burst age on real time and keep the
     // canvas painting for as long as they run
@@ -1289,11 +1585,19 @@ const adapter = {
     // a little lean back as it lifts, so the lift has a direction; then the
     // shake tilt opens the mouth to the camera; then the throw takes it the
     // other way. All three are the same axis, so they simply add.
+    //
+    // `s.tip` may exceed 1 during the pour's follow-through (see stepCup), and
+    // that is deliberate: the barrel goes past its mark and settles back onto it.
+    // `s.aim` is the yaw that points the mouth at the spawn side; the rotation
+    // order is YXZ so the aim swings the whole TIPPED barrel (see boot).
+    // `tip` arrives already eased (stepCup owns the swing's shape, because the
+    // follow-through has to cross 1 smoothly and a smoothstep flattens exactly
+    // there). 1 = on the mark, >1 = past it during the recoil, and it is only ever
+    // clamped from below.
+    const tipAmt = Math.max(0, s.tip);
     cup.rotation.set(
-      0.20 * f
-      + CUP_SHAKE.tiltRad * clamp(s.tilt, 0, 1)
-      + CUP_TIP_RAD * ease(clamp(s.tip, 0, 1)),
-      0,
+      0.20 * f + CUP_SHAKE.tiltRad * clamp(s.tilt, 0, 1) + CUP_TIP_RAD * tipAmt,
+      s.aim || 0,
       0,
     );
     // …and roll a touch on the rattle, so it never looks like a rigid slide
@@ -1334,17 +1638,45 @@ const adapter = {
     if (!this.cup || !ph) return false;
     if (ph.throwing) {
       const f = (now - ph.t0) / CUP_TIP_MS;
-      this.cupState.tip = Math.min(1, f);
-      // the shake tilt unwinds over the same window: the cup rolls straight
+      const fc = clamp(f, 0, 1);
+      /* THE FOLLOW-THROUGH (SPEC "Pour-out": "the barrel TIPS toward the board
+       * with follow-through (tip + slight recoil)").
+       *
+       * The first version of this line was `fc + recoil·sin(π·fc)·fc` and its
+       * comment claimed the tip "overshoots its mark by `recoil` around the middle
+       * of the swing". It does not: that expression is `fc·(1 + recoil·sin(π·fc))`,
+       * whose maximum over 0…1 is fc = 1 itself — MEASURED across the whole tip,
+       * peak `tip` 1.000, so the swing stopped dead on its mark and `placeCup`'s
+       * whole `tipT > 1` branch was unreachable. A swing that stops on its mark is
+       * a hinge, which is the one thing the requirement names.
+       *
+       * So the overshoot is real now and it lives in the LAST 40% of the swing:
+       * the barrel is 7.5° past its mark when the tip window closes, and the
+       * return phase unwinds it from there — which is what a recoil IS. It is
+       * deliberately late so the first two thirds of the swing, the part the pigs
+       * are still riding, keeps the shape (and the exit direction) it had.
+       *
+       * `tip` is the ANGLE FRACTION, already eased — see placeCup, which used to
+       * ease it a second time. Easing an expression that has to pass smoothly
+       * through 1 cannot work: `ease` flattens to zero slope AT 1 and the
+       * past-the-mark branch is linear, so the barrel would have crept up to its
+       * mark and then snapped past it. */
+      this.cupState.tip = ease(fc) + POUR.recoil * ease(clamp((fc - 0.6) / 0.4, 0, 1));
+      // the shake tilt unwinds over the same window: the barrel rolls straight
       // through upright on its way from "mouth at me" to "mouth at the board",
       // which is exactly the arc a hand makes
       this.cupState.tilt = (ph.tilt0 ?? 0) * Math.max(0, 1 - f);
+      // …and it swings to face the spawn side over the first two thirds of the
+      // tip, so the aim leads the pour instead of trailing it
+      this.cupState.aim = (ph.aim ?? 0) * ease(clamp(f / POUR.aimFrac, 0, 1));
       this.placeCup();
       if (f >= 1) {
         ph.throwing = false;
         ph.t0 = now;
         ph.lift0 = this.cupState.lift;   // where the return starts FROM
         ph.tilt0 = this.cupState.tilt;
+        ph.tip0 = this.cupState.tip;
+        ph.aim0 = this.cupState.aim;
       }
       return true;
     }
@@ -1352,27 +1684,35 @@ const adapter = {
     // then the cup settles onto the felt.
     const f = clamp((now - ph.t0) / CUP_HOME_MS, 0, 1);
     const e = ease(f);
+    // After a THROW the travel home runs on its own, faster clock — see
+    // POUR.retreatFrac: the prop hovers inside the release volume and has to be
+    // out of it before the recordings' own frames get there. A cancelled hold
+    // threw nothing and keeps the single unhurried window it always had.
+    const eBack = ph.threw ? ease(clamp(f / POUR.retreatFrac, 0, 1)) : e;
     this.cupState.tip = (ph.tip0 ?? 1) * (1 - e);
     this.cupState.tilt = (ph.tilt0 ?? 0) * (1 - e);
-    this.cupState.lift = (ph.lift0 ?? 1) * (1 - e);
+    this.cupState.lift = (ph.lift0 ?? 1) * (1 - eBack);
+    this.cupState.aim = (ph.aim0 ?? 0) * (1 - e);
     this.placeCup();
     if (f >= 1) {
       this.cupState.tip = 0;
       this.cupState.tilt = 0;
       this.cupState.lift = 0;
+      this.cupState.aim = 0;
       this.placeCup();
       this.cupPhase = null;
     }
     return true;
   },
 
-  /** Put the cup back on the felt, now, with no animation. */
+  /** Put the barrel back on the felt, now, with no animation. */
   cupHome() {
     this.cupPhase = null;
     if (!this.cup) return;
     this.cupState.lift = 0;
     this.cupState.tip = 0;
     this.cupState.tilt = 0;
+    this.cupState.aim = 0;
     this.placeCup();
   },
 
@@ -1408,16 +1748,199 @@ const adapter = {
   },
 
   /**
-   * The interior radius of the cup at a given local height — a cone, not a
-   * cylinder, so a pig riding low has less room than one near the rim.
+   * The interior radius of the vessel at a given local height.
+   *
+   * The BARREL ships its own profile (`userData.innerR`) and this asks it,
+   * because a barrel is not a cone: it bulges to 0.848 at the belly and comes
+   * back IN to 0.738 at the mouth, so the old `lerp(baseR, mouthR, y/H)` — right
+   * for a cup, and monotone by construction — would have promised a pig riding
+   * high 0.11 m of room the staves do not give it. The lerp survives only as the
+   * fallback for an older pig.js.
    */
   cupInnerR(localY) {
     const ud = this.cup?.userData;
     if (!ud) return 0.5;
+    if (typeof ud.innerR === 'function') return ud.innerR(localY);
     const baseR = ud.baseR ?? 0.46;
     const mouthR = ud.mouthR ?? 0.62;
     const H = ud.height ?? 1.02;
     return baseR + (mouthR - baseR) * clamp(localY / H, 0, 1);
+  },
+
+  /** The cup's closed base, in its own frame — nothing staged inside may go
+   *  below it. Read from the mesh (`userData.floorY`) so the prop and the
+   *  containment cannot disagree. */
+  cupFloorY() { return this.cup?.userData?.floorY ?? 0.012; },
+
+  /** The barrel's OUTER radius at a local height, and the widest station its
+   *  profile reaches over an axial span. The bulge is unimodal with its peak at
+   *  the belly, so the max over [a,b] is the belly when the span contains it and
+   *  the nearer end otherwise — `bellyY` comes from the mesh for the same reason
+   *  `innerR` does, and the sampled fallback covers a pig.js that predates it. */
+  cupOuterR(localY) {
+    const ud = this.cup?.userData;
+    if (!ud) return 0.5;
+    if (typeof ud.outerR === 'function') return ud.outerR(localY);
+    return this.cupInnerR(localY) + 0.052;
+  },
+
+  cupOuterMax(a, b) {
+    const ud = this.cup?.userData;
+    const bellyY = ud?.bellyY;
+    if (typeof bellyY === 'number') return this.cupOuterR(clamp(bellyY, a, b));
+    let r = 0;
+    for (let k = 0; k <= 4; k++) r = Math.max(r, this.cupOuterR(a + ((b - a) * k) / 4));
+    return r;
+  },
+
+  /**
+   * The smallest radial push — in the barrel's own xz plane, straight away from
+   * its axis — that takes every one of the pig's hull vertices out of the
+   * barrel's WOOD. 0 when nothing is in it.
+   *
+   * The pour needs this because the barrel HOVERS INSIDE THE RELEASE VOLUME.
+   * `CUP_HOLD` is (0, 0.87, 2.42) and physics.js releases the recordings at
+   * |x| 1.05–2.10, y 0.8–1.9, z 1.5–2.7, so a frame 0 in the near-inner corner of
+   * that box sits 1.08 m from the barrel's axis (MEASURED over 30 tosses) against
+   * staves standing 0.90 m out and a pig reaching 0.544 m. Worse, a barrel tipped
+   * 66° puts its MOUTH at z 1.4, forward of most of the corridor, so the airborne
+   * cubic from the mouth back to a deep spawn flies straight through the prop.
+   * MEASURED before any clamp, a Trotter spawning at x 1.07, z 2.45: 26 hull
+   * vertices up to 71.7 mm inside the staves across 5 frames — on a screenshot, a
+   * pink snout sticking out of the middle of the barrel's face.
+   *
+   * **Per VERTEX and exact, not a support-value estimate**, and that distinction
+   * is the difference between a clearance and a shove. Bounding the pig by its
+   * horizontal reach (`pigExtent().rH`, the mirror of what the rattle's
+   * containment uses) asks the pig's ORIGIN to stand `outerR + rH + pad` = 1.45 m
+   * off the axis whatever its attitude, and MEASURED that displaced a pouring pig
+   * by up to 605 mm — a bigger lie than the 72 mm clip it was fixing. A radial
+   * push moves every vertex along one direction without changing its HEIGHT, so
+   * the barrel's radius at each vertex is fixed and the push each one needs is a
+   * single quadratic; the answer is their maximum.
+   *
+   * **TWO escapes, and the cheaper one wins.** A pig mid-flight, off to one side at
+   * barrel height, leaves through the OUTER WALL — that is the radial answer. A pig
+   * that has just left the mouth is directly over the barrel with its origin near
+   * the axis, and pushing THAT one "outward" would take it 1.4 m sideways through
+   * the staves; it leaves by rising the last few centimetres clear of the RIM. So
+   * both distances are measured and `clearBarrel` moves whichever way is shorter,
+   * exactly as the audit that measures the penetration does.
+   *
+   * @param {THREE.Vector3} v barrel-local position of the pig's origin
+   * @param {THREE.Quaternion} q its attitude in the barrel's frame
+   * @param {{radial:number, axial:number}} out reused scratch
+   */
+  woodEscape(v, q, out) {
+    out.radial = 0; out.axial = 0;
+    const ud = this.cup?.userData, hull = this._pigHull;
+    if (!ud || !hull?.length) return out;
+    const H = ud.height ?? 1.26, floorY = ud.floorY ?? 0;
+    const pad = CUP_SHAKE.hullPad;
+    /* A pig whose ORIGIN is in the WELL is the rattle's containment to keep, not
+     * this one's: it is riding out through the mouth, and either escape applied to
+     * it means straight through the barrel. MEASURED without this test (and with a
+     * support-value bound instead of the per-vertex one): the pour's first frames
+     * displaced the pigs 1307, 1287 and 1071 mm. */
+    const rc = Math.hypot(v.x, v.z);
+    if (v.y > floorY && v.y < H && rc < this.cupInnerR(v.y)) return out;
+    const x = q.x, y = q.y, z = q.z, w = q.w;
+    const xx = x * x, yy = y * y, zz = z * z;
+    const xy = x * y, xz = x * z, yz = y * z, wx = w * x, wy = w * y, wz = w * z;
+    const m00 = 1 - 2 * (yy + zz), m01 = 2 * (xy - wz), m02 = 2 * (xz + wy);
+    const m10 = 2 * (xy + wz), m11 = 1 - 2 * (xx + zz), m12 = 2 * (yz - wx);
+    const m20 = 2 * (xz - wy), m21 = 2 * (yz + wx), m22 = 1 - 2 * (xx + yy);
+    const dx = rc > 1e-6 ? v.x / rc : 1, dz = rc > 1e-6 ? v.z / rc : 0;
+    let rad = 0, ax = 0, any = false;
+    for (let i = 0; i < hull.length; i += 3) {
+      const a = hull[i], b = hull[i + 1], c = hull[i + 2];
+      const py = m10 * a + m11 * b + m12 * c + v.y;
+      if (py < 0 || py > H) continue;                 // clear of the barrel's span
+      const px = m00 * a + m01 * b + m02 * c + v.x;
+      const pz = m20 * a + m21 * b + m22 * c + v.z;
+      const r = Math.hypot(px, pz);
+      const Ro = this.cupOuterR(py);
+      if (r > Ro) continue;                           // already outside the shell
+      if (py > floorY && r < this.cupInnerR(py)) continue;   // inside the cavity
+      any = true;
+      // |(px,pz) + d·(dx,dz)| = Ro + pad, solved for the positive root
+      const R = Ro + pad, pd = px * dx + pz * dz;
+      const d = -pd + Math.sqrt(Math.max(0, pd * pd - r * r + R * R));
+      if (d > rad) rad = d;
+      const l = H + pad - py;                          // …or up over the rim
+      if (l > ax) ax = l;
+    }
+    if (!any) return out;
+    // no radial direction to push along when the origin sits on the axis
+    out.radial = rc > 1e-6 ? rad : Infinity;
+    out.axial = ax;
+    return out;
+  },
+
+  /**
+   * Move a pig all the way out of the barrel's wood, the short way, and report how
+   * far it went. `v` is left at the cleared point.
+   *
+   * ITERATED, because one push is not a solution: clearing the vertices that are
+   * IN the wood drags the ones that were in the CAVITY out through the same 52 mm
+   * wall, and those were not in the first pass's set. MEASURED with a single pass:
+   * the residual penetration pinned to exactly 26.0 mm — half the stave thickness —
+   * on 67 of 420 pour frames. The direction and the escape mode are chosen once, on
+   * the first pass, so the displacement stays a single scalar along a fixed axis
+   * and successive passes cannot oscillate.
+   *
+   * @param {{radial:number, axial:number, axialMode?:boolean}} e reused scratch;
+   *   `axialMode` is set to the escape that was taken.
+   */
+  escapeTotal(v, q, e) {
+    const ox = v.x, oy = v.y, oz = v.z;
+    const rc = Math.hypot(ox, oz) || 1;
+    let axial = false, total = 0;
+    for (let it = 0; it < 4; it++) {
+      this.woodEscape(v, q, e);
+      if (it === 0) {
+        if (!(e.radial > 0) && !(e.axial > 0)) { e.axialMode = false; return 0; }
+        axial = e.axial <= e.radial;
+      }
+      const step = axial ? e.axial : e.radial;
+      if (!(step > 0) || !Number.isFinite(step)) break;
+      total += step;
+      if (axial) v.y = oy + total;
+      else { v.x = ox + (ox / rc) * total; v.z = oz + (oz / rc) * total; }
+    }
+    e.axialMode = axial;
+    return total;
+  },
+
+  /**
+   * Hold a pig that is being SCOOPED UP over the barrel's rim: while it is still
+   * laterally over the prop, its lowest vertex may not be below the rim. See
+   * stepShake, where this is the third and last of the three things that make the
+   * gather clear the staves (a derived waypoint, an arc, and this).
+   *
+   * Only ever LIFTS, only along the barrel's own axis, and only before the drop-in
+   * — once `gDrop` is running the pig is descending into the cavity and the
+   * containment clamp owns it.
+   */
+  clearRim(pig) {
+    const cup = this.cup, ud = cup?.userData;
+    if (!ud) return;
+    const THREE = this.THREE;
+    const inv = (this._clrM || (this._clrM = new THREE.Matrix4()))
+      .copy(cup.matrixWorld).invert();
+    const v = (this._clrV || (this._clrV = new THREE.Vector3()))
+      .set(pig.p[0], pig.p[1], pig.p[2]).applyMatrix4(inv);
+    cup.getWorldQuaternion(this._qE).invert();
+    this._qR.set(pig.q[0], pig.q[1], pig.q[2], pig.q[3]).premultiply(this._qE);
+    const ext = this.pigExtent(this._qR);
+    const H = ud.height ?? 1.26;
+    // clear of the prop altogether? then there is no rim to be under
+    if (Math.hypot(v.x, v.z) >= this.cupOuterMax(0, H) + ext.rH + CUP_SHAKE.hullPad) return;
+    const want = H + CUP_SHAKE.hullPad - ext.yMin;
+    if (v.y >= want) return;
+    v.y = want;
+    v.applyMatrix4(cup.matrixWorld);
+    pig.p[0] = v.x; pig.p[1] = v.y; pig.p[2] = v.z;
   },
 
   /**
@@ -1425,15 +1948,18 @@ const adapter = {
    * berserk in there.
    *
    * The gather is two moves, not one, because a straight line from a pig lying on
-   * the felt to a point 0.4 m up inside a cup passes through the cup's wall. So
-   * the scoop lifts each pig to a point just ABOVE the mouth (`entryY`) and then
-   * drops it in — which is also what a hand does.
+   * the felt to a point 0.4 m up inside the barrel passes through its wall. So the
+   * scoop lifts each pig to a point ABOVE the mouth (`entryY`, derived from the
+   * pig's own rotated drop) on an ARC (`scoopArc`), holds it over the rim while it
+   * gets there (`clearRim`), and only THEN drops it in (`dropFrom` 1.0). All three
+   * are load bearing — see each one's note, and the per-vertex audit that found
+   * what each was missing.
    *
-   * Once they are in, everything is computed in the cup's LOCAL frame and pushed
-   * through `cup.matrixWorld`, so the pigs inherit the cup's lift, its tilt, its
-   * roll and its own rattle for free and cannot come unstuck from it. The
-   * containment is geometric: the lateral offset is scaled to fit inside
-   * `cupInnerR(y) - CUP_SHAKE.wallPad`, and wallPad is the pig's half length.
+   * Once they are in, everything is computed in the barrel's LOCAL frame and pushed
+   * through `cup.matrixWorld`, so the pigs inherit its lift, its tilt, its roll and
+   * its own rattle for free and cannot come unstuck from it. The containment is
+   * geometric and measured against the pig's own hull, not against a constant:
+   * `hypot(lx,lz) + pigExtent().rH ≤ cupInnerR(lowest vertex) - hullPad`.
    */
   stepShake(now) {
     const e = now - this.shakeT0;
@@ -1464,6 +1990,41 @@ const adapter = {
       const from = this.shakeFrom[i];
       const ph = i * 2.3;
 
+      /* One frame of history, taken BEFORE this frame overwrites it: it is what
+       * makes the pour's tumble CONTINUOUS (SPEC: "tumbling rotation continuous
+       * from the rattle"). Deriving the spin from `spin` and the two jitter axes
+       * instead would work today and drift the moment the rattle's shape changes;
+       * measuring the delta the player actually SAW cannot. World frame. */
+      if (!pig.qPrev) pig.qPrev = [0, 0, 0, 1];
+      pig.qPrev[0] = pig.q[0]; pig.qPrev[1] = pig.q[1];
+      pig.qPrev[2] = pig.q[2]; pig.qPrev[3] = pig.q[3];
+      pig.qPrevAt = pig.qAt ?? (now - 16);
+
+      /* --- containment, measured against the pig's OWN GEOMETRY --------------
+       * The attitude this pig wears IN THE CUP'S FRAME this frame is `this._qa`,
+       * and it is computed FIRST because three separate things need it: the
+       * scoop's entry clearance, the rim clamp and the wall clamp. `pigExtent`
+       * returns the rotated hull's drop and horizontal reach, and the two
+       * containment constraints follow directly:
+       *
+       *   floor   ly + yMin ≥ floorY            (the base is closed)
+       *   wall    hypot(lx,lz) + rH ≤ innerR(ly + yMin)
+       *
+       * The wall test reads the profile at the LOWEST vertex because the barrel
+       * narrows downward from its belly, so that is the tightest radius any
+       * vertex of this pig sees; every vertex's own distance from the axis is at
+       * most the centre's plus rH. Together they are what makes "the pigs are
+       * inside the barrel" a statement about the mesh instead of about a
+       * constant.
+       *
+       * The floor clamp is also FELT, not just correct: as the pig tumbles
+       * through vertical its drop grows from 0.30 to 0.54, so the clamp lifts it
+       * and it reads as kicking off the head of the barrel. */
+      this._qa.setFromAxisAngle(this._axA, now * spin + ph);
+      this._qb.setFromAxisAngle(this._axB, -now * spin * 1.37 + ph);
+      this._qa.multiply(this._qb);
+      const ext = this.pigExtent(this._qa);
+
       // --- where the pig wants to be, in the cup's own frame -----------------
       const slotY = CUP_SHAKE.slotY[i] ?? 0.4;
       // a bounce: |sin| kicks off the bottom of the well rather than gliding
@@ -1475,17 +2036,37 @@ const adapter = {
       let lz = (CUP_SHAKE.slotZ[i] ?? 0)
         + Math.cos(now * 0.027 + ph * 1.3) * jit
         + Math.cos(now * 0.067 + ph * 0.7) * jit * 0.45;
-      // the entry point of the scoop, and the drop into the slot
-      const entryY = H + CUP_SHAKE.entryY;
+      /* The entry point of the scoop, and the drop into the slot.
+       *
+       * `CUP_SHAKE.entryY` is a FLOOR on the clearance, not the clearance: the
+       * waypoint has to hold the pig's own LOWEST VERTEX above the rim, and a
+       * tumbling pig's drop is anywhere between 0.298 (flat) and 0.5436 (stood on
+       * its nose). MEASURED with the constant 0.30 alone: on 4 frames of the
+       * 260 ms gather (t = 133…183 ms, while the barrel is still rising and leaning
+       * back) the scooped pig put up to 8 hull vertices as much as 25.9 mm INSIDE
+       * the staves, because a pig standing on end at H + 0.30 has its snout a
+       * quarter of a metre below the rim. Deriving it from `ext.yMin` — the same
+       * support value the wall clamp uses — makes "the drop-in cannot cross the
+       * wall" true for every attitude instead of only for a flat one. */
+      const entryY = H + Math.max(CUP_SHAKE.entryY, CUP_SHAKE.hullPad - ext.yMin);
       ly = entryY + (ly - entryY) * gDrop;
       lx *= gDrop;
       lz *= gDrop;
-      // …and containment: scale (don't clip) the lateral offset to fit
-      const maxR = Math.max(0.02, this.cupInnerR(ly) - CUP_SHAKE.wallPad);
-      const r = Math.hypot(lx, lz);
-      if (r > maxR) { const k = maxR / r; lx *= k; lz *= k; }
 
       if (cup) {
+        const pad = CUP_SHAKE.hullPad;
+        /* The RIM, which the cup never had a test for because a cup that is
+         * 1.28 deep with its slots at 0.48/0.94 kept the top pig 0.34 below it by
+         * arithmetic. It matters here: `min` is applied against the same
+         * entry→slot blend `ly` was built from (`lerp(entryY, target, gDrop)` is
+         * monotone in the target), so clamping the ceiling cannot fight the
+         * scoop, which comes in from ABOVE the rim by construction. */
+        const ceil = H + CUP_SHAKE.rimOver - ext.yMax;
+        ly = Math.min(ly, entryY + (ceil - entryY) * gDrop);
+        ly = Math.max(ly, this.cupFloorY() + pad - ext.yMin);
+        const maxR = Math.max(0, this.cupInnerR(ly + ext.yMin) - ext.rH - pad);
+        const r = Math.hypot(lx, lz);
+        if (r > maxR) { const k = maxR / r; lx *= k; lz *= k; }
         this._cupPt.set(lx, ly, lz).applyMatrix4(cup.matrixWorld);
       } else {
         // no cup in this build: fall back to the old world-space rattle points
@@ -1493,17 +2074,12 @@ const adapter = {
         this._cupPt.set(c[0] + lx, c[1] + ly - slotY, c[2] + lz);
       }
 
-      // --- blend out of the resting pose over the scoop ----------------------
-      pig.p[0] = from.p[0] + (this._cupPt.x - from.p[0]) * gIn;
-      pig.p[1] = from.p[1] + (this._cupPt.y - from.p[1]) * gIn;
-      pig.p[2] = from.p[2] + (this._cupPt.z - from.p[2]) * gIn;
-
-      // rattle: two out-of-phase axis rotations, blended in as the pig is
+      // rattle: the cup-frame attitude computed above, blended in as the pig is
       // scooped up so it never snaps out of its resting attitude, then carried
-      // into the cup's own frame so a tilted cup tumbles its contents with it
-      this._qa.setFromAxisAngle(this._axA, now * spin + ph);
-      this._qb.setFromAxisAngle(this._axB, -now * spin * 1.37 + ph);
-      this._qa.multiply(this._qb);
+      // into the cup's own frame so a tilted cup tumbles its contents with it.
+      // It is resolved BEFORE the position because `clearRim` below needs the
+      // attitude the pig is actually WEARING to know how far its lowest vertex
+      // reaches.
       if (cup) {
         cup.getWorldQuaternion(this._qd);
         this._qa.premultiply(this._qd);
@@ -1511,6 +2087,27 @@ const adapter = {
       this._qb.set(from.q[0], from.q[1], from.q[2], from.q[3]);
       this._qc.slerpQuaternions(this._qb, this._qa, gIn);
       pig.q[0] = this._qc.x; pig.q[1] = this._qc.y; pig.q[2] = this._qc.z; pig.q[3] = this._qc.w;
+
+      // --- blend out of the resting pose over the scoop ----------------------
+      // …on an ARC, not a chord: see CUP_SHAKE.scoopArc, which is what keeps the
+      // pig's own vertices out of the staves on the way in.
+      pig.p[0] = from.p[0] + (this._cupPt.x - from.p[0]) * gIn;
+      pig.p[1] = from.p[1] + (this._cupPt.y - from.p[1]) * gIn
+        + CUP_SHAKE.scoopArc * Math.sin(Math.PI * gIn);
+      pig.p[2] = from.p[2] + (this._cupPt.z - from.p[2]) * gIn;
+      /* …and the arc is still not a promise. `entryY` puts the WAYPOINT above the
+       * rim and `scoopArc` bows the path up to it, but the path is a world-space
+       * blend from a pig lying on the felt while the barrel is itself rising and
+       * leaning 11° back through the same 260 ms, so the two can still meet at the
+       * shoulder. MEASURED with the waypoint derived and the arc at 0.62: on 2–4
+       * frames of every hold (t = 133…183 ms) a scooped pig put up to 25.8 mm of
+       * leg inside the rim's end grain. Before the drop-in starts, the pig is
+       * therefore lifted along the barrel's own axis until its lowest vertex is
+       * over the rim — the same "come in from above" rule the waypoint states,
+       * applied to the path rather than to its endpoint. */
+      if (cup && gDrop <= 0) this.clearRim(pig);
+
+      pig.qAt = now;
 
       // They stay DRAWN for the whole hold — that is must-fix 1. The contact
       // patch does not: a shadow on the felt under a pig that is a metre up
@@ -1685,22 +2282,28 @@ const adapter = {
     this.faces('neutral');
     this.skip = false;
     this.cameraShake(0);
-    // THE THROW. The cup is already up and rattling; tipping it toward the board
-    // over the same window the pigs use to leave it is the windup the round-2
-    // review found missing, and it is what makes LAUNCH_MS read as a release
-    // rather than as a teleport. `cupPhase` then walks it back down to the felt.
+    // THE THROW. The barrel is already up and rattling; tipping it toward the
+    // board over the same window the pigs use to leave it is the windup the
+    // round-2 review found missing.
     //
     // `from` above is a snapshot of wherever the pigs actually are, which since
-    // must-fix 1 is INSIDE the cup — so LAUNCH_MS's blend into the recording's
-    // first frame is the pour, with no extra machinery (SPEC allows ≤150 ms and
-    // LAUNCH_MS is exactly 150).
+    // must-fix 1 is INSIDE the barrel — but a snapshot is not a pour, and "they
+    // kinda appear" was the owner's verdict on treating it as one. `armPour`
+    // turns it into a path out through the mouth with the tumble carried through
+    // it; see POUR and `pourInto`.
     for (const pig of this.pigs) {
       pig.group.visible = true;
       pig.hideShadow = false;
       if (pig.shadow) pig.shadow.visible = true;
     }
     this.shakeDrive = null;
-    this.cupPhase = { throwing: true, t0: performance.now(), tilt0: this.cupState.tilt };
+    this.cupPhase = {
+      throwing: true, threw: true, t0: performance.now(), tilt0: this.cupState.tilt,
+      // aim first: the pour's exit direction is the AIMED mouth's direction, so
+      // the barrel has to know where it is throwing before a pig leaves it
+      aim: this.aimYaw(to),
+    };
+    this.armPour(from, to, list, which);
     this.mode = 'replay';
     return new Promise((resolve) => {
       this._playDone = resolve;
@@ -1742,6 +2345,7 @@ const adapter = {
     // after a skip).
     this.deliverSettles(true);
     this.playState = null;
+    this.pour = null;
     this.mode = 'idle';
     // The cup's throw+return is driven by the RENDER loop, so a starved renderer
     // can leave it hanging in mid-air — MEASURED with the pane hidden: the toss
@@ -1788,6 +2392,266 @@ const adapter = {
     if (this.onPigSettle) this.onPigSettle(i, call);
   },
 
+  /* ------------------------------------------------------------- the pour
+   * SPEC "Shake interaction" → "Pour-out, not pop-out". See the POUR block for
+   * why the old 150 ms straight blend could not read as one.
+   * ---------------------------------------------------------------------- */
+
+  /**
+   * The yaw that points the barrel's mouth at the spawn side, so the pour reads
+   * as the CAUSE of the throw rather than as a coincidence.
+   *
+   * Aimed as a lateral LEAD over a forward reach of at least 0.6 m rather than
+   * straight at the midpoint: the lanes spawn at z 1.5–2.7 and the barrel hovers
+   * at z 2.42, so a pig can legitimately spawn BEHIND the barrel's own station,
+   * and `atan2` at the target would then swing the mouth away from the board
+   * entirely. A lead is monotone in the sideways offset and always forward.
+   *
+   * @param {{p:number[]}[]} to  the recordings' frame-0 states
+   */
+  aimYaw(to) {
+    if (!this.cup || !to?.length) return 0;
+    let tx = 0, tz = 0;
+    for (const s of to) { tx += s.p[0]; tz += s.p[2]; }
+    tx /= to.length; tz /= to.length;
+    const dx = tx - CUP_HOLD[0], dz = tz - CUP_HOLD[2];
+    // the mouth's horizontal direction after a yaw ψ is (−sinψ, −cosψ): the tip
+    // is about +X and the rotation order is YXZ, so +ψ swings the mouth toward −X
+    const psi = -Math.atan2(dx, Math.max(0.6, -dz));
+    return clamp(psi, -POUR.aimMax, POUR.aimMax);
+  },
+
+  /**
+   * The world-frame tumble the rattle was carrying at the instant of release,
+   * measured from the last frame it actually drew (see stepShake's `qPrev`).
+   * @returns {{ax:number, ay:number, az:number, rate:number}} unit axis, rad/ms
+   */
+  rattleSpin(i) {
+    const pig = this.pigs[i];
+    // a pour that never had a rattle (Quick Toss, reduced motion) still tumbles,
+    // just at the floor rate: a pig that translates without rotating reads as a
+    // slide, and this is the one number the shake cannot supply
+    const dflt = { ax: 0.36, ay: 0.80, az: 0.48, rate: POUR.spinMin };
+    if (!pig?.qPrev || pig.qAt == null) return dflt;
+    const dt = pig.qAt - pig.qPrevAt;
+    if (!(dt > 1) || dt > 200) return dflt;
+    // d = q · qPrev⁻¹ — the rotation the last frame of the rattle applied, in
+    // world space, which is the frame the pour spins in
+    const d = this._qP.set(pig.q[0], pig.q[1], pig.q[2], pig.q[3])
+      .multiply(this._qR.set(pig.qPrev[0], pig.qPrev[1], pig.qPrev[2], pig.qPrev[3]).invert());
+    // shortest arc: −q is the same rotation and would report 2π − angle
+    if (d.w < 0) { d.x = -d.x; d.y = -d.y; d.z = -d.z; d.w = -d.w; }
+    const s = Math.hypot(d.x, d.y, d.z);
+    if (s < 1e-6) return dflt;
+    const rate = clamp(2 * Math.atan2(s, d.w) / dt, POUR.spinMin, POUR.spinMax);
+    return { ax: d.x / s, ay: d.y / s, az: d.z / s, rate };
+  },
+
+  /**
+   * Set up one pour per pig: where it starts IN THE BARREL'S FRAME, where it
+   * leaves through the mouth, the tumble it carries out, and the direction its
+   * recording is already moving in at frame 0.
+   *
+   * Everything about the inside half is expressed in the barrel's local frame for
+   * the same reason the rattle is: the barrel is tipping, recoiling and swinging
+   * to aim throughout, and a world-space path would have to re-derive all three
+   * every frame to stay in the mouth.
+   */
+  armPour(from, to, list, which) {
+    this.pour = null;
+    const cup = this.cup;
+    if (!cup || !this.THREE) return;
+    const THREE = this.THREE;
+    // A pour needs a barrel the pigs are actually IN. Quick Toss and
+    // prefers-reduced-motion never shake, so nothing was ever scooped up; those
+    // paths get the airborne half only, which is still a throw with a tumble.
+    const inside = this.cupState.lift > 0.5;
+    cup.updateMatrixWorld(true);
+    this._cupInv = (this._cupInv || new THREE.Matrix4()).copy(cup.matrixWorld).invert();
+    const H = cup.userData?.height ?? 1.26;
+    const v = this._pourV || (this._pourV = new THREE.Vector3());
+    const st = this._pourState || (this._pourState = makeState());
+    const out = [];
+    for (let i = 0; i < this.pigs.length; i++) {
+      const f = from[i], t = to[i];
+      v.set(f.p[0], f.p[1], f.p[2]).applyMatrix4(this._cupInv);
+      const start = [v.x, v.y, v.z];
+      // up the barrel's own axis and out past the rim, keeping some of whichever
+      // side of the mouth this pig was rattling against
+      const exit = [
+        v.x * POUR.keepLateral,
+        H + POUR.clearY,
+        v.z * POUR.keepLateral,
+      ];
+      /* The recording's own initial velocity, from its first two frames. It is
+       * what the airborne handle arrives ALONG: without it the blend ends on the
+       * right point travelling the wrong way, and a direction change on the frame
+       * the recording takes over is exactly the "pop" the owner reported. */
+      let vin = [0, -1, 0];
+      try {
+        sampleAt(list[i], list[i].dt ?? 1 / 120, st, which[i]);
+        const dx = st.p[0] - t.p[0], dy = st.p[1] - t.p[1], dz = st.p[2] - t.p[2];
+        const L = Math.hypot(dx, dy, dz);
+        if (L > 1e-6) vin = [dx / L, dy / L, dz / L];
+      } catch { /* a one-frame recording has no direction; the default is down */ }
+      out.push({
+        inside, start, exit, vin,
+        q0: [f.q[0], f.q[1], f.q[2], f.q[3]],
+        spin: this.rattleSpin(i),
+        exitWorld: null,
+      });
+    }
+    this.pour = out;
+  },
+
+  /** Freeze the world-space pose the pig leaves the mouth at — position, and the
+   *  mouth's own outward direction, which is the direction it leaves along. */
+  pourExit(pr) {
+    const v = this._pourV.set(pr.exit[0], pr.exit[1], pr.exit[2])
+      .applyMatrix4(this.cup.matrixWorld);
+    const d = (this._pourD || (this._pourD = new this.THREE.Vector3()))
+      .set(0, 1, 0).applyQuaternion(this.cup.getWorldQuaternion(this._qE)).normalize();
+    return { p: [v.x, v.y, v.z], d: [d.x, d.y, d.z] };
+  },
+
+  /**
+   * The pig's pose `u` (0..1) of the way through the pour.
+   *
+   * Orientation first, because the containment clamp inside the barrel needs the
+   * attitude the pig is WEARING to know how far its lowest vertex reaches — the
+   * same support test the rattle uses, so the pour cannot put a snout through a
+   * stave the rattle would have kept inside.
+   *
+   * @param {number} i pig index
+   * @param {number} u 0..1 through LAUNCH_MS
+   * @param {{p:number[], q:number[]}} out reused scratch
+   */
+  pourInto(i, u, out) {
+    const ps = this.playState;
+    const pr = this.pour?.[i];
+    const target = ps.to[i];
+    if (!pr || !this.cup) { tweenInto(out, ps.from[i], target, ease(u)); return; }
+    const uu = clamp(u, 0, 1);
+
+    /* --- the tumble ------------------------------------------------------
+     * Keep spinning at the rattle's own rate about the rattle's own axis, and
+     * ease that onto frame 0's attitude. At u = 0 the pose IS the release pose
+     * and its angular velocity IS the rattle's (smoothstep's derivative is 0 at
+     * both ends, so the blend contributes nothing there); at u = 1 it is exactly
+     * frame 0. No shortest-arc snap, no stall, no pop. */
+    this._qa.setFromAxisAngle(
+      this._axP.set(pr.spin.ax, pr.spin.ay, pr.spin.az), pr.spin.rate * uu * LAUNCH_MS,
+    );
+    this._qa.multiply(this._qb.set(pr.q0[0], pr.q0[1], pr.q0[2], pr.q0[3]));
+    this._qc.set(target.q[0], target.q[1], target.q[2], target.q[3]);
+    this._qd.slerpQuaternions(this._qa, this._qc, ease(uu));
+    out.q[0] = this._qd.x; out.q[1] = this._qd.y;
+    out.q[2] = this._qd.z; out.q[3] = this._qd.w;
+
+    const ex = pr.inside ? POUR.exitFrac : 0;
+    if (uu < ex) {
+      // --- still inside: ride the barrel's frame out through the mouth -----
+      const g = ease(uu / ex);
+      let lx = pr.start[0] + (pr.exit[0] - pr.start[0]) * g;
+      let ly = pr.start[1] + (pr.exit[1] - pr.start[1]) * g;
+      let lz = pr.start[2] + (pr.exit[2] - pr.start[2]) * g;
+      // the rattle's containment, re-applied to the attitude the pour is wearing
+      // — but only while the pig's lowest vertex is still below the rim, because
+      // above it there is no wall to be inside of
+      this.cup.getWorldQuaternion(this._qE).invert();
+      this._qR.copy(this._qd).premultiply(this._qE);   // qLocal = qBarrel⁻¹ · qWorld
+      const ext = this.pigExtent(this._qR);
+      const pad = CUP_SHAKE.hullPad;
+      ly = Math.max(ly, this.cupFloorY() + pad - ext.yMin);
+      const H = this.cup.userData?.height ?? 1.26;
+      if (ly + ext.yMin < H) {
+        const maxR = Math.max(0, this.cupInnerR(ly + ext.yMin) - ext.rH - pad);
+        const r = Math.hypot(lx, lz);
+        if (r > maxR) { const k = maxR / r; lx *= k; lz *= k; }
+      }
+      const v = this._pourV.set(lx, ly, lz).applyMatrix4(this.cup.matrixWorld);
+      out.p[0] = v.x; out.p[1] = v.y; out.p[2] = v.z;
+      pr.exitWorld = null;
+      return;
+    }
+
+    /* --- airborne: a cubic from the mouth to frame 0 ---------------------
+     * Captured once, on the first frame past the exit, because from here on the
+     * pig is no longer the barrel's problem — and capturing it lazily is also
+     * what makes a starved renderer that skips the whole inside half land
+     * somewhere sane instead of nowhere. */
+    if (!pr.exitWorld) pr.exitWorld = ex > 0 ? this.pourExit(pr) : {
+      p: [ps.from[i].p[0], ps.from[i].p[1], ps.from[i].p[2]],
+      d: [target.p[0] - ps.from[i].p[0], 0.35, target.p[2] - ps.from[i].p[2]],
+    };
+    const E = pr.exitWorld.p, D = pr.exitWorld.d, T = target.p, V = pr.vin;
+    const L = Math.hypot(T[0] - E[0], T[1] - E[1], T[2] - E[2]) || 1;
+    const hOut = POUR.handleOut * L, hIn = POUR.handleIn * L;
+    const dn = Math.hypot(D[0], D[1], D[2]) || 1;
+    const g = ease((uu - ex) / (1 - ex));
+    const m = 1 - g;
+    const w0 = m * m * m, w1 = 3 * m * m * g, w2 = 3 * m * g * g, w3 = g * g * g;
+    for (let k = 0; k < 3; k++) {
+      const c1 = E[k] + (D[k] / dn) * hOut;   // leaves along the mouth's axis …
+      const c2 = T[k] - V[k] * hIn;           // … arrives along the recording's
+      out.p[k] = w0 * E[k] + w1 * c1 + w2 * c2 + w3 * T[k];
+    }
+    this.clearBarrel(out, target, g);
+  },
+
+  /**
+   * Push an airborne pig out of the barrel it just poured from — see
+   * `woodEscape` for why the cubic can pass through the prop at all.
+   *
+   * The one thing this must never do is move the arrival. `frame 0` is the
+   * recording's, not ours, and the recording is allowed to spawn a pig wherever
+   * physics.js put it — including partly inside the barrel's hovering volume, and
+   * MEASURED it does: 5 hull vertices ~25 mm in, on the deep-inner spawns. So the
+   * correction is not "stay clear", it is "stay as clear as the DESTINATION is",
+   * with the destination's own deficit ramped in on the same `g` the path uses. At
+   * g = 1 the pig IS the destination, the two deficits are the same number, and
+   * the push is exactly 0 — the landing is exact by construction rather than by a
+   * fade that has to be trusted.
+   */
+  clearBarrel(out, target, g) {
+    const cup = this.cup;
+    if (!cup?.userData) return;
+    const THREE = this.THREE;
+    const inv = (this._clrM || (this._clrM = new THREE.Matrix4()))
+      .copy(cup.matrixWorld).invert();
+    const v = (this._clrV || (this._clrV = new THREE.Vector3()));
+    const tv = (this._clrT || (this._clrT = new THREE.Vector3()));
+    const eN = (this._escN || (this._escN = { radial: 0, axial: 0 }));
+    const eT = (this._escT || (this._escT = { radial: 0, axial: 0 }));
+    cup.getWorldQuaternion(this._qE).invert();
+    // the pose the pig is WEARING this frame, in the barrel's frame
+    this._qR.set(out.q[0], out.q[1], out.q[2], out.q[3]).premultiply(this._qE);
+    v.set(out.p[0], out.p[1], out.p[2]).applyMatrix4(inv);
+    const ox = v.x, oz = v.z;
+    const total = this.escapeTotal(v, this._qR, eN);
+    if (total <= 0) return;
+    // …and what the destination itself asks for, resolved exactly the same way
+    this._qR.set(target.q[0], target.q[1], target.q[2], target.q[3])
+      .premultiply(this._qE);
+    tv.set(target.p[0], target.p[1], target.p[2]).applyMatrix4(inv);
+    const allow = this.escapeTotal(tv, this._qR, eT);
+    /* The allowance is `g⁴`, not `g`, and the exponent is doing one job: it exists
+     * ONLY so that the arrival is exact, so it should be as close to nothing as
+     * possible for as long as possible and reach 1 exactly at g = 1 — where the pig
+     * IS the destination, both sides resolve identically, and `move` is 0 to the
+     * last bit. It is also measured against the barrel's pose RIGHT NOW while the
+     * arrival happens later, and the barrel is retreating throughout
+     * (POUR.retreatFrac), so evaluated early it overstates what frame 0 will need. */
+    const move = Math.min(POUR.clearMax, total - allow * g * g * g * g);
+    if (move <= 0) return;
+    // `v` holds the fully cleared point; walk it back to the allowed depth
+    const back = total - move;
+    if (eN.axialMode) v.y -= back;
+    else { const r = Math.hypot(ox, oz) || 1; v.x -= (ox / r) * back; v.z -= (oz / r) * back; }
+    v.applyMatrix4(cup.matrixWorld);
+    out.p[0] = v.x; out.p[1] = v.y; out.p[2] = v.z;
+  },
+
   stepReplay(now) {
     const ps = this.playState;
     if (!ps) { this.mode = 'idle'; return false; }
@@ -1797,8 +2661,9 @@ const adapter = {
       const pig = this.pigs[i];
       const out = this._scratch[i];
       if (e < LAUNCH_MS) {
-        // out of the cup and into the first simulated frame
-        tweenInto(out, ps.from[i], ps.to[i], ease(e / LAUNCH_MS));
+        // the POUR: out through the barrel's mouth and into the first simulated
+        // frame, position AND orientation (SPEC "Pour-out, not pop-out")
+        this.pourInto(i, e / LAUNCH_MS, out);
       } else {
         sampleAt(ps.list[i], (e - LAUNCH_MS) / 1000, out, ps.which[i]);
       }
@@ -2874,6 +3739,11 @@ const state = {
   currentIndex: 0,
   turnTotal: 0,
   tossedThisTurn: false,
+  /* What this turn is MADE of — one entry per resolved toss, for the header
+   * ledger (renderTurnLedger). Display only: the score lives in turnTotal, and
+   * this is deliberately NOT persisted, because a resumed turn's history is
+   * decoration and a wrong history is worse than none. */
+  turnRolls: [],
   targetScore: 100,
   // a toss that has been drawn and saved but not yet revealed (PRD §9)
   pending: null,
@@ -2928,11 +3798,17 @@ const dom = {
   addPlayerBtn: $('addPlayerBtn'),
   targetOptions: $('targetOptions'),
   customTarget: $('customTarget'),
+  customTargetBtn: $('customTargetBtn'),
+  customTargetWrap: $('customTargetWrap'),
   startGameBtn: $('startGameBtn'),
   setupHint: $('setupHint'),
+  setupCanvas: $('setupCanvas'),
   // game
   turnName: $('turnName'),
   turnPoints: $('turnPoints'),
+  turnLedger: $('turnLedger'),
+  turnSub: $('turnSub'),
+  hogWildLabel: $('hogWildLabel'),
   penWrap: $('penWrap'),
   penCanvas: $('penCanvas'),
   inputHint: $('inputHint'),
@@ -2969,6 +3845,178 @@ const dom = {
  * Screen management
  * ==================================================================== */
 
+/* =========================================================================
+ * The setup screen's stage — the game's own felt and its own two pigs.
+ *
+ * ROUND-4 LEDGER, and it had survived three rounds: "the one surface every
+ * session opens on is untouched … no canvas on the screen (setup3d false), no
+ * pigs … Everything behind this screen is now 9-grade; the door to it is still a
+ * dialog box."
+ *
+ * It is a SECOND, deliberately cheap scene rather than a re-use of the pen's: the
+ * pen's adapter owns a physics world, a trajectory cache, a cup and a reveal
+ * camera, none of which a title card needs, and its canvas is inside the game
+ * screen's grid. This one is `buildScene` + `buildBoard` + two `buildPig`s on a
+ * slow turntable, and it is DISPOSED the moment the screen leaves — two live
+ * WebGL contexts is exactly the kind of thing that costs a phone its frame rate
+ * during the first toss.
+ *
+ * Everything here degrades to nothing: if the modules fail to load, or WebGL is
+ * unavailable, the setup screen is the felt-gradient panel and the logotype, and
+ * the form works identically. Nothing in the setup FUNCTION (players, target,
+ * start, persistence) touches this object.
+ * ==================================================================== */
+const setupStage = {
+  scene: null,
+  pigs: [],
+  raf: null,
+  t0: 0,
+  bearing: 0,
+  dist: 0,
+  camY: 0,
+  target: null,
+  booting: false,
+  _w: 0,
+  _h: 0,
+
+  async start() {
+    if (!dom.setupCanvas || reducedMotion) return;
+    if (this.scene) { this.play(); return; }
+    if (this.booting) return;
+    this.booting = true;
+    try {
+      const [pigMod, physMod, THREE] = await Promise.all([
+        import('./pig.js'), import('./physics.js'), import('three'),
+      ]);
+      // the screen may have moved on while three modules were loading
+      if (state.screen !== 'setup') { this.booting = false; return; }
+      const { buildScene, buildPig, buildBoard, buildContactShadow, setExpression } = pigMod;
+      const { posePlacement } = physMod;
+      if (typeof buildScene !== 'function' || typeof buildPig !== 'function') {
+        this.booting = false;
+        return;
+      }
+      this.THREE = THREE;
+      this.setExpression = setExpression;
+      this.scene = buildScene(dom.setupCanvas);
+      this.scene.scene.add(buildBoard());
+
+      /* Two pigs, one asleep on its side and one dozing on its feet — the
+       * game's own rest poses through `posePlacement`, so they sit ON the felt
+       * to the same measured grounding as every pose in the pen. */
+      const spots = [
+        { pose: 'side-blank', at: [-0.62, 0.10], yaw: 2.05, expr: 'squint' },
+        { pose: 'trotter', at: [0.66, -0.22], yaw: -0.75, expr: 'neutral' },
+      ];
+      this.pigs = spots.map((s) => {
+        const group = buildPig();
+        const pl = posePlacement(s.pose, { yaw: s.yaw, at: s.at });
+        group.position.set(pl.position[0], pl.position[1], pl.position[2]);
+        // posePlacement hands back a CANNON.Quaternion — x/y/z/w, not an array
+        // (a subscript here silently produces a NaN matrix and a pig that renders
+        // in the shadow pass and nowhere else)
+        const q = pl.quaternion;
+        group.quaternion.set(q.x, q.y, q.z, q.w);
+        group.userData.baseY = pl.position[1];
+        if (typeof setExpression === 'function') setExpression(group, s.expr);
+        this.scene.scene.add(group);
+        const shadow = buildContactShadow ? buildContactShadow(0.5) : null;
+        if (shadow) {
+          shadow.position.set(pl.position[0], 0.004, pl.position[2]);
+          this.scene.scene.add(shadow);
+        }
+        return { group, expr: s.expr };
+      });
+
+      // frame the PIGS, not the board: a title card is a close shot
+      /* The camera aims ABOVE the pigs on purpose: the logotype owns the top of
+       * the stage, so the shot has to compose them into its lower half. Verified
+       * by projection rather than by eye — see the ndc numbers in the SPEC note. */
+      this.target = new THREE.Vector3(0, 0.86, -0.05);
+      this.fit();
+      this.t0 = performance.now();
+      this.booting = false;
+      this.play();
+    } catch (err) {
+      this.booting = false;
+      this.scene = null;
+      console.warn('setup stage unavailable', err);
+    }
+  },
+
+  /** Distance-fit the two pigs for the canvas as it is right now. */
+  fit() {
+    if (!this.scene) return;
+    const THREE = this.THREE;
+    const el = this.scene.renderer.domElement;
+    this._w = el.clientWidth; this._h = el.clientHeight;
+    this.scene.resize(this._w, this._h);
+    /* The framed volume is the two pigs plus a little felt, NOT the board — this
+     * is a title shot. MEASURED at 1280×860 (stage canvas 532×198): the pigs come
+     * out 99×90 px and 83×85 px with their projected corners inside ndc
+     * x −0.37…0.34, y −0.92…0.08, i.e. entirely in the lower half of the stage,
+     * under the logotype, uncropped. */
+    const box = new THREE.Box3(
+      new THREE.Vector3(-1.05, -0.02, -0.72),
+      new THREE.Vector3(1.05, 0.62, 0.72),
+    );
+    // a LOW camera (24°), because this shot is about faces, not about the table
+    this.scene.frame(box, { pitchDeg: 24, margin: 0.98, target: this.target });
+    const cam = this.scene.camera;
+    this.camY = cam.position.y;
+    this.dist = Math.hypot(cam.position.x - this.target.x, cam.position.z - this.target.z);
+  },
+
+  play() {
+    if (!this.scene || this.raf) return;
+    const step = (now) => {
+      this.raf = requestAnimationFrame(step);
+      if (state.screen !== 'setup') return;
+      const el = this.scene.renderer.domElement;
+      if (el.clientWidth !== this._w || el.clientHeight !== this._h) this.fit();
+      const t = (now - this.t0) / 1000;
+      // the turntable: 0.085 rad/s, one revolution every ~74 s
+      const a = -0.5 + Math.sin(t * 0.085) * 0.55;
+      const cam = this.scene.camera;
+      cam.position.set(
+        this.target.x + Math.sin(a) * this.dist,
+        this.camY,
+        this.target.z + Math.cos(a) * this.dist,
+      );
+      cam.lookAt(this.target);
+      // …and they BREATHE, so nothing on the screen is a still image
+      for (let i = 0; i < this.pigs.length; i++) {
+        const p = this.pigs[i];
+        const b = 1 + Math.sin(t * (1.15 + i * 0.22) + i * 1.7) * 0.014;
+        p.group.scale.set(1, b, 1);
+        p.group.position.y = (p.group.userData.baseY ?? 0) + (b - 1) * 0.09;
+        // a blink every few seconds, out of phase
+        if (typeof this.setExpression === 'function') {
+          const cycle = (t + i * 1.9) % 4.4;
+          const want = cycle < 0.13 ? 'squint' : p.expr;
+          this.setExpression(p.group, want);
+        }
+      }
+      this.scene.render();
+    };
+    this.raf = requestAnimationFrame(step);
+  },
+
+  stop() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = null;
+  },
+
+  /** Give the GPU back. Called whenever the setup screen leaves the stage. */
+  dispose() {
+    this.stop();
+    if (!this.scene) return;
+    try { this.scene.dispose(); } catch { /* nothing to give back */ }
+    this.scene = null;
+    this.pigs = [];
+  },
+};
+
 function showScreen(name) {
   state.screen = name;
   for (const [key, el] of Object.entries(dom.screens)) {
@@ -2977,6 +4025,11 @@ function showScreen(name) {
   }
   dom.body.dataset.screen = name;
   window.scrollTo(0, 0);
+
+  // the title stage renders only while it is the screen you are looking at, and
+  // hands its WebGL context back the moment it is not
+  if (name === 'setup') setupStage.start();
+  else setupStage.dispose();
 
   if (name === 'game') {
     acquireWakeLock();
@@ -3048,16 +4101,42 @@ function populateSetupFromPlayers(players) {
 
 function setTargetActive(value) {
   state.targetScore = value;
+  let preset = false;
   [...dom.targetOptions.children].forEach((btn) => {
-    btn.classList.toggle('active', Number(btn.dataset.target) === value);
+    const hit = Number(btn.dataset.target) === value;
+    if (hit) preset = true;
+    btn.classList.toggle('active', hit);
   });
+  // A resumed game whose target is NOT one of the three presets has to be able to
+  // show what it is — otherwise the reveal-on-demand field hides the live setting.
+  if (!preset && dom.customTarget) {
+    dom.customTarget.value = value;
+    showCustomTarget(true, { focus: false });
+  }
 }
 
 dom.targetOptions.addEventListener('click', (event) => {
   const btn = event.target.closest('button[data-target]');
   if (!btn) return;
   dom.customTarget.value = '';
+  // picking a preset also puts the custom field away again
+  showCustomTarget(false);
   setTargetActive(Number(btn.dataset.target));
+});
+
+/* The custom target REVEALS on demand (round-4 ledger: it "is still permanently
+ * visible beside the three presets instead of revealing on demand"), so the
+ * default shape of the question is three buttons. The field itself, the state it
+ * writes and the persistence are untouched. */
+function showCustomTarget(on, { focus = true } = {}) {
+  if (!dom.customTargetWrap || !dom.customTargetBtn) return;
+  dom.customTargetWrap.hidden = !on;
+  dom.customTargetBtn.setAttribute('aria-expanded', String(!!on));
+  dom.customTargetBtn.classList.toggle('active', !!on);
+  if (on && focus) dom.customTarget.focus();
+}
+dom.customTargetBtn?.addEventListener('click', () => {
+  showCustomTarget(dom.customTargetWrap.hidden);
 });
 
 dom.customTarget.addEventListener('input', () => {
@@ -3065,6 +4144,7 @@ dom.customTarget.addEventListener('input', () => {
   if (value > 0) {
     state.targetScore = Math.round(value);
     [...dom.targetOptions.children].forEach((btn) => btn.classList.remove('active'));
+    dom.customTargetBtn?.classList.add('active');
   }
 });
 
@@ -3097,8 +4177,20 @@ function currentPlayer() {
 }
 
 function renderTurnBanner() {
-  dom.turnName.textContent = currentPlayer()?.name ?? '—';
+  const player = currentPlayer();
+  dom.turnName.textContent = player?.name ?? '—';
   dom.turnPoints.textContent = state.turnTotal;
+  if (dom.turnSub) {
+    // banked, and how far there is left to run — the two numbers the header was
+    // making the player look up in the scoreboard
+    const target = state.targetScore || 100;
+    const left = Math.max(0, target - (player?.score ?? 0));
+    dom.turnSub.innerHTML = '';
+    const b = document.createElement('b');
+    b.textContent = player?.score ?? 0;
+    dom.turnSub.append(b, document.createTextNode(` banked · ${left} to go`));
+  }
+  renderTurnLedger();
 }
 
 function bumpTurnPoints() {
@@ -3128,8 +4220,54 @@ function renderScoreboard() {
     pts.textContent = player.score;
 
     li.append(marker, who, pts);
+
+    /* How far along they are. A scoreboard that lists only totals makes the
+     * player do the subtraction ("first to 100" is at the top of the panel), and
+     * on desktop this column had 555 px of empty panel to spend on it. */
+    const prog = document.createElement('div');
+    prog.className = 'prog';
+    const fill = document.createElement('i');
+    const target = state.targetScore || 100;
+    fill.style.width = `${clamp((player.score / target) * 100, 0, 100).toFixed(1)}%`;
+    prog.append(fill);
+    li.append(prog);
+
     dom.scoreList.appendChild(li);
   });
+}
+
+/* =========================================================================
+ * This turn's tosses — the header's middle third (desktop).
+ *
+ * ROUND-4 LEDGER: "the header banner is 864px wide with the player name ending at
+ * x349 and 'THIS TURN' starting at x1011 — 662px of nothing between them". The
+ * void is filled with the one thing a push-your-luck header is missing: what this
+ * turn is actually made of, so "bank or toss again" has its evidence beside it.
+ * It is CSS-hidden in portrait, where the pill has no width to give.
+ * ==================================================================== */
+function renderTurnLedger() {
+  const el = dom.turnLedger;
+  if (!el) return;
+  el.innerHTML = '';
+  const rolls = state.turnRolls || [];
+  if (!rolls.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = state.tossedThisTurn ? '' : 'first toss of the turn';
+    el.append(li);
+    return;
+  }
+  // newest last, and only ever the last few: the pill is one line of chrome
+  for (const r of rolls.slice(-4)) {
+    const li = document.createElement('li');
+    if (!r.points) li.className = 'zero';
+    const name = document.createElement('span');
+    name.textContent = r.name;
+    const pts = document.createElement('b');
+    pts.textContent = r.points > 0 ? `+${r.points}` : '0';
+    li.append(name, pts);
+    el.append(li);
+  }
 }
 
 /* The card is now the ONLY thing game.js paints over the felt besides the
@@ -3239,6 +4377,9 @@ function setTurnState(next) {
 
 function beginTurn(freshGame) {
   setTurnState('ready');
+  // a new turn has no history yet (and a RESUMED one does not get a fake history:
+  // turnRolls is display-only and deliberately not persisted)
+  state.turnRolls = [];
   clearResultCard();
   clearBlink();
   adapter.hideChips();
@@ -3246,11 +4387,62 @@ function beginTurn(freshGame) {
   renderTurnBanner();
   renderScoreboard();
   setActionsEnabled({ toss: true, stop: false, quick: true });
+  showReadyCard(freshGame);
+}
+
+/** The idle card: whose turn it is, and what to do about it. Its own function
+ *  because a CANCELLED hold has to be able to put it back — the shake replaces
+ *  this copy while the gesture is live (see `renderShakeCopy`). */
+function showReadyCard(freshGame = false) {
   if (freshGame) {
-    setResultCard('', `${currentPlayer().name} starts!`, 'Toss the pigs to begin.');
+    setResultCard('', `${currentPlayer().name} starts!`, 'Hold to shake the barrel, let go to toss.');
   } else {
-    setResultCard('', `${currentPlayer().name}'s turn!`, 'Toss the pigs when you\'re ready.');
+    setResultCard('', `${currentPlayer().name}'s turn!`, 'Hold to shake the barrel, let go to toss.');
   }
+}
+
+/* =========================================================================
+ * The hold, in WORDS.
+ *
+ * ROUND-4 LEDGER: "the text layer still never acknowledges the gesture — the
+ * card reads 'Ava starts! / Toss the pigs to begin.' unchanged for the entire
+ * hold, so the anticipation beat builds in no layer but the prop's own bounce."
+ * The cup lifts, the pigs rattle, the audio ramps, the button fills — and the one
+ * layer the player is reading said nothing.
+ *
+ * Three stages, driven by the SAME 0..1 ramp everything else in the shake reads,
+ * so the words cannot disagree with the rattle. Beat 6 ("one text layer at a time
+ * over the felt") is safe: no chips exist during a shake, so the card is alone.
+ *
+ * The copy is deliberately about the GESTURE and never about the outcome. Hold
+ * duration does not feed the draw (Approach B, PRD §6.3) and copy that hinted
+ * otherwise — "the longer you shake, the wilder the toss" — would be a lie the
+ * game would then have to keep.
+ * ==================================================================== */
+const SHAKE_COPY = [
+  { at: 0.00, headline: 'Shaking the cup…', detail: 'Keep holding — the pigs are rattling.' },
+  { at: 0.45, headline: 'Rattling hard!', detail: 'Let go whenever you like.' },
+  { at: 0.85, headline: 'Let it fly!', detail: 'Release to toss the pigs.' },
+];
+let shakeCopyStage = -1;
+function renderShakeCopy(ramp) {
+  let stage = 0;
+  for (let i = SHAKE_COPY.length - 1; i >= 0; i--) {
+    if (ramp >= SHAKE_COPY[i].at) { stage = i; break; }
+  }
+  if (stage === shakeCopyStage) return;
+  shakeCopyStage = stage;
+  const c = SHAKE_COPY[stage];
+  setResultCard('hold', c.headline, c.detail, { icon: 'toss' });
+  // and the control says it too, because the button is where the finger is
+  if (dom.hogWildLabel) {
+    dom.hogWildLabel.textContent = stage === 2 ? 'Let go!' : 'Shaking…';
+  }
+}
+/** Put the toss button's own label back after a hold ends, either way. */
+function resetShakeCopy() {
+  shakeCopyStage = -1;
+  if (dom.hogWildLabel) dom.hogWildLabel.textContent = 'Go Hog Wild';
 }
 
 function nextPlayer() {
@@ -3385,6 +4577,7 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
     player.score = 0;
     state.pending = null;
     state.turnEndPending = true;
+    state.turnRolls.push({ name: 'Oinker', points: 0 });
     saveGame();
 
     setPoseLabels(poseLabel(shownA), poseLabel(shownB));
@@ -3420,6 +4613,7 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
     state.turnTotal = 0;
     state.pending = null;
     state.turnEndPending = true;
+    state.turnRolls.push({ name: 'Pig Out', points: 0 });
     saveGame();
     setResultCard('bad', result.headline, result.detail, { pending: true, icon: 'oinker' });
     announce(() => {
@@ -3436,6 +4630,7 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
 
   state.turnTotal += result.points;
   state.pending = null;
+  state.turnRolls.push({ name: result.name || 'Toss', points: result.points });
   saveGame();
 
   const tone = result.type === 'double' ? 'big' : 'good';
@@ -3762,6 +4957,8 @@ function pumpShake(now) {
     ? motionIntensity()
     : Math.min(1, elapsed / RAMP_MS);
   shake.ramp = ramp;
+  // the anticipation in the one layer the player is actually reading
+  renderShakeCopy(ramp);
   dom.holdFill.style.transform = `scaleX(${ramp})`;
   shakeLoop(ramp);
   adapter.setShakeIntensity(ramp);
@@ -3805,12 +5002,16 @@ function endShake(toss) {
   const heldMs = performance.now() - shake.t0;
   const wasMotion = shake.source === 'motion';
   stopShake();
+  resetShakeCopy();
   // the sustain window belongs to the gesture that just ended (see onDeviceMotion)
   if (wasMotion) motion.aboveMs = 0;
   if (!toss || heldMs < MIN_HOLD_MS) {
     shake.cancels++;
     adapter.cancelShake();
     setTurnState('ready');
+    // nothing was thrown, so the card goes back to whose turn it is rather than
+    // leaving "Let it fly!" over an idle board
+    showReadyCard();
     return;
   }
   shake.tosses++;
@@ -3891,9 +5092,27 @@ window.addEventListener('touchcancel', () => {
  * abandoned gesture WOULD eventually resolve itself through HOLD_CAP_MS — but it
  * would resolve as a throw, and coming back to a spent turn you never saw is
  * worse than coming back to the one you left. Cancel, explicitly. */
-window.addEventListener('blur', () => { if (shake.active) cancelShakeInput(); });
+/* …and the KEY hold has to be forgotten at the same moment, which is a separate
+ * fact about a separate flag. `spaceHeld` exists to swallow keyboard autorepeat,
+ * and only `keyup` clears it — but a window that loses focus mid-hold never gets
+ * that keyup: it is delivered to whatever took the focus. MEASURED in the live
+ * game before this line: keydown(Space) → shake active; window 'blur' → shake
+ * cancels; the NEXT TWO Space presses started no shake at all (`shake.active`
+ * false, mode idle), because `spaceHeld` was still true and the keydown handler
+ * treated them as autorepeat. Alt-tab away during a hold and the next press was
+ * silently swallowed — the same class of bug the shake overhaul existed to kill,
+ * on desktop. The key state after a focus loss is UNKNOWABLE, so it is cleared
+ * unconditionally rather than only when a shake was running (Space held through a
+ * toss, then alt-tab, is the same trap). */
+function forgetKeyHold() { spaceHeld = false; }
+window.addEventListener('blur', () => {
+  forgetKeyHold();
+  if (shake.active) cancelShakeInput();
+});
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && shake.active) cancelShakeInput();
+  if (!document.hidden) return;
+  forgetKeyHold();
+  if (shake.active) cancelShakeInput();
 });
 
 /* =========================================================================
@@ -4024,9 +5243,26 @@ function stepMotionShake(now) {
   else endShake(false);
 }
 
+/* PRD §7.5, the desktop row: "Device shake — Not applicable — HIDE THE TOGGLE
+ * ENTIRELY." `motion.supported` cannot be that rule on its own, because desktop
+ * Chrome DEFINES `DeviceMotionEvent` and then never fires one — MEASURED on this
+ * build at 1280×720, `maxTouchPoints` 0 and no coarse pointer: a 448×68
+ * "Shake the phone to toss · Rattle your phone instead of holding the pen" row
+ * sitting in the rules panel of a machine with no accelerometer.
+ *
+ * So the two questions are kept apart. `motion.supported` stays a pure FEATURE
+ * test — it is what `setMotionEnabled` gates on and what dev/shake-test.html
+ * drives directly, so that page keeps working on a desktop browser, which is
+ * the only place it is ever run. VISIBILITY additionally asks whether this is a
+ * device you can pick up and shake at all. */
+function motionOfferable() {
+  return motion.supported
+    && ((navigator.maxTouchPoints || 0) > 0 || window.matchMedia('(pointer: coarse)').matches);
+}
+
 function syncMotionToggle() {
   if (!dom.motionRow || !dom.motionToggle) return;
-  dom.motionRow.hidden = !motion.supported;
+  dom.motionRow.hidden = !motionOfferable();
   dom.motionToggle.checked = motion.enabled;
 }
 
@@ -4119,9 +5355,48 @@ window.addEventListener('pointerdown', (e) => {
   requestSkipAll();
 });
 
+/* The desktop keyboard path (PRD §7.5: Space to toss, Enter to stop, and "Tab to
+ * reach everything"). A window-level Space/Enter handler is the right shape for
+ * the first two and is in direct competition with the third, because Space and
+ * Enter are ALSO how a keyboard presses a button or types a character. Round-5
+ * MEASURED two live defects from claiming them unconditionally:
+ *
+ *  - it ran on EVERY screen. A 500 ms Space hold on the SETUP screen ran the
+ *    whole toss pipeline against an empty roster: it drew an outcome
+ *    (`pending: {a:'trotter', b:'side-dot'}`), wrote a save with `players: []`,
+ *    and left `turnState` stuck at 'tossing'.
+ *  - it ran while a TEXT FIELD had focus, and `preventDefault()` on a keydown
+ *    suppresses the character that keydown would have inserted. A player called
+ *    "Ava Marie" could not be typed — the space started a phantom shake instead
+ *    of a space.
+ *
+ * So the key is only ours when the game is on stage AND focus is not on
+ * something the platform is about to act on itself. `hogWildBtn` is the one
+ * exception in the other direction: it is a press-and-HOLD target with no click
+ * handler (see the pointer bindings above), so a native Space activation on it
+ * would do nothing at all and the hold has to come from here. */
+function isEditableTarget(el) {
+  if (!(el instanceof Element)) return false;
+  if (el.isContentEditable) return true;
+  return /^(input|textarea|select)$/i.test(el.tagName);
+}
+/** Focus is on a control the platform will activate on Space/Enter by itself. */
+function keyOwnedByFocus(el) {
+  if (!(el instanceof Element)) return false;
+  if (el === dom.hogWildBtn) return false; // our hold target, see above
+  return !!el.closest('button, a[href], summary, [role="button"], input, select, textarea');
+}
+/** Should this Space/Enter drive the GAME, or the focused control? */
+function gameOwnsKey(e) {
+  if (state.screen !== 'game') return false;
+  if (isEditableTarget(e.target)) return false;
+  return !keyOwnedByFocus(e.target);
+}
+
 let spaceHeld = false;
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') {
+    if (!gameOwnsKey(e)) return;
     e.preventDefault(); // must not scroll the page
     if (!spaceHeld) {
       spaceHeld = true;
@@ -4132,16 +5407,20 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.code === 'Enter') {
+    if (!gameOwnsKey(e)) return;
     if (!dom.stopBtn.disabled) bankPoints();
   }
 });
 window.addEventListener('keyup', (e) => {
-  if (e.code === 'Space') {
-    e.preventDefault();
-    spaceHeld = false;
-    // only OUR key hold ends here: a Space release must not stop a phone shake
-    if (shake.source === 'key') endShake(true);
-  }
+  if (e.code !== 'Space') return;
+  // The RELEASE is unconditional once we own a hold: focus can move (or the
+  // screen change) between keydown and keyup, and a shake that outlives its own
+  // key is exactly the stuck-hold class of bug the shake overhaul exists to kill.
+  if (!spaceHeld) return;
+  e.preventDefault();
+  spaceHeld = false;
+  // only OUR key hold ends here: a Space release must not stop a phone shake
+  if (shake.source === 'key') endShake(true);
 });
 
 dom.stopBtn.addEventListener('click', () => bankPoints());
@@ -4163,7 +5442,20 @@ function togglePanel(panel, toggleBtn) {
   toggleBtn.setAttribute('aria-expanded', String(opening));
 }
 
-dom.scoreboardToggle.addEventListener('click', () => togglePanel(dom.scoreboardPanel, dom.scoreboardToggle));
+/* On DESKTOP the scoreboard is a grid column, not a slide-up sheet — so the same
+ * button collapses and restores that column (and the pen takes the width back).
+ * Round-4 ledger: the button used to be `display:none` here, which left the
+ * chrome with two controls on one breakpoint and three on the other. */
+dom.scoreboardToggle.addEventListener('click', () => {
+  if (desktopQuery.matches) {
+    const collapsed = dom.screens.game.classList.toggle('no-board');
+    dom.scoreboardToggle.setAttribute('aria-expanded', String(!collapsed));
+    adapter.scene?.resize();
+    adapter.dirty = true;
+    return;
+  }
+  togglePanel(dom.scoreboardPanel, dom.scoreboardToggle);
+});
 dom.rulesToggle.addEventListener('click', () => togglePanel(dom.rulesPanel, dom.rulesToggle));
 
 dom.newGameBtn.addEventListener('click', () => {
@@ -4175,9 +5467,15 @@ dom.newGameBtn.addEventListener('click', () => {
 let muted = loadMutePref();
 setMuted(muted);
 function renderMuteBtn() {
-  // drawn glyphs, not emoji (SPEC "art direction")
-  dom.muteBtn.replaceChildren(icon(muted ? 'muted' : 'sound', 20));
+  // drawn glyphs, not emoji (SPEC "art direction") — and the visible caption is
+  // rebuilt with the glyph, because replaceChildren drops it
+  const label = document.createElement('span');
+  label.className = 'icon-btn-label';
+  label.id = 'muteLabel';
+  label.textContent = muted ? 'Muted' : 'Sound';
+  dom.muteBtn.replaceChildren(icon(muted ? 'muted' : 'sound', 20), label);
   dom.muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  dom.muteBtn.setAttribute('title', muted ? 'Unmute sound' : 'Mute sound');
 }
 dom.muteBtn.addEventListener('click', () => {
   muted = !muted;
@@ -4347,6 +5645,9 @@ boot();
 window.hogwild = {
   state,
   adapter,
+  /** the setup screen's title stage — inspectable for the same reason `adapter`
+   *  is: its framing and its pigs are measured in the browser, not eyeballed */
+  setupStage,
   get odds() { return odds; },
   toss: (opts) => performToss(opts),
   bank: () => bankPoints(),

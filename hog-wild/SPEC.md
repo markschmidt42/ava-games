@@ -518,13 +518,83 @@ must reproduce these beats (constants in one editable block each):
 
 ## Shake interaction (owner must-fixes, 2026-08-11, mobile-tested by owner)
 
-**1. The pigs live IN the cup during the shake.** PRD §7.1 says "pigs rattle
+**1. The pigs live IN the vessel (BARREL — see below) during the shake.** PRD §7.1 says "pigs rattle
 visibly inside" — currently they do not. During ready/shaking states the pigs
 are inside the cup, and while shaking they bounce around like crazy in there:
 visible rattling motion (random jitter transforms inside the cup's interior
 volume scaled by shake intensity is fine — no physics required), synchronized
 with the rattle audio. On release they leave the cup as the throw. The cup's
 mouth must face the camera enough that the rattling is actually visible.
+
+**Vessel is a wooden BARREL (owner art direction, 2026-08-11 — replaces the
+cup).** The current cup reads badly: bottomless (green felt visible through
+it) and party-cup cheap. Replace with a squat wooden farm barrel: procedural
+staves (subtle alternating plank tints), two darker metal hoops, a visible
+interior with a REAL BOTTOM (nothing behind the pigs but barrel), mouth wide
+enough for two pigs to rattle visibly. Same transform hooks/gameplay role as
+the cup (lift/tilt/rattle staging); no external textures.
+
+**Pour-out, not pop-out (owner).** On release the pigs must visibly ROLL out
+of the barrel — currently they "kinda appear". Requirements: the barrel TIPS
+toward the board with follow-through (tip + slight recoil); the pigs exit
+through the mouth with tumbling rotation continuous from their rattle motion;
+a ≥250–400ms visible travel blends barrel-mouth exit into each recording's
+frame 0 (position AND orientation blended — no popping, no teleport, no
+fade); the barrel aims its tip toward the spawn side so the pour reads as the
+cause of the throw. The blend is presentation only — recordings and odds are
+untouched.
+
+**SHIPPED, and containment is what the shape of it is set by.** `LAUNCH_MS` is
+340 ms in two halves (`POUR.exitFrac` 0.42): the first 143 ms is a move in the
+BARREL'S frame, so the tip is what carries the pigs out; the rest is a cubic
+whose out-handle leaves along the mouth's axis and whose in-handle arrives along
+the recording's own initial velocity, so the handoff has no corner. The tumble
+carries the rattle's MEASURED angular velocity (`pig.qPrev`, one frame back),
+eased onto frame 0 — at u = 0 the pose and its spin are the rattle's, at u = 1 it
+is exactly frame 0.
+
+**Nothing may clip the prop, and three separate things were doing so.** Verified
+by a per-vertex audit (the pig's 208-point support hull against the barrel as a
+solid of revolution) over 30 tosses = 1440 shake frames + 1350 pour frames:
+
+- the SCOOP. `CUP_SHAKE.entryY` was a constant 0.30 above the rim while a
+  tumbling pig's own drop is 0.298 flat and 0.5436 on end, so a pig standing on
+  its nose at the waypoint had its snout a quarter of a metre below the rim
+  (MEASURED: 8 hull vertices 25.9 mm inside the staves on 4 frames of every
+  260 ms gather). The clearance is DERIVED from `pigExtent().yMin` now; the drawn
+  path is held over the rim by `clearRim` while it approaches, because the
+  waypoint is in the barrel's frame and the path is a world-space blend under a
+  barrel that is itself rising; and `dropFrom` is 1.0 so the approach and the
+  drop-in are consecutive rather than overlapping — the one frame where those two
+  rules handed over was the last place a pig touched wood. Now 0 of 1440.
+- the FLIGHT. The barrel HOVERS INSIDE THE RELEASE VOLUME: `CUP_HOLD` is
+  (0, 0.87, 2.42) and physics.js releases at |x| 1.05–2.10, y 0.8–1.9, z 1.5–2.7,
+  so frame 0 can be 1.06 m from the barrel's axis against staves 0.90 m out and a
+  pig reaching 0.544. A barrel tipped 66° also puts its mouth at z 1.4, forward of
+  most of that corridor, so the cubic back to a deep spawn flew through the prop —
+  MEASURED, 26 hull vertices up to 71.7 mm inside the staves, which is a pink
+  snout out of the middle of a stave face in a screenshot. `clearBarrel` +
+  `woodEscape` push the pig out the short way (radially, or up over the rim,
+  whichever is nearer), per VERTEX and iterated, and allow exactly as much depth
+  as the DESTINATION itself has so the arrival stays frame 0 to the last bit.
+- and frame 0 ITSELF, which is the recording's and cannot be moved. The barrel had
+  to leave instead: `POUR.retreatFrac` gives the travel home its own faster clock
+  (the barrel is 71% of the way back at the handoff instead of 18%), which took
+  the settle frames from 25.9 mm of overlap to 0 of 720.
+
+Residual, measured and deliberate: over 40 tosses, **95.8% of pour frames touch no
+wood at all** and the worst overlap on the rest is 25.8 mm — half a stave's
+thickness, 1.9 CSS px. It is bounded there ON PURPOSE (`POUR.clearMax` 0.34):
+clearing the wood completely on those frames costs a 455 mm displacement of the
+pig, and a 455 mm detour is a bigger lie than a 2-px overlap. Screenshot-verified
+at the worst frame: the pigs read as tumbling over the rim, not through it.
+
+**"No popping, no teleport" is checkable and was checked.** The seam where the
+pour hands over to the recording at `LAUNCH_MS` steps the pig 47.1 mm and 16.9°
+(worst over 40 tosses × 2 pigs), against the recording's OWN next four frames at
+77.1 mm and 27.8°: the handoff moves the pig LESS than the trajectory it is
+handing to, in both position and attitude, which is what "invisible" means here.
+The release seam (rattle → pour) is 16.4° on the same measure.
 
 **2. Touch-hold shake must be CONTINUOUS on mobile.** Owner observed on a real
 phone: one tick of shake sound, no ongoing shake animation, no toss. Fix the
@@ -765,13 +835,25 @@ export function buildBoard()      // board group — see "Board design": table +
                                   // three concentric felt discs + boundary
                                   // rings + backdrop/wall-foot/stage-pool,
                                   // NO walls
-export function buildCup()        // → THREE.Group, the shaker. Upright, BASE at
+export function buildBarrel()     // → THREE.Group, the shaker. Upright, BASE at
                                   //   the group origin (so game.js sets position
                                   //   to a felt point and rotation.x to tip it,
-                                  //   about the same pivot a real cup tips on).
-                                  //   userData { height, mouthR }.
+                                  //   about the same pivot a real barrel tips on).
+export { buildBarrel as buildCup }// the old specifier; game.js keeps the CUP_* hooks
 export function buildScene(canvas)// renderer, scene, camera, lights, resize → handles
 ```
+
+**The barrel's INTERIOR is a contract, not a look.** game.js stages the rattling
+pigs in this group's frame and tests their rotated support hull against the
+interior every frame, so `userData` ships the profile itself rather than two
+radii: `innerR(y)` (interior radius at local height `y` — a barrel BULGES, so it
+is not the cup's monotone `lerp(baseR, mouthR)`; MEASURED 0.733 at the head,
+0.848 at the belly, 0.738 at the mouth), `outerR(y)` (the shell, which is what
+the pour has to stay OUT of), `floorY` (the planked head's top face — the real
+bottom the owner asked for, and the plane the containment clamps to), plus
+`height`, `baseR`, `mouthR`, `bellyR` for the legacy cone fallback.
+Never re-derive either surface in game.js: the prop and the maths must not be
+able to disagree by a millimetre.
 
 Pig visual origin/axes MUST match the collider in physics.js — same origin, same
 axes, so recording quaternions apply directly to the mesh group.
