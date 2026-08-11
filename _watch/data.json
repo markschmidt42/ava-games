@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-11T22:06:44.189Z",
+ "generatedAt": "2026-08-11T22:44:06.204Z",
  "plan": [
   {
    "wf": "WF-A · Foundation",
@@ -5068,83 +5068,83 @@
    "model": "opus",
    "done": false,
    "firstTs": "2026-08-11T21:58:45.795Z",
-   "lastTs": "2026-08-11T22:06:37.429Z",
+   "lastTs": "2026-08-11T22:42:02.906Z",
    "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md (CUTE mandate + Presentation model + reveal framing notes).\nFour suites green always; node --check what you edit. Own tab, tabId always, close when done. AUDIO STAYS MUTED. Do not commit.\n\nMISSION: independent re-check of the orientation fixes (builder notes: All five findings fixed and measured. Nothing committed; four suites + grounding green.\n\n## Per-finding status\n\n**1. MOUTH-AS-EYEBROW — FIXED.** Two mechanisms, because neither works alone.\n- `pig.js` gained `faceInkFrame` / `faceRestAngle` / `faceInkPoint` / `setSettledFace`. The ink now rotates about the eye per REST POSE. Key fact that made it cheap: the correction is **yaw-independent** (the vertical component of any body direction under a rest with up-axis `L` is `dot(d, L)`, and yaw is a rotation about world up), so it is a pure function of the pose, solved in the body frame.\n- **Plumbing it was wrong and I measured why**: rotating to point the ink's down-axis as world-down as possible (180° on a razorback) put the mouth 6.9 px below a 32 px eye — *inside* it, because on a back rest the eye normal and ink-down have opposite horizontal components. The angle is now solved **jointly with the camera**, same objective `solveRig` scores.\n- `FACE.u1` 0.450 → **0.474** (the razorback half-turn sends the blush 104 mm spineward vs an 88 mm budget). `z1` cannot move (nose tip), so `inkOverflow` vetoes unpaintable rotations via exact elliptical support; jowler dot flank asks −90°, gets −). Re-measure ALL the original findings with the original methods:\n(1) mouth position vs eye in side-blank/razorback/jowler rests at reveal distance — mouth must read BELOW the eye as a mouth (screen offsets + screenshots);\n(2) eye-facing dot products across ≥6 live reveals including razorback and double razorback — none negative, razorback face visible (screenshot);\n(3) wink on a double from both flanks — the camera-facing eye must close;\n(4) variant B at face zoom — exactly ONE catchlight, bean stays dark plum not grey-brown;\n(5) short canvas (resize to ~736x360): eye px on a pair reveal.\nThen the holistic question: play 5 tosses and judge — are these pigs now genuinely CUTE in actual gameplay, at the moments the game shows them? Return JSON per schema, honest.",
    "says": [
     {
-     "ts": "2026-08-11T22:02:53.484Z",
-     "text": "Now the measurement function and reveal runner."
+     "ts": "2026-08-11T22:34:16.607Z",
+     "text": "Now let me see variant B at face zoom."
     },
     {
-     "ts": "2026-08-11T22:03:55.014Z",
-     "text": "Now let me run reveal 1 — the Pig Out (side-blank + side-dot)."
+     "ts": "2026-08-11T22:35:35.603Z",
+     "text": "Let me verify nothing in the repo changed and re-confirm the suites."
     },
     {
-     "ts": "2026-08-11T22:04:50.288Z",
-     "text": "The await blocked too long. Let me make the runner non-blocking and poll."
+     "ts": "2026-08-11T22:36:02.434Z",
+     "text": "The HEAD changed during my session — let me check what landed."
     },
     {
-     "ts": "2026-08-11T22:05:58.101Z",
-     "text": "The tab is hidden, so rAF never ran. Let me front it and verify."
+     "ts": "2026-08-11T22:36:32.381Z",
+     "text": "Let me reload fresh and quantify the headline finding: how often a faceless pair shot ships while a face-on hero shot was available."
     },
     {
-     "ts": "2026-08-11T22:06:06.147Z",
-     "text": "Tab is live now. Let me kick the first reveal."
+     "ts": "2026-08-11T22:37:09.370Z",
+     "text": "Game resumed from save. Let me install the pump and harness."
     },
     {
-     "ts": "2026-08-11T22:06:28.561Z",
-     "text": "The tab keeps getting backgrounded. Let me load `browser_batch` to keep it fronted across actions."
+     "ts": "2026-08-11T22:41:30.328Z",
+     "text": "Measurements complete. Let me close my tab."
     }
    ],
    "tools": [
     {
-     "ts": "2026-08-11T22:04:52.882Z",
+     "ts": "2026-08-11T22:36:50.096Z",
      "name": "mcp__claude-in-chrome__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T22:05:01.813Z",
-     "name": "Bash",
-     "detail": "Find where the pig's settled pose is stored"
-    },
-    {
-     "ts": "2026-08-11T22:05:05.623Z",
-     "name": "Bash",
-     "detail": "See how poses are handed to the adapter"
-    },
-    {
-     "ts": "2026-08-11T22:05:16.514Z",
+     "ts": "2026-08-11T22:37:02.005Z",
      "name": "mcp__claude-in-chrome__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T22:05:26.172Z",
+     "ts": "2026-08-11T22:37:23.844Z",
      "name": "mcp__claude-in-chrome__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T22:05:46.116Z",
+     "ts": "2026-08-11T22:37:35.358Z",
      "name": "mcp__claude-in-chrome__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T22:05:58.191Z",
-     "name": "mcp__claude-in-chrome__computer",
-     "detail": ""
-    },
-    {
-     "ts": "2026-08-11T22:06:06.888Z",
+     "ts": "2026-08-11T22:37:42.169Z",
      "name": "mcp__claude-in-chrome__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T22:06:29.254Z",
-     "name": "ToolSearch",
+     "ts": "2026-08-11T22:38:32.424Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T22:06:33.419Z",
-     "name": "mcp__claude-in-chrome__browser_batch",
+     "ts": "2026-08-11T22:38:54.143Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:39:04.426Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:39:54.016Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:41:30.340Z",
+     "name": "mcp__claude-in-chrome__tabs_close_mcp",
      "detail": ""
     }
    ],
@@ -5153,10 +5153,10 @@
     [
      "t.mjs",
      {
-      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && for t in odds-test collider-test search-test replay-test; do echo \"=== $t ===\"; node dev/$t.mjs 2>&1 | tail -12;",
-      "ts": "2026-08-11T21:59:26.868Z",
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && node --check game.js && node --check pig.js && echo \"syntax OK\" && for t in odds-test collider-test search-test ",
+      "ts": "2026-08-11T22:35:38.930Z",
       "ok": true,
-      "out": "=== odds-test ===\n║ Pig Out            21.03%    21.10%   -0.07 pp   ✓ PASS   ║\n║ Sider              21.41%    21.30%  +  0.11 pp   ✓ PASS   ║\n║ Double (all)        5.80%                              ║\n║ Mixed              51.38%                              ║\n╠════════════════════════════════════════════════════════════════╣\n║                    EXPECTED VALUE CHECK                         ║\n╠════════════════════════════════════════════════════════════════╣\n║ Points per toss     4.70      4.70    -0.00 pp   ✓ PASS   ║\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\nexit=0\n=== collider-test ===\n  side-blank   343/1000     34.30%             ~3         ~3ms\n  side-dot     278/1000     27.80%             ~4         ~4ms\n  razorback    230/1000     23.00%             ~5         ~4ms\n  trotter      110/1000     11.00%            ~10         ~9ms\n  snouter       32/1000      3.20%            ~32        ~32ms\n  jowler        11/1000      1.10%            ~91        ~92ms\n(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\nexit=0\n=== search-test ===\n  trotter        12.24%         8.2         4         9         9      17 sims\n  snouter         1.37%        72.8        35        84        86     170 sims\n  jowler          3.92%        25.5        11        36        42      88 sims\n  oinker                        9.7        38        44        44      11 sims\n\njowler (the rarest, so the expensive one): 11ms average, budget 400ms\nslowest pose: snouter at 35ms average — the shake covers it,\nand the idle prefill means the common case is a pool hit costing nothing at all.\n\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\nexit=0\n=== replay-test ===\n7. SCORING PIPELINE  (drawn outcome → scoreToss → turn arithmetic)\n------------------------------------------------------------------------------\n  20k tosses: 2379 banks, 4269 pig outs, 92 oinkers, final score 650\n  ✓ turn/score arithmetic stays an integer and grows\n  ✓ a Sider is 1 point even though each side pig is worth 0\n  ✓ double jowler is 60\n  ✓ razorback + side is 5\n\ncache stats: {\"searched\":60,\"mirrored\":8,\"hits\":23,\"misses\":154,\"fallbacks\":0,\"sims\":763}\n==============================================================================\nReplay gate: PASS\n==============================================================================\nexit=0\n=== grounding ===\n    at moduleResolve (node:internal/modules/esm/resolve:855:18)\n    at defaultResolve (node:internal/modules/esm/resolve:988:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:697:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:714:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:746:52)\n    at #resolve (node:internal/modules/esm/loader:679:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:599:35)\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:162:33) {\n  code: 'ERR_MODULE_NO\n… [truncated]"
+      "out": " M _watch/data.json\n M hog-wild/SPEC.md\n--- no new commits ---\ne48602d feat(hog-wild): redesign facial graphics under CUTE mandate and fix reveal orientation mechanics"
      }
     ],
     [
@@ -5169,8 +5169,8 @@
      }
     ]
    ],
-   "toolCount": 47,
-   "screenshots": 3
+   "toolCount": 149,
+   "screenshots": 8
   }
  ]
 }

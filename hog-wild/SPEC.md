@@ -649,6 +649,37 @@ add dev/shake-test.html doing exactly that with pass/fail readouts.
 
 The pigs must be characters, not props. Requirements for pig.js + fx.js:
 
+**OWNER REFERENCE REDESIGN (2026-08-11, from two reference images — supersedes
+the bean-minimal cute mandate below; baby-schema principles still apply):**
+
+Face — "illustrated storybook baby pig" (reference: cartoon baby-pig
+illustration):
+- EARS: HUGE — the defining feature. Wide, floppy, rounded-triangle ears whose
+  combined span exceeds the head width; darker rose INNER EAR visible; slight
+  forward droop. Current ears are far too small.
+- EYES: large and round with VISIBLE WHITE SCLERA, a warm amber-brown IRIS, a
+  big dark pupil, one soft catchlight. (This supersedes "no sclera / solid
+  bean" — the owner's reference has friendly Disney-style eyes. What must NOT
+  return: the old realistic lens anatomy — limbal rings, small irises, resting
+  brows. Big, warm, simple.) Set close together, directly above the snout.
+- SNOUT: prominent, round-oval, protruding, in a lighter rosier tone than the
+  body, with two clearly visible dark oval nostrils, sitting tight under the
+  eyes. (The earlier "snout smaller" note is superseded — the reference snout
+  is big; what matters is eyes+snout+mouth reading as one tight friendly face.)
+- MOUTH: gentle closed smile at neutral; happy states (scoring settle, win)
+  may open with a hint of tongue like the reference. Blush stays, generous.
+- Optional if cheap: a tiny 3-hair tuft on the crown, like the reference.
+
+Material — "matte rubber squeaky toy" (reference: latex pig toy photo). The
+owner: "the whole pig more rubber (vs glossy ceramic/porcelain)... it bounces
+like a bouncy ball, it needs to look the part." Roughness up (~0.55–0.75),
+kill the tight porcelain specular highlights — broad soft sheen like latex,
+no clearcoat gloss. Keep the vivid pink family for the BODY AND LEGS.
+Hooves: black/grey/charcoal is fine and natural (like the reference toy) — or
+pink; the owner's clarified rule (2026-08-11) is about LEGS, not hooves: a leg
+must never read brown/woody like a tree branch. Legs stay pink; hoof tips may
+be dark. Board/barrel materials unchanged.
+
 **CUTE mandate (owner, 2026-08-11 — "the pigs look kinda scary"; overrides
 any conflicting face detail below).** The eye realism that made faces
 *readable* (iris, limbal ring, brow) is what makes them *uncanny*. Cute
@@ -952,10 +983,11 @@ face-plants, low "oof" on rump hits, happy oink on a scoring settle, sad
 descending oink on Pig Out, panicked squeal cut short by the pop on Oinker.
 WebAudio-synthesized or tiny embedded samples; no external fetches.
 
-**Leg/hoof color (owner):** the current hoof color (#ad3a63) reads BROWN under
-scene lighting. Hooves and leg shading must stay in the pink/magenta family —
-brighter, closer to the reference photos' pink trotters (photo hooves are a
-vivid pink #d94f8a-ish). No browns anywhere on the pig.
+**Leg/hoof color (owner, clarified 2026-08-11):** the rule is about LEGS, not
+hooves — a leg must never read brown/woody ("a branch of a tree"). Legs stay
+in the pink family with bright shading. HOOVES may be black, grey, or charcoal
+(normal and natural, like real squeaky-toy pigs) or pink — hoof darkness is
+fine; leg brownness is not.
 
 This is about RENDERED pixels, not palette hexes. The compliant-looking #e05a97 /
 #c93f83 pair still measured #ad757a / #c2576c / #37181a on screen — dusty mauve —
