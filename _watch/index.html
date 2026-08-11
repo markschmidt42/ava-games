@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐷 Hog Wild — Build Watch</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0d1712;color:#e8f5ee;padding:18px;font-size:13px}
+h1{font-family:-apple-system,system-ui,sans-serif;font-size:1.4rem;margin:0 0 4px}
+.sub{color:#7fa892;margin:0 0 18px}
+.sub .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5ddb92;margin-right:6px;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:#16241d;border:1px solid #23392e;border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:.85rem;margin:0 0 10px;color:#a9c9b8;text-transform:uppercase;letter-spacing:1px;font-family:system-ui,sans-serif}
+.wf{margin-bottom:12px}
+.wf-name{color:#ffd54a;font-weight:bold;margin-bottom:5px}
+.item{display:flex;gap:8px;align-items:center;padding:3px 0 3px 8px}
+.item .st{width:14px;text-align:center}
+.item.pending{color:#5c7264}
+.item.running .st{animation:pulse 1.2s infinite}
+.item.running{color:#ffe08a}
+.item.done{color:#5ddb92}
+.agent{border:1px solid #23392e;border-radius:12px;background:#16241d;padding:12px 14px;margin-bottom:12px}
+.agent-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
+.agent-head .name{font-weight:bold;color:#ffd54a;font-family:system-ui,sans-serif}
+.badge{font-size:.72rem;padding:1px 8px;border-radius:99px;background:#23392e;color:#a9c9b8}
+.badge.done{background:#12402a;color:#5ddb92}
+.badge.run{background:#3d3517;color:#ffe08a}
+.says{color:#cfe8db;margin:6px 0;padding-left:10px;border-left:2px solid #2f6b52}
+.tools{color:#7fa892}
+.tools div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools .t{color:#54a0ff}
+.files{margin-top:6px;color:#a9c9b8}
+.files span{display:inline-block;background:#1d3328;border-radius:6px;padding:1px 8px;margin:2px 3px 0 0}
+pre{background:#0a120e;border:1px solid #1d3328;border-radius:8px;padding:10px;overflow:auto;max-height:340px;color:#bfe3cf;font-size:12px;margin:8px 0 0}
+.test-ok{border-left:3px solid #5ddb92}
+.test-bad{border-left:3px solid #ff5c7a}
+.meta{color:#5c7264;font-size:.75rem}
+</style>
+</head>
+<body>
+<h1>🐷 Hog Wild — 3D build, live</h1>
+<p class="sub"><span class="dot"></span><span id="stamp">loading…</span> · auto-refreshes every 4s ·
+<a style="color:#54a0ff" href="../hog-wild/">the game</a> ·
+<a style="color:#54a0ff" href="arena.html">arena</a> ·
+<a style="color:#54a0ff" href="poses.html">pose gallery</a> ·
+<a style="color:#54a0ff" href="../hog-wild/dev/pig-viewer.html">pig viewer</a> ·
+<a style="color:#54a0ff" href="../hog-wild/dev/audio-lab.html">audio lab</a></p>
+<div class="grid">
+<div id="plan"></div>
+<div id="agents"></div>
+</div>
+<script>
+const ICONS = { pending:'○', running:'◉', done:'●' };
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function ago(ts){ if(!ts) return ''; const s=(Date.now()-new Date(ts))/1000;
+  return s<90?`${s|0}s ago`: s<5400?`${(s/60)|0}m ago`:`${(s/3600).toFixed(1)}h ago`; }
+function dur(a,b){ if(!a||!b) return ''; const s=(new Date(b)-new Date(a))/1000;
+  return s<90?`${s|0}s`:`${(s/60)|0}m ${(s%60)|0}s`; }
+
+async function tick(){
+  let d;
+  try { d = await (await fetch('data.json?'+Date.now())).json(); }
+  catch(e){ document.getElementById('stamp').textContent = 'waiting for data…'; return; }
+  document.getElementById('stamp').textContent = 'updated ' + ago(d.generatedAt);
+
+  document.getElementById('plan').innerHTML = '<div class="panel"><h2>Build plan</h2>' +
+    d.plan.map(wf => `<div class="wf"><div class="wf-name">${esc(wf.wf)}</div>` +
+      wf.items.map(it => `<div class="item ${it.status}"><span class="st">${ICONS[it.status]}</span> ${esc(it.label)}</div>`).join('') +
+    '</div>').join('') + '</div>';
+
+  document.getElementById('agents').innerHTML = d.agents.map(a => {
+    const running = !a.done;
+    const mission = (a.prompt.match(/MISSION[^\n]*/)||[''])[0].replace(/^MISSION[ —:-]*/,'').slice(0,110);
+    const lastSay = a.says.length ? a.says[a.says.length-1] : null;
+    const tests = a.tests.map(([name,t]) =>
+      `<div class="meta">${t.ok?'✅':'❌'} ${esc(name)} · ${ago(t.ts)}</div><pre class="${t.ok?'test-ok':'test-bad'}">${esc(t.out)}</pre>`).join('');
+    return `<div class="agent">
+      <div class="agent-head">
+        <span class="name">${esc(mission||a.id)}</span>
+        <span class="badge">${esc(a.model)}</span>
+        <span class="badge ${a.done?'done':'run'}">${a.done?'done':'running'}</span>
+        <span class="meta">${a.toolCount} tool calls · started ${ago(a.firstTs)} · active ${ago(a.lastTs)} · ${dur(a.firstTs,a.lastTs)}</span>
+      </div>
+      ${lastSay?`<div class="says">“${esc(lastSay.text)}” <span class="meta">${ago(lastSay.ts)}</span></div>`:''}
+      <div class="tools">${a.tools.slice(-5).map(t=>`<div><span class="t">${esc(t.name)}</span> ${esc(t.detail)}</div>`).join('')}</div>
+      ${a.files.length?`<div class="files">${a.files.map(([f,n])=>`<span>${esc(f)} ×${n}</span>`).join('')}</div>`:''}
+      ${tests}
+    </div>`;
+  }).join('') || '<div class="panel">no agents yet…</div>';
+}
+tick(); setInterval(tick, 4000);
+</script>
+<script src="devnav.js" defer></script>
+</body>
+</html>

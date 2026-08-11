@@ -80,7 +80,20 @@ export const DOUBLE_POINTS = {
  *
  * @param {string} a - first pose key
  * @param {string} b - second pose key
+ * ROUND-3 REVIEW, on the copy: "the result card ships a rules tutorial in the
+ * reward moment, EVERY single round: 'Two different positions score the sum of both
+ * pigs. Turn total: 35.' … Both wrap to two lines in small dim text under the
+ * headline. After toss three the player knows the rule; what they want is the pose
+ * names and the number, big."
+ *
+ * So `detail` is now reserved for the two results the headline genuinely cannot
+ * explain — a Pig Out (why zero) and a Sider (why only one point, in two words) —
+ * and is EMPTY for every scoring round, whose headline already names both poses and
+ * the number. The turn total is not repeated here either: it lives in the header
+ * pill, which now animates on the reveal's arrival instead of before it.
+ *
  * @returns {Object} { type: 'sider'|'pigout'|'double'|'mixed', points, name, headline, detail }
+ *   `detail` may be '' — the card hides an empty line (.result-detail:empty).
  */
 export function scoreToss(a, b) {
   // Both sides
@@ -92,7 +105,7 @@ export function scoreToss(a, b) {
         points: 1,
         name: 'Sider',
         headline: 'Sider! +1',
-        detail: 'Both pigs landed the same way up.',
+        detail: 'Matching sides.',
       };
     }
     // Opposite sides = Pig Out
@@ -114,7 +127,7 @@ export function scoreToss(a, b) {
       points,
       name,
       headline: `${name}! +${points}`,
-      detail: "Both pigs the same — that's worth way more than two.",
+      detail: '',
     };
   }
 
@@ -130,9 +143,7 @@ export function scoreToss(a, b) {
     points,
     name,
     headline: `${name}! +${points}`,
-    detail: isSide(a) || isSide(b)
-      ? 'A pig on its side is worth nothing, but the other one counts.'
-      : 'Two different positions score the sum of both pigs.',
+    detail: '',
   };
 }
 
