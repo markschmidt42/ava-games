@@ -82,6 +82,7 @@ import * as THREE from 'three';
 import {
   buildScene, buildBoard, buildPig, pigTriangles, buildContactShadow,
   setExpression, EXPRESSIONS,
+  setFaceVariant, getFaceVariant, faceVariantLabel, FACE_VARIANTS, faceMetrics,
 } from '../pig.js';
 import { BOARD, POSE_KEYS, posePlacement, restHeight, poseQuaternion } from '../physics.js';
 
@@ -151,6 +152,9 @@ function row(k, label) {
 POSE_KEYS.forEach((p, i) => row(String(i + 1), p));
 row('0', 'free turntable');
 EXPRESSIONS.forEach((s, i) => row(EXPR_KEYS[i], s));
+/* SPEC "Character & expressions" / CUTE mandate: the three variants are picked
+   here, by the owner, with the pigs in front of them. */
+FACE_VARIANTS.forEach((v) => row(v.toLowerCase(), faceVariantLabel(v)));
 row('z', 'zoom: pigs / pen / faces / game');
 row('space', 'pause spin');
 row('o', 'orbit camera');
@@ -159,11 +163,12 @@ row('[ ]', 'camera pitch');
 function markActive() {
   keysEl.querySelectorAll('span').forEach((s) => s.classList.remove('on'));
   const k = pose === null ? '0' : String(POSE_KEYS.indexOf(pose) + 1);
-  for (const key of [k, EXPR_KEYS[EXPRESSIONS.indexOf(expr)]]) {
+  for (const key of [k, EXPR_KEYS[EXPRESSIONS.indexOf(expr)], getFaceVariant().toLowerCase()]) {
     const el = keysEl.querySelector(`span[data-k="${key}"]`);
     if (el) el.classList.add('on');
   }
-  document.getElementById('poseName').textContent = `${pose || 'turntable'} · ${expr}`;
+  document.getElementById('poseName').textContent =
+    `${pose || 'turntable'} · ${expr} · face ${getFaceVariant()}`;
 }
 
 function setExpr(s) {
@@ -172,12 +177,20 @@ function setExpr(s) {
 }
 setExpr('neutral');
 
+/** Repaints the atlas in place; UVs and expressions are untouched. */
+function setVariant(v) {
+  setFaceVariant(v);
+  markActive();
+}
+
 addEventListener('keydown', (e) => {
   const n = Number(e.key);
   const ei = EXPR_KEYS.indexOf(e.key);
+  const vi = FACE_VARIANTS.indexOf(String(e.key).toUpperCase());
   if (e.key >= '1' && e.key <= '6') { pose = POSE_KEYS[n - 1]; }
   else if (e.key === '0') { pose = null; }
   else if (ei >= 0 && ei < EXPRESSIONS.length) { setExpr(EXPRESSIONS[ei]); }
+  else if (vi >= 0) { setVariant(FACE_VARIANTS[vi]); }
   else if (e.key === 'z') { zoom = ZOOMS[(ZOOMS.indexOf(zoom) + 1) % ZOOMS.length]; applyFraming(); }
   else if (e.key === ' ') { spin = !spin; e.preventDefault(); }
   else if (e.key === 'o') { orbit = !orbit; if (!orbit) applyFraming(); }
@@ -193,6 +206,101 @@ window.__hw.setZoom = (z) => { zoom = z; applyFraming(); };
 window.__hw.setPose = (p) => { pose = p; placePigs(performance.now()); markActive(); };
 window.__hw.place = () => placePigs(performance.now());
 window.__hw.setSpin = (s) => { spin = s; };
+window.__hw.setVariant = (v) => { setVariant(v); return getFaceVariant(); };
+
+/**
+ * Stand where the GAME's reveal stands. The CUTE mandate has to be judged at the
+ * scale the player actually gets, and that scale is a promise in metres-free
+ * terms: SPEC says the reveal delivers 20–33 px of eye. Same arithmetic as
+ * game.js's `eyePxOf` — eyePx = 2·eyeR·(hpx/2) / (depth·tan(fov/2)) — solved for
+ * depth, so `revealCam(0, 26)` really is a 26-px eye on this canvas and not an
+ * eyeballed zoom level.
+ *
+ * The camera sits on the eye's own outward normal (0.80, 0.60, 0 in the build
+ * frame, per SPEC) with a little forward bias, which is the reveal's `front`
+ * term: a shot that cannot see a snout is not the shot the game picks.
+ */
+window.__hw.revealCam = (i = 0, eyePx = 26, { side = 1, fwd = 0.34 } = {}) => {
+  const fm = faceMetrics();
+  const gl = view.renderer.domElement;
+  // CSS px, not device px: SPEC's 20–33 px promise is a CSS-pixel promise (it is
+  // about what a person sees), and on a 2× canvas `gl.height` is double that —
+  // asking for 26 with it lands a 13-px eye.
+  const hpx = gl.clientHeight || gl.height;
+  const tanHalfV = Math.tan((view.camera.fov * Math.PI) / 180 / 2);
+  const depth = (2 * fm.eyeR * (hpx / 2)) / (eyePx * tanHalfV);
+  const eye = new THREE.Vector3(fm.eyeAt[0], fm.eyeAt[1], fm.eyeAt[2]);
+  pigs[i].localToWorld(eye);
+  const n = new THREE.Vector3(0.80 * side, 0.60, fwd)
+    .applyQuaternion(pigs[i].quaternion).normalize();
+  view.camera.position.copy(eye).addScaledVector(n, depth);
+  view.camera.lookAt(eye);
+  view.camera.updateMatrixWorld();
+  view.camera.updateProjectionMatrix();
+  return { depth, eyePx, hpx };
+};
+
+/** MEASURE the eye, don't trust the solve: projected eye diameter in CSS px. */
+window.__hw.eyePx = (i = 0) => {
+  const fm = faceMetrics();
+  const gl = view.renderer.domElement;
+  const eye = new THREE.Vector3(fm.eyeAt[0], fm.eyeAt[1], fm.eyeAt[2]);
+  pigs[i].localToWorld(eye);
+  const right = new THREE.Vector3().setFromMatrixColumn(view.camera.matrixWorld, 0);
+  const a = eye.clone().addScaledVector(right, -fm.eyeR).project(view.camera);
+  const b = eye.clone().addScaledVector(right, fm.eyeR).project(view.camera);
+  return Math.abs(b.x - a.x) * (gl.clientWidth / 2);
+};
+
+/**
+ * A 1:1 strip of states at REVEAL scale. Crops the live canvas without
+ * resampling, so a pixel in the strip is a pixel the player would get — a
+ * contact sheet that rescales its cells cannot answer "is this cute at 26 px".
+ */
+window.__hw.revealStrip = ({
+  states = ['neutral', 'smug', 'sad', 'panic'], eyePx = 26, pose: p = 'side-blank',
+  cw = 300, ch = 300, i = 0, mag = 1,
+} = {}) => {
+  const gl = view.renderer.domElement;
+  document.querySelector('.hud').style.display = 'none';
+  document.getElementById('pose').style.display = 'none';
+  spin = false;
+  window.__hw.setPose(p);
+  const cv = document.createElement('canvas');
+  cv.width = cw * mag * states.length; cv.height = ch * mag + 26;
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;      // magnify the REAL pixels, don't invent any
+  c.fillStyle = '#0d1712';
+  c.fillRect(0, 0, cv.width, cv.height);
+  const dpr = gl.width / Math.max(1, gl.clientWidth);
+  states.forEach((n, k) => {
+    setExpr(n);
+    window.__hw.revealCam(i, eyePx);
+    view.render();
+    // centre the crop on the pig's projected eye, in device pixels
+    const fm = faceMetrics();
+    const eye = new THREE.Vector3(fm.eyeAt[0], fm.eyeAt[1], fm.eyeAt[2]);
+    pigs[i].localToWorld(eye);
+    const nd = eye.clone().project(view.camera);
+    const px = (nd.x * 0.5 + 0.5) * gl.width;
+    const py = (-nd.y * 0.5 + 0.5) * gl.height;
+    c.drawImage(gl, px - (cw * dpr) / 2, py - (ch * dpr) / 2, cw * dpr, ch * dpr,
+                k * cw * mag, 26, cw * mag, ch * mag);
+    c.fillStyle = '#ffd54a';
+    c.font = '700 11px system-ui';
+    c.fillText(`${getFaceVariant()}·${n} ${window.__hw.eyePx(i).toFixed(0)}px`,
+               k * cw * mag + 6, 15);
+  });
+  document.body.innerHTML = '';
+  document.body.style.cssText = 'background:#0d1712;margin:0';
+  const img = new Image();
+  img.src = cv.toDataURL();
+  // NATURAL SIZE, deliberately: stretching the strip to the viewport would undo
+  // the one thing it is for.
+  img.style.cssText = 'display:block';
+  document.body.appendChild(img);
+  return 'ok';
+};
 /** frame one pig's head, tight — the "is this actually charming?" check */
 window.__hw.headCam = (i = 0, half = 0.20, pitchDeg = 14) => {
   zoom = 'faces';
@@ -211,6 +319,51 @@ window.__hw.headCam = (i = 0, half = 0.20, pitchDeg = 14) => {
     { pitchDeg, target: c.clone() },
   );
 };
+/**
+ * All eight states of the CURRENT variant, at FACE ZOOM, in one image sized to
+ * fit the viewport exactly (so a screenshot of it is not resampled twice).
+ *
+ * This is the sheet the CUTE mandate is judged on: eight faces in one look is the
+ * only honest way to tell whether the states read as each OTHER's opposites, and
+ * the eight-in-a-row is also what caught the round-1 build shipping five states
+ * nobody could distinguish.
+ */
+window.__hw.faceSheet = ({ half = 0.19, cols = 4, i = 0, pitchDeg = 14 } = {}) => {
+  const gl = view.renderer.domElement;
+  Array.from(document.body.children).forEach((el) => {
+    if (el.id !== 'stage') el.style.display = 'none';
+  });
+  spin = false;
+  const rows = Math.ceil(EXPRESSIONS.length / cols);
+  const cw = Math.floor(document.documentElement.clientWidth / cols);
+  const chh = Math.floor((document.documentElement.clientHeight - 4) / rows);
+  const cv = document.createElement('canvas');
+  cv.width = cw * cols; cv.height = chh * rows;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0d1712';
+  c.fillRect(0, 0, cv.width, cv.height);
+  EXPRESSIONS.forEach((n, k) => {
+    setExpr(n);
+    window.__hw.headCam(i, half, pitchDeg);
+    view.render();
+    const col = k % cols, row = (k / cols) | 0;
+    // square-ish centre crop of the live canvas, so every cell is the same scale
+    const s = Math.min(gl.width, gl.height);
+    c.drawImage(gl, (gl.width - s) / 2, (gl.height - s) / 2, s, s,
+                col * cw, row * chh, cw, chh);
+    c.fillStyle = '#ffd54a';
+    c.font = '700 12px system-ui';
+    c.fillText(`${getFaceVariant()} · ${n}`, col * cw + 6, row * chh + 14);
+  });
+  document.body.innerHTML = '';
+  document.body.style.cssText = 'background:#0d1712;margin:0';
+  const img = new Image();
+  img.src = cv.toDataURL();
+  img.style.cssText = 'display:block';
+  document.body.appendChild(img);
+  return 'ok';
+};
+
 /**
  * Render all eight expressions into one contact sheet and replace the page with
  * it. Judging the faces side by side in a single look is the only honest way to
@@ -250,7 +403,10 @@ window.__hw.contactSheet = ({
                 cw, ch, col * W, row * H, W, H);
     c.fillStyle = '#ffd54a';
     c.font = '700 20px system-ui';
-    c.fillText(n, col * W + 12, row * H + 26);
+    c.fillText(`${n}`, col * W + 12, row * H + 26);
+    c.fillStyle = '#a9c9b8';
+    c.font = '700 13px system-ui';
+    c.fillText(`face ${getFaceVariant()}`, col * W + 12, row * H + 44);
   });
   document.body.innerHTML = '';
   document.body.style.cssText = 'background:#0d1712;margin:0';
@@ -263,7 +419,7 @@ window.__hw.contactSheet = ({
 
 document.getElementById('meta').innerHTML =
   `<b>${pigTriangles().toLocaleString()}</b> triangles / pig · board r${BOARD.greenR}/${BOARD.roughR}/${BOARD.stopR} ` +
-  `· three r${THREE.REVISION}`;
+  `· three r${THREE.REVISION} · face <b>${getFaceVariant()}</b>`;
 
 /* --- loop ---------------------------------------------------------------- */
 const camTarget = new THREE.Vector3(0, 0.24, -0.1);

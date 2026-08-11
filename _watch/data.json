@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-11T20:05:37.351Z",
+ "generatedAt": "2026-08-11T22:44:06.204Z",
  "plan": [
   {
    "wf": "WF-A · Foundation",
@@ -4688,6 +4688,489 @@
    ],
    "toolCount": 154,
    "screenshots": 24
+  },
+  {
+   "id": "abf19e3aff544e9b2",
+   "wf": "wf_2e2596fe-504",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T20:06:53.436Z",
+   "lastTs": "2026-08-11T20:35:54.781Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md — the \"CUTE mandate\" (owner, 2026-08-11) is your contract and OVERRIDES the older eye-anatomy notes.\nFour suites must stay green; node --check what you edit. Own tab, tabId always, close when done. AUDIO STAYS MUTED. Do not commit.\n\nMISSION (owns pig.js + dev/pig-viewer.html): the owner says the pigs \"look kinda scary\". Rebuild the FACE per the SPEC CUTE mandate: solid dark bean eyes + one soft catchlight (NO sclera/limbal/iris anatomy), no default brow, small gentle smile, bigger softer blush, everything rounded.\nBuild THREE complete variants switchable in pig-viewer with keys a/b/c:\nA) solid-bean minimal (Sanrio: small-ish solid ovals, maximum simplicity)\nB) huge-pupil glossy (Toca Boca: large round solid eyes, big catchlight, tiny sparkle)\nC) sleepy-lidded content (soft top lid over solid eye, blissful)\nAll 8 expression states re-derived per variant as OUTLINE changes (squint = curved slits, ouch = >< shapes, wink = one bean one arc, sad = droop, panic = wide ring, dazed = spiral or offset, smug = half-lid, neutral = the variant base). Temporary brow marks allowed ONLY in ouch/panic.\nIterate against the archetypes at BOTH reveal distance (~26px eye) and face zoom — screenshot every variant at both scales, judge harshly for \"would a 10-year-old say cute\". Set the game default to the strongest baby-schema variant. Keep one draw call, ≤20k tris, grounding intact, suites green. Return: per-variant description, screenshots taken, which you defaulted and why.",
+   "says": [
+    {
+     "ts": "2026-08-11T20:14:40.462Z",
+     "text": "Now the FACE constants, the palette eye tone, and the repaintable atlas."
+    },
+    {
+     "ts": "2026-08-11T20:14:59.740Z",
+     "text": "Now make the atlas repaintable so the viewer can switch variants live."
+    },
+    {
+     "ts": "2026-08-11T20:17:49.060Z",
+     "text": "Now the viewer: a/b/c variant switching plus reveal-scale measurement helpers."
+    },
+    {
+     "ts": "2026-08-11T20:19:16.322Z",
+     "text": "Now let me open my own browser tab and look at the result."
+    },
+    {
+     "ts": "2026-08-11T20:34:10.603Z",
+     "text": "Now let me record this in SPEC.md, whose pig.js export contract I changed."
+    },
+    {
+     "ts": "2026-08-11T20:35:54.781Z",
+     "text": "**Rebuilt the face per the SPEC CUTE mandate. Files changed: `/Users/mschmidt/source/ava-games/hog-wild/pig.js`, `/Users/mschmidt/source/ava-games/hog-wild/dev/pig-viewer.html`, `/Users/mschmidt/source/ava-games/hog-wild/SPEC.md`. Not committed.**\n\n## What the face is now\nAll eye anatomy is gone — `eyeLens`, `eyeSocket`, `openEye`, `clenchEye`, `spiralEye` and `INK.iris/pupil/irisRing/sclera` are "
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T20:33:51.966Z",
+     "name": "mcp__Claude_Browser__read_console_messages",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T20:33:57.380Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T20:34:36.842Z",
+     "name": "Edit",
+     "detail": "hog-wild/SPEC.md"
+    },
+    {
+     "ts": "2026-08-11T20:34:43.924Z",
+     "name": "Edit",
+     "detail": "hog-wild/SPEC.md"
+    },
+    {
+     "ts": "2026-08-11T20:34:51.391Z",
+     "name": "Edit",
+     "detail": "hog-wild/SPEC.md"
+    },
+    {
+     "ts": "2026-08-11T20:34:56.799Z",
+     "name": "mcp__Claude_Browser__navigate",
+     "detail": "http://localhost:4173/hog-wild/dev/pig-viewer.html"
+    },
+    {
+     "ts": "2026-08-11T20:35:04.649Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T20:35:11.513Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T20:35:23.350Z",
+     "name": "Bash",
+     "detail": "Check working tree changes"
+    },
+    {
+     "ts": "2026-08-11T20:35:26.566Z",
+     "name": "mcp__Claude_Browser__tabs_close",
+     "detail": ""
+    }
+   ],
+   "files": [
+    [
+     "/private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/face_block.js",
+     1
+    ],
+    [
+     "hog-wild/pig.js",
+     9
+    ],
+    [
+     "hog-wild/dev/pig-viewer.html",
+     11
+    ],
+    [
+     "hog-wild/SPEC.md",
+     3
+    ]
+   ],
+   "tests": [
+    [
+     "odds-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/odds-test.mjs 2>&1 | tail -4; echo \"=== replay ===\"; node hog-wild/dev/replay-test.mjs 2>&1 | tail -4",
+      "ts": "2026-08-11T20:32:23.118Z",
+      "ok": true,
+      "out": "╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\n=== replay ===\ncache stats: {\"searched\":60,\"mirrored\":8,\"hits\":23,\"misses\":154,\"fallbacks\":0,\"sims\":763}\n==============================================================================\nReplay gate: PASS\n=============================================================================="
+     }
+    ],
+    [
+     "collider-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/collider-test.mjs 2>&1 | tail -5; echo \"=== search ===\"; node hog-wild/dev/search-test.mjs 2>&1 | tail -5; echo \"=== grounding ===\"; cd hog-wi",
+      "ts": "2026-08-11T20:32:41.210Z",
+      "ok": true,
+      "out": " plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\n=== search ===\nand the idle prefill means the common case is a pool hit costing nothing at all.\n\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\n=== grounding ===\npose            minY(mm)   lowest vertex (COM frame)\nside-blank        -0.9    [-0.222,-0.325,-0.299]\nside-dot            -3    [0.27,-0.32,-0.299]\nrazorback          0.9    [-0.001,0.276,-0.126]\ntrotter           -1.8    [0.18,-0.376,0.113]\nsnouter           -3.4    [-0.001,-0.13,0.52]\njowler            -2.6    [0.078,-0.103,0.512]\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)"
+     }
+    ]
+   ],
+   "toolCount": 139,
+   "screenshots": 25
+  },
+  {
+   "id": "a580f6a700a692c7c",
+   "wf": "wf_2e2596fe-504",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T20:36:00.619Z",
+   "lastTs": "2026-08-11T21:04:45.323Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md — the \"CUTE mandate\" (owner, 2026-08-11) is your contract and OVERRIDES the older eye-anatomy notes.\nFour suites must stay green; node --check what you edit. Own tab, tabId always, close when done. AUDIO STAYS MUTED. Do not commit.\n\nMISSION: independent cuteness judgment (you did not build these). Builder notes: **Rebuilt the face per the SPEC CUTE mandate. Files changed: `/Users/mschmidt/source/ava-games/hog-wild/pig.js`, `/Users/mschmidt/source/ava-games/hog-wild/dev/pig-viewer.html`, `/Users/mschmidt/source/ava-games/hog-wild/SPEC.md`. Not committed.**\n\n## What the face is now\nAll eye anatomy is gone — `eyeLens`, `eyeSocket`, `openEye`, `clenchEye`, `spiralEye` and `INK.iris/pupil/irisRing/sclera` are deleted. One primitive set: `beanPath` (two cubics, no vertex that can be sharpened), `bean()` = pale halo → solid dark plum bean (`PALETTE.eye` #241328) → optional SKIN lid → **exactly one** soft catchlight, plus `slitEye`, `archEye`, `wedgeEye`, `ringEye`, `browMark`. No brow at rest anywhere; small rounded smile at neutral; blush bigger (0.042→0.052 m) and deeper.\n\n## The three variants (`VARIANT` in pig.js, keys a/b/c)\n| | eye ×eyeR | aspect | catchlight | lid | mouth |\n|---|---|---|---|---|---|\n| **A** solid-bean minimal (Sanrio) | 0.84 | 1.14 tall | 0.30 r | — | 0.84 |\n| **B** huge-pupil glossy (Toca Boca) | 1.08 | 1.00 round | 0.40 r + 0.11 r glint at half alpha | — | 0.86 |\n| **C** sleepy-lidded content (Pua) | 0.98 | 1.10 | 0.30 r | 0.36 skin lid | 0.98 |\n\n`eyeK` is capped by geom\nIn your own tab: pig-viewer, cycle variants a/b/c at face zoom AND reveal distance; screenshot each. Judge against the baby-schema archetypes (Sanrio/Toca Boca/Pua): solid eyes? no anatomy detail? no resting brow? soft smile? Would a child call each one cute, neutral, or scary — and WHY (be specific: which mark, which proportion). Then play 4+ tosses in the GAME and confirm the default variant reads cute during reveals and expressions still work (screenshot a reveal + an ouch/impact moment). Check the eight expressions on the default variant still communicate. Suites green, no console errors. Return JSON per schema.",
+   "says": [
+    {
+     "ts": "2026-08-11T21:01:00.879Z",
+     "text": "An Oinker at **40–44 px of eye** — the largest face the game ever shows. Let me judge `panic`."
+    },
+    {
+     "ts": "2026-08-11T21:01:20.246Z",
+     "text": "Reads as comic alarm, not horror. Let me check the console and confirm nothing regressed."
+    },
+    {
+     "ts": "2026-08-11T21:01:40.186Z",
+     "text": "No errors, muted throughout, 8 tosses played. Let me complete the eye-facing table with the remaining pose archetypes."
+    },
+    {
+     "ts": "2026-08-11T21:02:12.031Z",
+     "text": "The polling raced ahead of the reveal. Let me wait for the frame before collecting."
+    },
+    {
+     "ts": "2026-08-11T21:03:15.627Z",
+     "text": "All eight expression states fired in real play. Let me close my tab."
+    },
+    {
+     "ts": "2026-08-11T21:04:09.179Z",
+     "text": "Tab closed; my only file activity was reading (the modified files are the builder's, and `_watch/data.json` is the dev-nav's own). Nothing committed.\n\nVerification summary: all four suites green (odds ALL TESTS PASSED, replay PASS, collider M0 PASS, search M1 PASS), `node --check` clean on pig.js/fx.js/game.js, zero console errors across the viewer and 11 game tosses, audio muted the whole time. T"
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T21:01:43.171Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:01:50.393Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:01:59.519Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:02:12.330Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:02:20.376Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:02:30.342Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:02:38.149Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:03:15.879Z",
+     "name": "mcp__Claude_Browser__tabs_close",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:03:20.709Z",
+     "name": "Bash",
+     "detail": "Confirm no files modified and nothing committed"
+    },
+    {
+     "ts": "2026-08-11T21:04:45.176Z",
+     "name": "StructuredOutput",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "collider-test.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild/dev && (node collider-test.mjs > /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b",
+      "ts": "2026-08-11T20:37:00.013Z",
+      "ok": true,
+      "out": "odds exit=0\nreplay exit=0"
+     }
+    ]
+   ],
+   "toolCount": 144,
+   "screenshots": 30
+  },
+  {
+   "id": "a2aa0a30e8d7a9eb0",
+   "wf": "wf_50c5fb7d-93e",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T21:06:31.177Z",
+   "lastTs": "2026-08-11T21:58:35.563Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md (CUTE mandate + Presentation model + reveal framing notes).\nFour suites green always; node --check what you edit. Own tab, tabId always, close when done. AUDIO STAYS MUTED. Do not commit.\n\nMISSION: fix the face-ORIENTATION mechanics found by the cuteness judge (the face art itself is approved — variant B default; do not redesign the face). The judge's measured findings:\n1. MOUTH-AS-EYEBROW (biggest): the face is painted on the flank; in flank rests the face rotates on screen — mouth arcs ABOVE the eye, no visible mouth. Measured screen rotations: side-blank 134° from screen-down, razorback -140°, jowler -114° — 58% of single-pig outcomes. FIX: per-POSE face orientation — the settled pose is known (settledPose + POSE_UP are canonical); pre-render rotated face-ink frames per rest pose into the existing expression atlas (canvas draws at startup are cheap) and swap to the pose-corrected frame when a pig settles, so eye-over-mouth reads upright on screen in every rest. Tumbling/airborne keeps the base orientation. Alternative approaches allowed if measurably better; requirement is: in EVERY rest pose, at reveal camera angles, the mouth is visibly BELOW the eye and reads as a mouth.\n2. RAZORBACK NO-EYE REVEALS: solveRig's 'front' term aims at the snout, which points skyward on a back rest; eye-normal·camera measured NEGATIVE while eyePx passed. FIX: add an eye-FACING term/filter to solveRig (eye normal · direction-to-camera ≥ threshold ~0.25 as a hard constraint with graceful fallback), so razorback reveals orbit to where the face actually shows. Re-measure the judge's six-reveal facing table after.\n3. FLANK-DEPENDENT WINK: wink only closes the dot-flank eye. FIX: at reveal time close the CAMERA-FACING eye (mirrored expression frame chosen by which flank faces the camera).\n4. Remove variant B's second glint dot (mandate: exactly one catchlight) and tame the catchlight wash that greys the bean at close range.\n5. If cheap: respect REVEAL.minEyePx harder on short/wide canvases (judge measured 17px accepted on 736x354).\nVerify each fix with the judge's own measurement methods (screen offsets, facing dot products, screenshots at reveal distance) across side-blank, razorback, jowler, and a double-wink reveal. Suites green. Return per-finding status + measurements.",
+   "says": [
+    {
+     "ts": "2026-08-11T21:25:55.435Z",
+     "text": "Now finding 5 (the eye-px promise on short canvases) and wiring `orientFaces` into `startReveal`:"
+    },
+    {
+     "ts": "2026-08-11T21:35:21.589Z",
+     "text": "The razorback still crowds the mouth against the eye. Let me solve the ink angle jointly with the camera the reveal will actually pick, rather than just plumbing it:"
+    },
+    {
+     "ts": "2026-08-11T21:47:44.249Z",
+     "text": "Now a precise baseline for finding 4 — temporarily restoring just the glint and the old wash:"
+    },
+    {
+     "ts": "2026-08-11T21:54:03.777Z",
+     "text": "Now the Presentation-model side of the SPEC (the reveal's own terms):"
+    },
+    {
+     "ts": "2026-08-11T21:56:59.104Z",
+     "text": "Final verification — the four suites, grounding, and a live end-to-end reveal after the cleanup:"
+    },
+    {
+     "ts": "2026-08-11T21:58:35.563Z",
+     "text": "All five findings fixed and measured. Nothing committed; four suites + grounding green.\n\n## Per-finding status\n\n**1. MOUTH-AS-EYEBROW — FIXED.** Two mechanisms, because neither works alone.\n- `pig.js` gained `faceInkFrame` / `faceRestAngle` / `faceInkPoint` / `setSettledFace`. The ink now rotates about the eye per REST POSE. Key fact that made it cheap: the correction is **yaw-independent** (the v"
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T21:56:14.150Z",
+     "name": "Bash",
+     "detail": "Check _qb usage after removing the snout term"
+    },
+    {
+     "ts": "2026-08-11T21:56:21.384Z",
+     "name": "Read",
+     "detail": "hog-wild/game.js"
+    },
+    {
+     "ts": "2026-08-11T21:56:34.655Z",
+     "name": "Edit",
+     "detail": "hog-wild/game.js"
+    },
+    {
+     "ts": "2026-08-11T21:56:40.342Z",
+     "name": "Read",
+     "detail": "hog-wild/game.js"
+    },
+    {
+     "ts": "2026-08-11T21:56:47.161Z",
+     "name": "Edit",
+     "detail": "hog-wild/game.js"
+    },
+    {
+     "ts": "2026-08-11T21:56:52.264Z",
+     "name": "Bash",
+     "detail": "Verify orientFaces after cleanup"
+    },
+    {
+     "ts": "2026-08-11T21:57:00.442Z",
+     "name": "Bash",
+     "detail": "Final suite + grounding run"
+    },
+    {
+     "ts": "2026-08-11T21:57:24.545Z",
+     "name": "mcp__claude-in-chrome__browser_batch",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:57:52.926Z",
+     "name": "mcp__claude-in-chrome__browser_batch",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T21:58:00.694Z",
+     "name": "Bash",
+     "detail": "Final diff stat and scratch cleanup"
+    }
+   ],
+   "files": [
+    [
+     "hog-wild/pig.js",
+     22
+    ],
+    [
+     "/private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/face-orient.mjs",
+     1
+    ],
+    [
+     "hog-wild/game.js",
+     13
+    ],
+    [
+     "hog-wild/SPEC.md",
+     6
+    ]
+   ],
+   "tests": [
+    [
+     "three-hook.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && node --check pig.js && node --import ./dev/three-hook.mjs /private/tmp/claude-501/-Users-mschmidt-source-ava-gam",
+      "ts": "2026-08-11T21:22:13.522Z",
+      "ok": true,
+      "out": "side 1  at=0.115,0.068,0.330 n=0.801,0.599,0.000 inkY=0.599,-0.801,0.000\nside -1  at=-0.115,0.068,0.330 n=-0.801,0.599,0.000 inkY=-0.599,-0.801,0.000\n\nbase orientation (a=0) overflow: { over: 0.017047999999999994, who: 'halo+x' }\n\npose            angle°   reach  vertical  eyeNormal·up   worstOverflow\nside-blank       158.6   0.654   -0.654         0.756    11.0mm halo-x\n  (dot flank)      23.4   0.603   -0.603        -0.798    9.9mm\nside-dot          21.9   0.514   -0.514        -0.858    10.7mm halo+x\n  (dot flank)     164.4   0.714   -0.714         0.700    13.8mm\nrazorback       -180.0   0.801   -0.801        -0.599    17.0mm halo-x\n  (dot flank)    -180.0   0.801   -0.801        -0.599    17.0mm\ntrotter            0.0   0.801   -0.801         0.599    17.0mm halo+x\n  (dot flank)       0.0   0.801   -0.801         0.599    17.0mm\nsnouter          -21.3   0.866   -0.809         0.499    11.1mm halo+x\n  (dot flank)     -20.5   0.881   -0.822         0.474    11.6mm\njowler           -21.3   0.978   -0.913        -0.209    11.1mm halo+x\n  (dot flank)     -20.7   0.658   -0.236         0.753    11.4mm"
+     }
+    ],
+    [
+     "odds-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/odds-test.mjs >/dev/null 2>&1; echo \"odds:$?\"; node hog-wild/dev/collider-test.mjs >/dev/null 2>&1; echo \"collider:$?\"; node hog-wild/dev/sear",
+      "ts": "2026-08-11T21:47:40.532Z",
+      "ok": true,
+      "out": "odds:0\ncollider:0\nsearch:0\nreplay:0\njowler            -2.6    [0.078,-0.103,0.512]\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)"
+     }
+    ],
+    [
+     "fo2.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && node --check pig.js && cat > /tmp/fo2.mjs <<'EOF'\nimport { POSE_UP } from '/Users/mschmidt/source/ava-games/hog-",
+      "ts": "2026-08-11T21:36:13.028Z",
+      "ok": true,
+      "out": "pose            side  rot°  plumb°  reach  vertical  facing  upright  score\nside-blank       1    156     159   0.654    -0.654    0.862    0.863   1.854  n·up 0.76\nside-blank      -1      3      23   0.603    -0.565    0.274    0.352   0.679  n·up -0.80\nside-dot         1     22      22   0.514    -0.514   -1.000    0.000      --  n·up -0.86\nside-dot        -1    165     164   0.714    -0.714    0.901    0.902   1.938  n·up 0.70\nrazorback        1   -180     180   0.801    -0.801    0.565    0.565   1.216  n·up -0.60\nrazorback       -1   -180     180   0.801    -0.801    0.565    0.565   1.216  n·up -0.60\ntrotter          1     -0       0   0.801    -0.801    0.951    0.951   2.045  n·up 0.60\ntrotter         -1     -0       0   0.801    -0.801    0.951    0.951   2.045  n·up 0.60\nsnouter          1    -21     -42   0.866    -0.807    0.979    0.921   2.039  n·up 0.50\nsnouter         -1    -21     -41   0.881    -0.825    0.985    0.930   2.055  n·up 0.47\njowler           1    -21     -42   0.978    -0.911    0.844    0.822   1.789  n·up -0.21\njowler          -1    -21     -90   0.658    -0.239    0.790    0.447   1.304  n·up 0.75"
+     }
+    ],
+    [
+     "t-test.mjs",
+     {
+      "cmd": "for t in odds collider search replay; do node hog-wild/dev/$t-test.mjs >/dev/null 2>&1 && echo \"$t-test: PASS\" || echo \"$t-test: FAIL\"; done; cd hog-wild && nod",
+      "ts": "2026-08-11T21:57:15.687Z",
+      "ok": true,
+      "out": "odds-test: PASS\ncollider-test: PASS\nsearch-test: PASS\nreplay-test: PASS\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)"
+     }
+    ]
+   ],
+   "toolCount": 176,
+   "screenshots": 3
+  },
+  {
+   "id": "a6b879b76a9d839fe",
+   "wf": "wf_50c5fb7d-93e",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T21:58:45.795Z",
+   "lastTs": "2026-08-11T22:42:02.906Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md (CUTE mandate + Presentation model + reveal framing notes).\nFour suites green always; node --check what you edit. Own tab, tabId always, close when done. AUDIO STAYS MUTED. Do not commit.\n\nMISSION: independent re-check of the orientation fixes (builder notes: All five findings fixed and measured. Nothing committed; four suites + grounding green.\n\n## Per-finding status\n\n**1. MOUTH-AS-EYEBROW — FIXED.** Two mechanisms, because neither works alone.\n- `pig.js` gained `faceInkFrame` / `faceRestAngle` / `faceInkPoint` / `setSettledFace`. The ink now rotates about the eye per REST POSE. Key fact that made it cheap: the correction is **yaw-independent** (the vertical component of any body direction under a rest with up-axis `L` is `dot(d, L)`, and yaw is a rotation about world up), so it is a pure function of the pose, solved in the body frame.\n- **Plumbing it was wrong and I measured why**: rotating to point the ink's down-axis as world-down as possible (180° on a razorback) put the mouth 6.9 px below a 32 px eye — *inside* it, because on a back rest the eye normal and ink-down have opposite horizontal components. The angle is now solved **jointly with the camera**, same objective `solveRig` scores.\n- `FACE.u1` 0.450 → **0.474** (the razorback half-turn sends the blush 104 mm spineward vs an 88 mm budget). `z1` cannot move (nose tip), so `inkOverflow` vetoes unpaintable rotations via exact elliptical support; jowler dot flank asks −90°, gets −). Re-measure ALL the original findings with the original methods:\n(1) mouth position vs eye in side-blank/razorback/jowler rests at reveal distance — mouth must read BELOW the eye as a mouth (screen offsets + screenshots);\n(2) eye-facing dot products across ≥6 live reveals including razorback and double razorback — none negative, razorback face visible (screenshot);\n(3) wink on a double from both flanks — the camera-facing eye must close;\n(4) variant B at face zoom — exactly ONE catchlight, bean stays dark plum not grey-brown;\n(5) short canvas (resize to ~736x360): eye px on a pair reveal.\nThen the holistic question: play 5 tosses and judge — are these pigs now genuinely CUTE in actual gameplay, at the moments the game shows them? Return JSON per schema, honest.",
+   "says": [
+    {
+     "ts": "2026-08-11T22:34:16.607Z",
+     "text": "Now let me see variant B at face zoom."
+    },
+    {
+     "ts": "2026-08-11T22:35:35.603Z",
+     "text": "Let me verify nothing in the repo changed and re-confirm the suites."
+    },
+    {
+     "ts": "2026-08-11T22:36:02.434Z",
+     "text": "The HEAD changed during my session — let me check what landed."
+    },
+    {
+     "ts": "2026-08-11T22:36:32.381Z",
+     "text": "Let me reload fresh and quantify the headline finding: how often a faceless pair shot ships while a face-on hero shot was available."
+    },
+    {
+     "ts": "2026-08-11T22:37:09.370Z",
+     "text": "Game resumed from save. Let me install the pump and harness."
+    },
+    {
+     "ts": "2026-08-11T22:41:30.328Z",
+     "text": "Measurements complete. Let me close my tab."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T22:36:50.096Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:37:02.005Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:37:23.844Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:37:35.358Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:37:42.169Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:38:32.424Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:38:54.143Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:39:04.426Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:39:54.016Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T22:41:30.340Z",
+     "name": "mcp__claude-in-chrome__tabs_close_mcp",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "t.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && node --check game.js && node --check pig.js && echo \"syntax OK\" && for t in odds-test collider-test search-test ",
+      "ts": "2026-08-11T22:35:38.930Z",
+      "ok": true,
+      "out": " M _watch/data.json\n M hog-wild/SPEC.md\n--- no new commits ---\ne48602d feat(hog-wild): redesign facial graphics under CUTE mandate and fix reveal orientation mechanics"
+     }
+    ],
+    [
+     "three-hook.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && node --import ./dev/three-hook.mjs dev/grounding.mjs 2>&1 | tail -20",
+      "ts": "2026-08-11T21:59:47.781Z",
+      "ok": true,
+      "out": "pose            minY(mm)   lowest vertex (COM frame)\nside-blank        -0.9    [-0.222,-0.325,-0.299]\nside-dot            -3    [0.27,-0.32,-0.299]\nrazorback          0.9    [-0.001,0.276,-0.126]\ntrotter           -1.8    [0.18,-0.376,0.113]\nsnouter           -3.4    [-0.001,-0.13,0.52]\njowler            -2.6    [0.078,-0.103,0.512]\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)"
+     }
+    ]
+   ],
+   "toolCount": 149,
+   "screenshots": 8
   }
  ]
 }
