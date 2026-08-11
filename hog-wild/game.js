@@ -75,7 +75,7 @@ function fallbackScoreToss(a, b) {
         type: 'sider',
         points: 1,
         headline: 'Sider! +1',
-        detail: 'Both pigs landed the same way up.',
+        detail: 'Matching sides.',
       };
     }
     return {
@@ -92,7 +92,7 @@ function fallbackScoreToss(a, b) {
       type: 'double',
       points,
       headline: `Double ${labelA}! +${points}`,
-      detail: 'Both pigs the same — that\'s worth way more than two.',
+      detail: '',
     };
   }
 
@@ -105,10 +105,8 @@ function fallbackScoreToss(a, b) {
     type: 'mixed',
     points,
     headline: `${named}! +${points}`,
-    detail:
-      isSideKey(a) || isSideKey(b)
-        ? 'A pig on its side is worth nothing, but the other one counts.'
-        : 'Two different positions score the sum of both pigs.',
+    // …and no detail on a scoring round: see odds.js's round-3 copy note.
+    detail: '',
   };
 }
 
@@ -374,6 +372,9 @@ const REVEAL = {
    * 23.4 px of eye against 25.1) and never passed |ndc| 0.87 for the whole hold.
    */
   driftChecks: 3,       // bearings sampled across the drift span, inclusive
+  pathChecks: [0.25, 0.45, 0.65, 0.85],  // where along the zoom-in the fit is verified
+  pathRepairs: 9,       // outward steps allowed to make a failing path fit
+  pathStep: 1.07,       // …each one this much further out
   midY: 0.16,           // the look-at point sits just above the felt
   /* ---- composition --------------------------------------------------------
    * The result card is pinned to the bottom of the canvas while the camera
@@ -1649,12 +1650,12 @@ const adapter = {
    */
   startReveal(opts = {}) {
     if (!this.ready) return Promise.resolve();
-    const { pigOut = false, oinker = false, hero = 0, celebrate = null } = opts;
+    const { pigOut = false, oinker = false, hero = 0, celebrate = null, arrive = null } = opts;
     this.cameraShake(0);
-    this.closeRig = this.computeCloseRig(hero);
+    this.closeRig = this.computeCloseRig(hero, { needBoth: pigOut || oinker });
     this.reveal = {
       phase: 'in', t: 0, phaseAt: performance.now(), frameAt: 0,
-      pigOut, oinker, burst: false, celebrate,
+      pigOut, oinker, burst: false, celebrate, arrive,
     };
     // the zoom-in interpolates ABSOLUTELY from here (see REVEAL's round-3 note)
     this.markRevealFrom();
@@ -1706,6 +1707,8 @@ const adapter = {
       r.burst = true;
       this.burstPigsNow();
     }
+    // …nor the result text, which a skip is explicitly asking to see NOW
+    if (r.arrive) { const fn = r.arrive; r.arrive = null; fn(); }
     // a skip must not swallow the reward either — the celebration is the end
     // state of a scoring round exactly as the burst is the end state of an Oinker
     if (r.celebrate) {
@@ -1989,7 +1992,7 @@ const adapter = {
     return out;
   },
 
-  computeCloseRig(hero = 0) {
+  computeCloseRig(hero = 0, { needBoth = false } = {}) {
     const V = this.THREE.Vector3;
     const cam = this.scene.camera;
     const p1 = this.pigs[0].p, p2 = this.pigs[1].p;
@@ -2019,26 +2022,66 @@ const adapter = {
     // heroFrac of the overview distance loses to the hero shot on principle, not
     // on taste — see REVEAL.heroFrac.
     const ceiling = Math.min(REVEAL.maxDist, (this._overviewDist || REVEAL.maxDist) * REVEAL.heroFrac);
-    let rig = this.solveRig(both, mid, axis, band, ceiling, snout, heroAt);
-    let pts = both;
-
-    if (!rig) {
-      // The pigs are too far apart for one close shot (MEASURED in the wild: a
-      // mirrored pair lands at x ±2.79, a 5.6 m spread). Frame the pig that
-      // earned the round instead — a real close-up of one pig beats a cropped
-      // wide of two, and the other pig's chip hides itself the way SPEC beat 6
-      // already specifies for a pig that leaves frame.
+    const pack = (rig, pts, at) => ({
+      mid: at, px: rig.px, pz: rig.pz, dist: rig.dist, bias: rig.bias,
+      swing: rig.swing, hero: pts.length === corners[0].length, drift: 0, _pos: new V(),
+    });
+    /** Walk a solved rig outward until the ZOOM-IN fits too, or give up. */
+    const repair = (rig, pts, at, limit) => {
+      if (!rig) return null;
+      const packed = pack(rig, pts, at);
+      for (let k = 0; k <= REVEAL.pathRepairs; k++) {
+        if (this.pathFits(pts, band, packed)) return packed;
+        packed.dist *= REVEAL.pathStep;
+        if (packed.dist > limit) return null;
+      }
+      return null;
+    };
+    /** The hero shot: the pig that earned the round, alone and close. */
+    const solveHero = () => {
       const one = corners[h0];
       const solo = new V(hp.p[0], REVEAL.midY, hp.p[2]);
-      rig = this.solveRig(one, solo, axis, band, REVEAL.maxDist, snout, heroAt);
-      pts = one;
-      mid.copy(solo);
-      if (!rig) rig = { dist: REVEAL.maxDist, px: axis.px, pz: axis.pz, swing: 0, bias: 0 };
-    }
-    return {
-      mid, px: rig.px, pz: rig.pz, dist: rig.dist, bias: rig.bias,
-      swing: rig.swing, hero: pts.length === corners[0].length, drift: 0, _pos: new V(),
+      const r = this.solveRig(one, solo, axis, band, REVEAL.maxDist, snout, heroAt);
+      return repair(r, one, solo, REVEAL.maxDist);
     };
+    /** px of eye this rig delivers on the hero pig — SPEC's own promise, measured. */
+    const eyePxOf = (packed) => {
+      if (!packed) return 0;
+      const px = this.scene.renderer.domElement;
+      const hpx = px.clientHeight || px.height || 600;
+      const tanHalfV = Math.tan((this.scene.camera.fov * 0.5 * Math.PI) / 180);
+      const depth = this.closeRigPose(packed).pos.distanceTo(heroAt);
+      return (2 * REVEAL.eyeR * (hpx / 2)) / (Math.max(0.2, depth) * tanHalfV);
+    };
+
+    let out = repair(this.solveRig(both, mid, axis, band, ceiling, snout, heroAt),
+                     both, mid, ceiling);
+    /* The pair shot is preferred, and then the SCALE promise decides.
+     *
+     * ROUND-4, portrait: a Snouter + Sider 3.4 m apart on a 351x548 canvas can be
+     * framed as a pair — at 8.3 m, which is 14.8 px of eye against this file's
+     * promise of 20. That is the round-2 failure again ("the reveal is just a slightly
+     * lower overview"), arrived at from the other direction. When the pair cannot pay
+     * for a face, the hero shot can: one pig, close, and the partner's chip hides
+     * itself under beat 6.
+     *
+     * EXCEPT when both pigs ARE the result. A Pig Out means "these two are opposite
+     * sides" and an Oinker means "these two are touching"; a close-up of one pig
+     * cannot say either, so those rounds keep the pair shot at whatever scale it
+     * costs. `needBoth` is passed down from startReveal. */
+    const pairEye = eyePxOf(out);
+    if (!needBoth && pairEye < REVEAL.minEyePx) {
+      const solo = solveHero();
+      // …and only if it is a real gain, so a marginal pair shot is not thrown away
+      if (solo && eyePxOf(solo) > pairEye * 1.25) out = solo;
+    }
+    if (!out) out = solveHero();
+    // Last resort: nothing fit anywhere. Keep the pair's geometry at the ceiling —
+    // a wide shot is a bad reveal, an un-aimed camera is a broken one.
+    if (!out) {
+      out = pack({ dist: ceiling, px: axis.px, pz: axis.pz, swing: 0, bias: 0 }, both, mid);
+    }
+    return out;
   },
 
   closeRigPose(rig) {
@@ -2119,10 +2162,18 @@ const adapter = {
      * before any spark exists. Firing it above meant the burst was spawned one
      * frame ahead of the arrival it was waiting for, which on a starved renderer
      * was the whole zoom-in. */
-    if (arrived && r.celebrate) {
-      const c = r.celebrate;
-      r.celebrate = null;
-      this.celebrateScore(c.poses, c.points);
+    if (arrived) {
+      /* The RESULT TEXT lands here too, on the same frame as the reward and for
+       * the same reason — see revealResult's round-3 note. Announcing it at the
+       * round call meant the headline and the score had been readable for the whole
+       * 1.3 s zoom-in, so the reveal was showing the player something they had
+       * already been told. */
+      if (r.arrive) { const fn = r.arrive; r.arrive = null; fn(); }
+      if (r.celebrate) {
+        const c = r.celebrate;
+        r.celebrate = null;
+        this.celebrateScore(c.poses, c.points);
+      }
     }
     return true;
   },
@@ -2230,7 +2281,14 @@ const adapter = {
    * two shots, and the fit is monotone in distance, so if the destination fits,
    * every frame on the way in fits too.
    */
-  arcTo(fromPos, fromLook, toPos, toLook, u, bias) {
+  /**
+   * The pose `u` of the way along that arc, written into scratch vectors.
+   *
+   * Split out of arcTo so the SOLVE can ask the same question the render asks:
+   * "where exactly will the camera be partway through this move?" — see pathFits.
+   * @returns {{pos:THREE.Vector3, look:THREE.Vector3}} reused scratch
+   */
+  arcPose(fromPos, fromLook, toPos, toLook, u) {
     const V = this.THREE.Vector3;
     this._glideLook = this._glideLook || new V();
     this._glidePos = this._glidePos || new V();
@@ -2247,11 +2305,55 @@ const adapter = {
     const ang = A.a + da * u;
     const y = A.y + (B.y - A.y) * u;
     const look = this._glideLook.lerpVectors(fromLook, toLook, u);
-    this.aimCamera(
-      this._glidePos.set(look.x + Math.cos(ang) * d, look.y + y, look.z + Math.sin(ang) * d),
-      look,
-      bias,
-    );
+    this._glidePos.set(look.x + Math.cos(ang) * d, look.y + y, look.z + Math.sin(ang) * d);
+    return { pos: this._glidePos, look };
+  },
+
+  arcTo(fromPos, fromLook, toPos, toLook, u, bias) {
+    const p = this.arcPose(fromPos, fromLook, toPos, toLook, u);
+    this.aimCamera(p.pos, p.look, bias);
+  },
+
+  /**
+   * Does the camera hold its subject for every frame of the WAY IN as well?
+   *
+   * ROUND-4, and this is the last place a crop was hiding. The drift fix above made
+   * the hold safe and the arc was ASSUMED safe: SPEC argued "the distance is monotone
+   * between the two shots and the fit is monotone in distance, so if the destination
+   * fits, every frame on the way in fits". The distance half is true; the BEARING half
+   * is not. `arcPose` also sweeps the bearing from the overview's to the rig's, and at
+   * an intermediate bearing the pair's projected spread can exceed what the frame holds
+   * at that intermediate distance. MEASURED, portrait 375x812 (canvas 351x548), a
+   * Snouter + Sider: the destination at 8.82 m sat at worst |ndc| 0.84 and the whole
+   * 3 s hold stayed under it — while the zoom-in passed through 1.014, 1.076, 1.133 and
+   * **1.159** on its way there, i.e. a pig fully off-canvas mid-move, with the chip
+   * correctly hiding itself and nothing to hide behind.
+   *
+   * So the path is sampled too, with the SAME interpolated bias the render uses
+   * (`t.bias * u`). It is checked on the winner rather than inside the binary search
+   * because the fix for a failure is more distance, and the intermediate distances grow
+   * monotonically with the destination's — so a short outward walk repairs it.
+   */
+  pathFits(pts, band, rig) {
+    const cam = this.scene.camera;
+    const aim = this._camAim;
+    aim.fov = cam.fov; aim.aspect = cam.aspect;
+    aim.near = cam.near; aim.far = cam.far;
+    const V = this.THREE.Vector3;
+    this._pathFrom = this._pathFrom || new V();
+    this._pathLook = this._pathLook || new V();
+    const fromPos = this._pathFrom.copy(cam.position);
+    const fromLook = this.lookPointOf(cam, this._pathLook);
+    const t = this.closeRigPose(rig);
+    // the destination's own pose is verified by the solve; these are the frames in
+    // between, at the same four points the eye actually notices a clipped pig
+    for (const u of REVEAL.pathChecks) {
+      const p = this.arcPose(fromPos, fromLook, t.pos, t.look, u);
+      if (!this.fitPose(aim, p.pos, p.look, pts, band, REVEAL.pointPad, t.bias * u).fits) {
+        return false;
+      }
+    }
+    return true;
   },
 
   /** Where the overview rig is looking — cached, it only moves on a re-frame. */
@@ -2360,6 +2462,15 @@ const adapter = {
   finishReveal() {
     clearTimeout(this._revealGuard);
     const had = !!this.reveal;
+    /* LAST LINE OF DEFENCE for the deferred result text. Every path into the reveal
+     * either arrives or is skipped, and both fire `arrive` — but if any future path
+     * ever ends a reveal without doing so, the player would be left looking at an
+     * invisible result card, which is a worse failure than showing it a beat late. */
+    if (this.reveal && this.reveal.arrive) {
+      const fn = this.reveal.arrive;
+      this.reveal.arrive = null;
+      fn();
+    }
     this.reveal = null;
     if (this.cup) this.cup.visible = true;
     if (this.cupShadow) this.cupShadow.visible = true;
@@ -2566,6 +2677,29 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matc
 
 const $ = (id) => document.getElementById(id);
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+/**
+ * One of index.html's drawn glyphs, as an element.
+ *
+ * SPEC "art direction": there are no emoji in this build. Anything game.js paints
+ * into the DOM that needs a mark uses a `<symbol>` from `#icon-defs` — same 24×24
+ * grid, same stroke weight, colour inherited from the text it sits in — so a
+ * scoreboard marker and a headline glyph cannot drift apart, and neither of them
+ * changes shape between an iPhone and a Pixel the way an emoji font does.
+ */
+function icon(name, px = 20) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('width', px);
+  svg.setAttribute('height', px);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
+
 const dom = {
   body: document.body,
   screens: {
@@ -2762,7 +2896,8 @@ function renderScoreboard() {
 
     const marker = document.createElement('span');
     marker.className = 'marker';
-    marker.textContent = i === state.currentIndex && state.screen === 'game' ? '🐷' : '';
+    // the drawn pig mark, not the platform emoji (SPEC "art direction")
+    if (i === state.currentIndex && state.screen === 'game') marker.append(icon('pig', 19));
 
     const who = document.createElement('span');
     who.className = 'who';
@@ -2782,15 +2917,43 @@ function renderScoreboard() {
  * the board at once). The reveal camera reads its live height through
  * adapter.cardBias() and composes the pigs above it, so keep it short — a card
  * that grows taller pushes the pigs further up the frame. */
-function setResultCard(tone, headline, detail) {
-  dom.resultCard.className = 'result-card' + (tone ? ` ${tone}` : '');
-  dom.resultHeadline.textContent = headline;
-  dom.resultDetail.textContent = detail;
+/**
+ * @param {object} [o]
+ *   pending — lay the card out but keep it INVISIBLE (`.pending`), for a result
+ *     whose reveal has not arrived yet. It must still occupy its box: both
+ *     frameBand() (the reveal's fit) and projectChips() (the chip clamp) measure
+ *     this element live to keep the pigs and their labels out of its band, so a
+ *     card that is display:none until the camera lands would let the solve frame
+ *     the pigs exactly where the card is about to appear.
+ *   icon — an inline-SVG glyph id from ICONS, drawn before the headline.
+ */
+function setResultCard(tone, headline, detail, o = {}) {
+  // a fresh className drops `arrive` too, so the entrance re-plays per result
+  dom.resultCard.className = 'result-card' + (tone ? ` ${tone}` : '') +
+    (o.pending ? ' pending' : '');
+  dom.resultHeadline.textContent = '';
+  if (o.icon) dom.resultHeadline.append(icon(o.icon, 22));
+  dom.resultHeadline.append(document.createTextNode(headline));
+  dom.resultDetail.textContent = detail || '';
   dom.resultCard.hidden = false;
+}
+
+/** Un-hide a card that was set `pending` — the frame the reveal camera lands.
+ *  `.arrive` plays the entrance (a rise, or a shake on the two failure tones). */
+function showResultCard() {
+  dom.resultCard.classList.remove('pending');
+  /* An entrance animation does not ADVANCE while the document is hidden: it starts,
+   * pins at its 0% keyframe and stays there. MEASURED here — with the card's
+   * appearance carried by a transition, and then by a fill-less animation, the
+   * computed opacity was still 0 five seconds after the camera had landed. A hidden
+   * tab therefore gets the arrived state directly; nobody is watching the flourish,
+   * and an invisible result is a real failure. */
+  if (!document.hidden && !reducedMotion) dom.resultCard.classList.add('arrive');
 }
 
 function clearResultCard() {
   dom.resultCard.hidden = true;
+  dom.resultCard.classList.remove('pending', 'arrive');
 }
 
 /* Both Side poses share the label "Sider" in odds.js, which is right for the
@@ -2958,12 +3121,39 @@ function fireOinkerStingNow() {
   sadness('oinker');
 }
 
-/** Everything the player sees once the pigs have stopped moving.
- *  `played` is what the adapter actually replayed, or null on the no-tumble
- *  paths (Quick Toss, reduced motion, resume).
- *  @returns {{kind:'oinker'|'pigout'|'score', result:object|null}} */
+/**
+ * Everything the player sees once the pigs have stopped moving.
+ * `played` is what the adapter actually replayed, or null on the no-tumble
+ * paths (Quick Toss, reduced motion, resume).
+ *
+ * ROUND-3 REVIEW: "the result card headline and the THIS TURN score both fire the
+ * instant the round resolves, ~1.3 s before the camera arrives and before any
+ * celebration … the text spoils the outcome before the reveal plays, which is
+ * exactly the reasoning SPEC applies to celebrateScore — it just wasn't applied to
+ * the card or the score."
+ *
+ * So this function now splits along the same seam celebrateScore already used. The
+ * MODEL is committed here, always and immediately — points, `pending` cleared,
+ * `saveGame()` — because Approach B requires that a reload can never duck a result.
+ * The two things that ANNOUNCE it, the card's text and the turn-total counter, are
+ * deferred into `showdown`, which the reveal fires on the frame the camera lands
+ * (and which a skip tap fires too, for the same reason the Oinker still pops on a
+ * skip). With no reveal to wait for — Quick Toss, reduced motion, a resumed page —
+ * it runs here.
+ *
+ * The card is still SET here, as `pending`: invisible, but laid out, because the
+ * reveal's own fit test measures its box to keep the pigs out of its band.
+ *
+ * @returns {{kind:'oinker'|'pigout'|'score', result:object|null, showdown:Function}}
+ */
 function revealResult(outcome, played = null, { instant = false } = {}) {
   state.tossedThisTurn = true;
+  // fired on the reveal's arrival, or right here when there is no reveal
+  let showdown = () => {};
+  const announce = (fn) => {
+    showdown = () => { showdown = () => {}; fn(); };
+    if (instant || reducedMotion || !adapter.ready) showdown();
+  };
 
   if (outcome.oinker) {
     const player = currentPlayer();
@@ -2978,13 +3168,17 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
     saveGame();
 
     setPoseLabels(poseLabel(shownA), poseLabel(shownB));
-    renderTurnBanner();
-    renderScoreboard();
     setResultCard(
       'awful',
-      'Oinker!! 😱',
-      `The pigs are touching — ${player.name} goes all the way back to zero.`
+      'Oinker!!',
+      `The pigs are touching — ${player.name} back to zero.`,
+      { pending: true, icon: 'oinker' },
     );
+    announce(() => {
+      renderTurnBanner();
+      renderScoreboard();
+      showResultCard();
+    });
     setRoundFaces(outcome, { type: 'oinker' });
     // The sting's pop is the sound of the pigs bursting, so on the full reveal
     // it waits for them; with no reveal there is nothing to wait for.
@@ -2995,7 +3189,7 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
 
     setTurnState('resolved');
     setActionsEnabled({ toss: false, stop: false, quick: false });
-    return { kind: 'oinker', result: null };
+    return { kind: 'oinker', result: null, showdown: () => showdown() };
   }
 
   const result = odds.scoreToss(outcome.a, outcome.b);
@@ -3007,25 +3201,36 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
     state.pending = null;
     state.turnEndPending = true;
     saveGame();
-    renderTurnBanner();
-    setResultCard('bad', result.headline, result.detail);
+    setResultCard('bad', result.headline, result.detail, { pending: true, icon: 'oinker' });
+    announce(() => {
+      renderTurnBanner();
+      showResultCard();
+    });
     sadness('pigout');
     revealToss({ ...outcome, ...result });
 
     setTurnState('resolved');
     setActionsEnabled({ toss: false, stop: false, quick: false });
-    return { kind: 'pigout', result };
+    return { kind: 'pigout', result, showdown: () => showdown() };
   }
 
   state.turnTotal += result.points;
   state.pending = null;
   saveGame();
-  renderTurnBanner();
-  bumpTurnPoints();
-  renderScoreboard();
 
   const tone = result.type === 'double' ? 'big' : 'good';
-  setResultCard(tone, result.headline, `${result.detail} Turn total: ${state.turnTotal}.`);
+  // No "Turn total: N." — the header pill carries the running total and now BUMPS
+  // on the same frame as the card (see odds.js's round-3 copy note).
+  setResultCard(tone, result.headline, result.detail, {
+    pending: true,
+    icon: result.type === 'double' ? 'trophy' : null,
+  });
+  announce(() => {
+    renderTurnBanner();
+    bumpTurnPoints();
+    renderScoreboard();
+    showResultCard();
+  });
   if (result.type === 'double') celebrate('double');
   revealToss({ ...outcome, ...result });
   // The VISUAL payoff — gold burst, scale pop, camera punch — scaled to the
@@ -3041,7 +3246,10 @@ function revealResult(outcome, played = null, { instant = false } = {}) {
 
   setTurnState('resolved');
   setActionsEnabled({ toss: false, stop: false, quick: false });
-  return { kind: 'score', result, celebrate: cheerWith, hero: heroIndex(outcome) };
+  return {
+    kind: 'score', result, celebrate: cheerWith, hero: heroIndex(outcome),
+    showdown: () => showdown(),
+  };
 }
 
 /** Which pig earned the round — the one a hero close-up should frame. */
@@ -3061,6 +3269,8 @@ async function runRevealBeats(desc, { instant }) {
     oinker: desc.kind === 'oinker',
     hero: desc.hero || 0,
     celebrate: desc.celebrate || null,
+    // the card's text and the turn counter, held back until the camera lands
+    arrive: desc.showdown || null,
   });
 }
 
@@ -3339,8 +3549,9 @@ dom.newGameBtn.addEventListener('click', () => {
 let muted = loadMutePref();
 setMuted(muted);
 function renderMuteBtn() {
-  dom.muteBtn.textContent = muted ? '🔇' : '🔊';
-  dom.muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+  // drawn glyphs, not emoji (SPEC "art direction")
+  dom.muteBtn.replaceChildren(icon(muted ? 'muted' : 'sound', 20));
+  dom.muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
 }
 dom.muteBtn.addEventListener('click', () => {
   muted = !muted;

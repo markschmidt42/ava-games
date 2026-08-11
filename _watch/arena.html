@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐷 Live Arena — watch the pigs tumble</title>
+<script type="importmap">
+{ "imports": {
+    "three": "../hog-wild/vendor/three.module.js",
+    "cannon-es": "../hog-wild/vendor/cannon-es.js"
+} }
+</script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-monospace,Menlo,monospace;background:#0d1712;color:#e8f5ee;font-size:13px;display:flex;flex-direction:column;height:100vh}
+header{padding:12px 18px 8px}
+h1{font-family:system-ui,sans-serif;font-size:1.2rem;margin:0 0 2px}
+.sub{color:#7fa892;margin:0}
+.sub a{color:#54a0ff}
+#stage{flex:1;min-height:0;position:relative}
+canvas{display:block;width:100%;height:100%}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 18px;background:#101b15;border-top:1px solid #1d3328}
+button{background:#e0457b;border:none;color:#fff;font-weight:bold;border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit}
+button.secondary{background:#3f6555}
+button.on{background:#ffd54a;color:#22402f}
+#verdict{margin-left:auto;font-weight:bold;color:#ffd54a;text-align:right}
+.chip{position:absolute;transform:translate(-50%,-100%);background:#16241dee;border:1px solid #3f6555;border-radius:8px;padding:3px 10px;font-weight:bold;color:#ffd54a;pointer-events:none;white-space:nowrap;transition:opacity .3s}
+.chip small{color:#a9c9b8;font-weight:normal}
+#scorecard{
+  position:absolute;top:14px;right:14px;min-width:250px;
+  background:#16241dee;border:1px solid #3f6555;border-radius:12px;
+  padding:10px 14px;transition:opacity .3s;
+}
+#scorecard.dim{opacity:.45}
+.sc-row{display:flex;justify-content:space-between;gap:14px;padding:3px 0}
+.sc-head{color:#7fa892;text-transform:uppercase;font-size:.72rem;letter-spacing:1.2px}
+.sc-who{color:#a9c9b8;font-weight:bold}
+.sc-who small{font-weight:normal}
+.sc-what{font-weight:bold;color:#e8f5ee;text-align:right}
+.sc-total{border-top:1px solid #2a4636;margin-top:4px;padding-top:7px;font-weight:bold;color:#ffd54a;font-size:1.05rem;justify-content:flex-start}
+</style>
+</head>
+<body>
+<header>
+  <h1>🐷 Live Arena — the collider pigs, tumbling</h1>
+  <p class="sub">Real physics, live — the same collider the game will use. <a href="./">dashboard</a> · <a href="poses.html">pose gallery</a></p>
+</header>
+<div id="stage">
+  <div class="chip" id="chip0" style="opacity:0"></div>
+  <div class="chip" id="chip1" style="opacity:0"></div>
+  <div id="scorecard">
+    <div class="sc-row sc-head">Last toss</div>
+    <div class="sc-row"><span class="sc-who" style="color:#f6a8bc">Pig 1 (pink)</span><span id="sc0" class="sc-what">—</span></div>
+    <div class="sc-row"><span class="sc-who" style="color:#b18ce8">Pig 2 (purple)</span><span id="sc1" class="sc-what">—</span></div>
+    <div class="sc-row sc-total" id="scTotal">toss the pigs…</div>
+  </div>
+</div>
+<div class="controls">
+  <button id="toss">🎲 Toss now</button>
+  <button id="auto" class="secondary on">▶ Auto-toss: on</button>
+  <button id="slow" class="secondary">🐌 Slow-mo</button>
+  <button id="orbit" class="secondary">🎥 Orbit</button>
+  <button id="pigStyle" class="secondary">🐖 Pigs: …</button>
+  <span id="stats" style="color:#7fa892"></span>
+  <span id="verdict">loading physics.js…</span>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import { buildPigGroup } from './pig-render.mjs';
+
+let P;
+try { P = await import('../hog-wild/physics.js?ts=' + Date.now()); }
+catch (e) {
+  document.getElementById('verdict').textContent = 'physics.js mid-edit — retrying in 5s';
+  setTimeout(() => location.reload(), 5000); throw e;
+}
+// The real game pig (pig.js) — optional: agents may be mid-edit on it, so the
+// arena falls back to block pigs if it doesn't import cleanly.
+let PIG = null;
+try { PIG = await import('../hog-wild/pig.js?ts=' + Date.now()); }
+catch (e) { console.warn('pig.js unavailable, block pigs only:', e.message); }
+
+const PEN = P.PEN ?? { w: 5.4, d: 7.4, wallH: 0.85 };
+const DT = P.FIXED_DT ?? 1/120;
+const POINTS = { 'side-blank':0,'side-dot':0,razorback:5,trotter:5,snouter:10,jowler:15 };
+const NICE = { 'side-blank':'Sider (blank up)','side-dot':'Sider (dot up)',razorback:'Razorback',trotter:'Trotter',snouter:'Snouter',jowler:'Leaning Jowler' };
+const DOUBLES = { razorback:20, trotter:20, snouter:40, jowler:60 };
+
+/* ---------- physics ---------- */
+/* No walls — a putting green with concentric deadening zones instead.
+   green: lively (as before) · rough: bounces die, drag rises · fringe: motion just stops.
+   Wall-lean rests can't exist, so every settle is a nameable pose. */
+const ZONES = {
+  greenR: 2.7,   // hard + bouncy
+  roughR: 3.9,   // "frog fur": deadened
+  stopR:  4.6,   // fringe: kills motion
+  roughDampPerStep: 0.965,  // velocity multiplier per physics step while grounded there
+  stopDampPerStep:  0.85,
+};
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, P.GRAVITY ?? -21.6, 0) });
+world.allowSleep = true;
+const matFloor = new CANNON.Material('floor');
+const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: matFloor });
+floor.quaternion.setFromEuler(-Math.PI/2, 0, 0);
+world.addBody(floor);
+const pigs = [P.buildPigBody({dot:false}), P.buildPigBody({dot:true})];
+pigs.forEach(b => world.addBody(b));
+const pigMat = pigs[0].material;
+if (pigMat) {
+  world.addContactMaterial(new CANNON.ContactMaterial(pigMat, matFloor, { friction:.7, restitution:.4 }));
+  world.addContactMaterial(new CANNON.ContactMaterial(pigMat, pigMat,   { friction:1.0, restitution:.15 }));
+}
+// Zone deadening: applied while a pig is at ground level, scaled by radius.
+function zoneDamp(pig) {
+  if (pig.position.y > 0.6) return;              // airborne — zones don't grab
+  const r = Math.hypot(pig.position.x, pig.position.z);
+  let k = null;
+  if (r > ZONES.roughR) k = ZONES.stopDampPerStep;
+  else if (r > ZONES.greenR) k = ZONES.roughDampPerStep;
+  if (k !== null) {
+    pig.velocity.scale(k, pig.velocity);
+    pig.angularVelocity.scale(k * 0.98, pig.angularVelocity);
+    // rough/fringe also eat bounce: squash upward rebound hard
+    if (pig.velocity.y > 0) pig.velocity.y *= (k === ZONES.stopDampPerStep ? 0.15 : 0.45);
+  }
+  // absolute backstop — should never trigger, but nothing may escape the board
+  if (r > ZONES.stopR + 0.8) {
+    const s = (ZONES.stopR + 0.8) / r;
+    pig.position.x *= s; pig.position.z *= s;
+    pig.velocity.scale(0.1, pig.velocity);
+  }
+}
+
+/* ---------- rendering ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101c15);
+scene.fog = new THREE.Fog(0x101c15, 9, 16);
+scene.add(new THREE.HemisphereLight(0xe8fff2, 0x18241d, 0.9));
+const key = new THREE.DirectionalLight(0xfff3e0, 2.4);
+key.position.set(3, 6, 3); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = key.shadow.camera.bottom = -5;
+key.shadow.camera.right = key.shadow.camera.top = 5;
+scene.add(key);
+
+// Three concentric surfaces: bright lively green, darker rough, darkest fringe.
+const ringSpecs = [
+  { r: ZONES.stopR,  color: 0x1c3a2c, rough: 1.0 },   // fringe (drawn first, underneath)
+  { r: ZONES.roughR, color: 0x27553f, rough: 1.0 },   // the rough / frog fur
+  { r: ZONES.greenR, color: 0x377a5c, rough: .9  },   // the green
+];
+ringSpecs.forEach((spec, i) => {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(spec.r, 72),
+    new THREE.MeshStandardMaterial({ color: spec.color, roughness: spec.rough }));
+  m.rotation.x = -Math.PI/2; m.position.y = 0.001 * i; m.receiveShadow = true;
+  scene.add(m);
+});
+// thin boundary lines so the zones read clearly
+for (const r of [ZONES.greenR, ZONES.roughR]) {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.02, r + 0.02, 72),
+    new THREE.MeshBasicMaterial({ color: 0x9fd9bd, transparent: true, opacity: .25 }));
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.004;
+  scene.add(ring);
+}
+
+// Pig 1 pink, Pig 2 purple — so the scorecard can name them unambiguously.
+const PIG_COLORS = [0xf6a8bc, 0xb18ce8];
+let groups = [];
+let pigStyle = localStorage.getItem('arena.pigStyle') ?? (PIG ? 'real' : 'block');
+if (pigStyle === 'real' && !PIG) pigStyle = 'block';
+
+function buildRealPigGroup(pi) {
+  const g = PIG.buildPig({ dot: true });   // both pigs carry the dot (owner spec)
+  g.traverse(m => {
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.material = m.material.clone();     // don't tint a shared material
+      // pig 2 reads purple: the pig uses vertex colors, so the material color
+      // multiplies them — needs a strong shift to show through the pink
+      if (pi === 1 && m.material.color) m.material.color.set(0xb99ae8);
+    }
+  });
+  return g;
+}
+function rebuildPigVisuals() {
+  groups.forEach(g => {
+    scene.remove(g);
+    g.traverse(m => { if (m.isMesh) { m.geometry?.dispose?.(); m.material?.dispose?.(); } });
+  });
+  groups = pigs.map((pig, pi) =>
+    pigStyle === 'real' && PIG ? buildRealPigGroup(pi) : buildPigGroup(pig, P, { baseColor: PIG_COLORS[pi] }));
+  groups.forEach((g, i) => {
+    g.visible = true; g.scale.set(1, 1, 1);
+    g.position.copy(pigs[i].position); g.quaternion.copy(pigs[i].quaternion);
+    scene.add(g);
+  });
+  frame._blinkWas = undefined;   // re-apply blink state to the new materials
+}
+rebuildPigVisuals();
+
+const cam = new THREE.PerspectiveCamera(42, 1, .1, 40);
+let orbitOn = false, orbitAngle = 0;
+
+/* ---------- camera sequence — ALL TIMINGS LIVE HERE, tweak freely ---------- */
+const CAM_SEQ = {
+  zoomInTime:  1.3,   // s — ease in on the settled pigs after the round is called
+  holdTime:    3.0,   // s — linger on the call after the camera stops
+  zoomOutTime: 0.9,   // s — ease back to the overview
+  holdOrbit:   0.10,  // rad/s — slight orbit drift while holding
+  minDist: 2.4, maxDist: 5.5,   // close-up distance clamps
+  perUnitSep: 1.25, extraDist: 1.6, heightRatio: 0.52,
+};
+let camT = 0;          // current camera-phase timer (runs on sim time)
+let closeRig = null;   // computed at round call
+const camLook = new THREE.Vector3(0, 0, -0.3);
+
+function overviewRig() {
+  const a = orbitOn ? orbitAngle : 0;
+  return { pos: new THREE.Vector3(Math.sin(a)*7.4, 6.4, Math.cos(a)*7.4),
+           look: new THREE.Vector3(0, 0, -0.3) };
+}
+// Frame both pigs left & right: camera sits on the perpendicular of the
+// pig1→pig2 line, looking at their midpoint, distance scaled by separation.
+function computeCloseRig() {
+  const p1 = pigs[0].position, p2 = pigs[1].position;
+  const mid = new THREE.Vector3((p1.x+p2.x)/2, 0.25, (p1.z+p2.z)/2);
+  let dx = p2.x - p1.x, dz = p2.z - p1.z;
+  const sep = Math.hypot(dx, dz) || 1;
+  let px = -dz/sep, pz = dx/sep;
+  // choose the perpendicular on the camera's current side → shortest move
+  if (px*(cam.position.x-mid.x) + pz*(cam.position.z-mid.z) < 0) { px = -px; pz = -pz; }
+  const dist = Math.min(CAM_SEQ.maxDist, Math.max(CAM_SEQ.minDist, sep*CAM_SEQ.perUnitSep + CAM_SEQ.extraDist));
+  return { mid, px, pz, dist, drift: 0 };
+}
+function closeRigPos(rig) {
+  const cos = Math.cos(rig.drift), sin = Math.sin(rig.drift);
+  const rx = rig.px*cos - rig.pz*sin, rz = rig.px*sin + rig.pz*cos;
+  return { pos: new THREE.Vector3(rig.mid.x + rx*rig.dist,
+                                  rig.mid.y + rig.dist*CAM_SEQ.heightRatio,
+                                  rig.mid.z + rz*rig.dist),
+           look: rig.mid };
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  cam.aspect = w/h; cam.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+cam.position.copy(overviewRig().pos);
+cam.lookAt(camLook);
+
+/* ---------- toss loop ---------- */
+let state = 'idle', sinceToss = 0, idleWait = 0;
+let timeScale = 1, auto = true;
+
+/* Per-pig settle machine.
+   A pig settles when ITS speed stays under threshold ~0.1s — it gets classified
+   and scored immediately, without waiting for its partner. If it then gets
+   bumped (moves >3.5cm, turns >4°, or picks up speed), it un-settles and must
+   resettle. The round finalizes when both are settled at once. */
+const SETTLE = {
+  linSq: 0.08 * 0.08,          // linear speed threshold
+  angSq: 0.18 * 0.18,          // angular speed threshold
+  frames: 12,                  // consecutive steps (~0.1s at 120Hz)
+  bumpPosSq: 0.035 * 0.035,    // re-open if displaced this far
+  bumpAngle: 4 * Math.PI / 180,
+  wakeLinSq: 0.2 * 0.2,        // re-open instantly if moving this fast
+};
+const pigState = pigs.map(() => ({ settled: false, frames: 0, pose: null, conf: 0, snapP: null, snapQ: null }));
+// Let the engine put resting bodies to sleep quickly — zeroed velocities make
+// settle detection immediate; any contact impulse wakes them automatically.
+pigs.forEach(p => { p.allowSleep = true; p.sleepSpeedLimit = 0.15; p.sleepTimeLimit = 0.25; });
+
+const distSq = (a, b) => (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2;
+const quatAngle = (a, b) =>
+  2 * Math.acos(Math.min(1, Math.abs(a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w)));
+
+// Throw discipline mirrors the real game's search constraints (SPEC: per-pig
+// half-pen lanes): spawn wider apart, release higher and faster, and keep the
+// inward drift small so touching at rest is the rarity it is in real life.
+// All parameters carry randomness so no two throws look alike.
+function toss() {
+  pigs.forEach((pig, i) => {
+    const side = i === 0 ? -1 : 1;
+    pig.position.set(side * (1.0 + Math.random()*0.5), 1.9 + Math.random()*1.0, 2.5 + Math.random()*0.5);
+    pig.quaternion.setFromEuler(Math.random()*6.283, Math.random()*6.283, Math.random()*6.283);
+    pig.velocity.set(side * -(0.05 + Math.random()*0.55),   // mild, mostly lane-keeping
+                     0.4 + Math.random()*1.6,
+                     -(5.5 + Math.random()*2.8));           // brisker release
+    pig.angularVelocity.set((Math.random()-.5)*24, (Math.random()-.5)*24, (Math.random()-.5)*24);
+    pig.wakeUp();
+  });
+  state = 'flying'; sinceToss = 0; clackedThisToss = false;
+  // bring the pigs back if the last round exploded them
+  oinkerRound = false; boomDone = false; pigPop = null;
+  groups.forEach(g => { g.visible = true; g.scale.set(1, 1, 1); });
+  pigState.forEach(s => { s.settled = false; s.frames = 0; s.pose = null; s.conf = 0; s.snapP = null; s.snapQ = null; });
+  chips.forEach(c => c.style.opacity = 0);
+  document.getElementById('sc0').textContent = '…';
+  document.getElementById('sc1').textContent = '…';
+  document.getElementById('scTotal').textContent = 'pigs in the air…';
+  document.getElementById('verdict').textContent = '…';
+  document.getElementById('scorecard').classList.add('dim');
+}
+
+/* touch statistics — turns "they touch a lot" into a number */
+let nTosses = 0, nTouchAtRest = 0, nClacks = 0, clackedThisToss = false;
+world.addEventListener('beginContact', (ev) => {
+  const { bodyA, bodyB } = ev;
+  if ((bodyA === pigs[0] && bodyB === pigs[1]) || (bodyA === pigs[1] && bodyB === pigs[0])) {
+    if (state === 'flying' && !clackedThisToss) { nClacks++; clackedThisToss = true; }
+  }
+});
+function updateStats() {
+  document.getElementById('stats').textContent =
+    `${nTosses} tosses · touching at rest ${nTouchAtRest} (${nTosses ? (nTouchAtRest/nTosses*100).toFixed(1) : 0}%) · mid-air clacks ${nClacks} (${nTosses ? (nClacks/nTosses*100).toFixed(0) : 0}%)`;
+}
+
+const chips = [document.getElementById('chip0'), document.getElementById('chip1')];
+/* Round classification — the name of the toss as a whole:
+   sider + trotter        → "Trotter" (the sider adds nothing)
+   trotter + razorback    → "Trotter + Razorback Combo"
+   trotter + trotter      → "Double Trotter Bonus"
+   matching siders        → "Double Sider" · opposite siders → "Pig Out"  */
+function roundNameOf(a, b, touching) {
+  if (touching) return '🐽 Oinker!';
+  if (!(a in POINTS) || !(b in POINTS)) return '🤔 unclassified — would re-toss';
+  const sa = a.startsWith('side'), sb = b.startsWith('side');
+  if (sa && sb) return a === b ? 'Sider' : '💀 Pig Out';
+  if (a === b) return `✨ Double ${NICE[a]} Bonus`;
+  if (sa) return NICE[b];
+  if (sb) return NICE[a];
+  return `${NICE[a]} + ${NICE[b]} Combo`;
+}
+function roundTotalOf(a, b, touching) {
+  if (touching || !(a in POINTS) || !(b in POINTS)) return touching ? 'score wiped!' : 're-toss';
+  const sa = a.startsWith('side'), sb = b.startsWith('side');
+  if (sa && sb) return a === b ? 1 : 0;
+  if (a === b) return DOUBLES[a];
+  return POINTS[a] + POINTS[b];
+}
+
+function settlePig(i) {
+  const pig = pigs[i], st = pigState[i];
+  const c = P.classify(pig.quaternion);
+  st.settled = true;
+  st.pose = c.pose; st.conf = c.confidence;
+  st.snapP = pig.position.clone(); st.snapQ = pig.quaternion.clone();
+  const v = { x: pig.position.x, y: pig.position.y + 0.75, z: pig.position.z };
+  const pr = v3ToScreen(v);
+  chips[i].style.left = pr.x + 'px'; chips[i].style.top = pr.y + 'px';
+  chips[i].innerHTML = `${NICE[c.pose] ?? 'unclassified'} <small>${POINTS[c.pose] ?? 0} pts · conf ${(c.confidence*100|0)}%</small>`;
+  chips[i].style.opacity = 1;
+  document.getElementById('sc' + i).textContent =
+    `${NICE[c.pose] ?? 'unclassified'} · ${POINTS[c.pose] ?? 0} pts · ${(c.confidence*100|0)}%`;
+  document.getElementById('scorecard').classList.remove('dim');
+}
+
+function unsettlePig(i) {
+  const st = pigState[i];
+  st.settled = false; st.frames = 0; st.pose = null;
+  chips[i].style.opacity = .35;
+  chips[i].innerHTML = 'resettling… <small>got bumped</small>';
+  document.getElementById('sc' + i).textContent = 'resettling…';
+}
+
+let blinkEnd = 0;   // pigs blink red until this timestamp (Pig Out / Oinker)
+
+/* ---------- Oinker explosion — timings/tuning here ---------- */
+const OINK_FX = {
+  explodeDelay: 1.2,   // s after the camera settles (hold begins) before the pigs blow
+  popTime: 0.16,       // s — pigs squash-scale away
+  particles: 90,
+  particleLife: 1.3,   // s
+  burstSpeed: 5.0,
+};
+let oinkerRound = false, boomDone = false, pigPop = null, boom = null;
+
+function triggerExplosion() {
+  pigPop = { t: 0 };   // aged in sim time so hidden-tab bursts don't linger
+  chips.forEach(c => c.style.opacity = 0);
+  pigs.forEach(pig => {
+    const N = OINK_FX.particles;
+    const positions = new Float32Array(N * 3), colors = new Float32Array(N * 3), vel = [];
+    const palette = [[1, .45, .6], [1, .25, .3], [1, .7, .5], [.9, .12, .2]];
+    for (let i = 0; i < N; i++) {
+      positions[i*3]   = pig.position.x + (Math.random()-.5)*.3;
+      positions[i*3+1] = pig.position.y + .2 + (Math.random()-.5)*.3;
+      positions[i*3+2] = pig.position.z + (Math.random()-.5)*.3;
+      const th = Math.random()*6.283, ph = Math.acos(2*Math.random()-1);
+      const sp = OINK_FX.burstSpeed * (0.4 + Math.random()*0.8);
+      vel.push([Math.sin(ph)*Math.cos(th)*sp, Math.abs(Math.cos(ph))*sp*1.2, Math.sin(ph)*Math.sin(th)*sp]);
+      const c = palette[Math.random()*palette.length|0];
+      colors[i*3] = c[0]; colors[i*3+1] = c[1]; colors[i*3+2] = c[2];
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const mat = new THREE.PointsMaterial({ size: .13, vertexColors: true, transparent: true,
+      blending: THREE.AdditiveBlending, depthWrite: false });
+    const points = new THREE.Points(geo, mat);
+    scene.add(points);
+    (boom ??= []).push({ points, vel, t: 0 });
+  });
+}
+
+function finalizeRound() {
+  closeRig = computeCloseRig();
+  state = 'zoomIn'; camT = 0; idleWait = 0;
+  const [a, b] = [pigState[0].pose, pigState[1].pose];
+  let touching = false;
+  for (const c of world.contacts) {
+    if ((c.bi === pigs[0] && c.bj === pigs[1]) || (c.bi === pigs[1] && c.bj === pigs[0])) touching = true;
+  }
+  nTosses++; if (touching) nTouchAtRest++;
+  updateStats();
+  const name = roundNameOf(a, b, touching);
+  // Pig Out: both pigs blink red through the zoom-in and into the hold.
+  // Oinker: blink until the explosion fires.
+  oinkerRound = touching; boomDone = false;
+  if (name === '💀 Pig Out') blinkEnd = performance.now() + 2400;
+  else if (oinkerRound) blinkEnd = performance.now() + (CAM_SEQ.zoomInTime + OINK_FX.explodeDelay) * 1000;
+  const total = roundTotalOf(a, b, touching);
+  document.getElementById('scTotal').textContent =
+    typeof total === 'number' ? `${name} — round total = ${total}` : `${name} — ${total}`;
+  const conf = Math.min(pigState[0].conf, pigState[1].conf);
+  document.getElementById('verdict').textContent =
+    (typeof total === 'number' ? `${name} — ${total} pts` : name) + ` · conf ${(conf*100|0)}%`;
+}
+
+function stepTossLogic() {
+  sinceToss += DT;
+  pigs.forEach((pig, i) => {
+    const st = pigState[i];
+    if (st.settled) {
+      // bump detection: displaced, rotated, or moving again → back to unsettled
+      if (distSq(pig.position, st.snapP) > SETTLE.bumpPosSq ||
+          quatAngle(pig.quaternion, st.snapQ) > SETTLE.bumpAngle ||
+          pig.velocity.lengthSquared() > SETTLE.wakeLinSq) {
+        unsettlePig(i);
+      }
+    } else {
+      const still = pig.velocity.lengthSquared() < SETTLE.linSq &&
+                    pig.angularVelocity.lengthSquared() < SETTLE.angSq;
+      if (still && sinceToss > 0.4) { if (++st.frames >= SETTLE.frames) settlePig(i); }
+      else st.frames = 0;
+    }
+  });
+  if (pigState.every(s => s.settled)) finalizeRound();
+  else if (sinceToss > 8) {  // safety: call it where it lies
+    pigs.forEach((p, i) => { if (!pigState[i].settled) settlePig(i); });
+    finalizeRound();
+  }
+}
+function v3ToScreen(v) {
+  // v may be a cannon-es Vec3 (no .project) — always go through THREE.Vector3
+  const p = new THREE.Vector3(v.x, v.y, v.z).project(cam);
+  return { x: (p.x*.5+.5) * stage.clientWidth, y: (-p.y*.5+.5) * stage.clientHeight };
+}
+
+let acc = 0, last = performance.now();
+function advance(elapsed) {
+  acc += elapsed * timeScale;
+  while (acc >= DT) {
+    world.step(DT); acc -= DT;
+    pigs.forEach(zoneDamp);
+    try {
+      if (state === 'flying') {
+        stepTossLogic();
+      } else if (state === 'zoomIn') {
+        camT += DT;
+        if (camT >= CAM_SEQ.zoomInTime) { state = 'hold'; camT = 0; }
+      } else if (state === 'hold') {
+        camT += DT;
+        if (closeRig) closeRig.drift += CAM_SEQ.holdOrbit * DT;
+        if (oinkerRound && !boomDone && camT >= OINK_FX.explodeDelay) {
+          boomDone = true;
+          triggerExplosion();
+        }
+        if (camT >= CAM_SEQ.holdTime) { state = 'zoomOut'; camT = 0; }
+      } else if (state === 'zoomOut') {
+        camT += DT;
+        if (camT >= CAM_SEQ.zoomOutTime) {
+          state = 'settled'; idleWait = 0;
+          if (auto) toss();
+        }
+      } else if (state === 'settled' && auto) {
+        idleWait += DT;
+        if (idleWait > 0.5) toss();   // e.g. auto turned on while idle
+      }
+    } catch (e) {
+      // One bad settle must never kill the arena — log it and move on.
+      console.error('arena state error:', e);
+      document.getElementById('verdict').textContent = '⚠ ' + e.message + ' — re-tossing';
+      state = 'settled'; idleWait = 0;
+      if (!auto) toss();
+    }
+    // FX age on sim time so backgrounded stretches don't leave stale bursts
+    if (pigPop) pigPop.t += DT;
+    if (boom) {
+      for (const b of boom) {
+        b.t += DT;
+        const pos = b.points.geometry.attributes.position;
+        for (let i = 0; i < b.vel.length; i++) {
+          b.vel[i][1] -= 7 * DT;
+          pos.array[i*3]   += b.vel[i][0] * DT;
+          pos.array[i*3+1] += b.vel[i][1] * DT;
+          pos.array[i*3+2] += b.vel[i][2] * DT;
+        }
+        pos.needsUpdate = true;
+        b.points.material.opacity = Math.max(0, 1 - b.t / OINK_FX.particleLife);
+      }
+      boom = boom.filter(b => {
+        if (b.t >= OINK_FX.particleLife) {
+          scene.remove(b.points);
+          b.points.geometry.dispose(); b.points.material.dispose();
+          return false;
+        }
+        return true;
+      });
+      if (!boom.length) boom = null;
+    }
+  }
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  lastFrameAt = now;
+  const elapsed = Math.min((now - last)/1000, .1); last = now;
+  advance(elapsed);
+  pigs.forEach((pig, i) => { groups[i].position.copy(pig.position); groups[i].quaternion.copy(pig.quaternion); });
+  if (orbitOn && (state === 'flying' || state === 'settled' || state === 'idle')) orbitAngle += elapsed * .25;
+
+  // Pig Out / Oinker red blink — 180ms on/off while blinkEnd is in the future
+  const blinkOn = performance.now() < blinkEnd && Math.floor(performance.now() / 180) % 2 === 0;
+  if (blinkOn !== frame._blinkWas) {
+    frame._blinkWas = blinkOn;
+    groups.forEach(g => g.traverse(m => {
+      if (m.isMesh) m.material.emissive.setHex(blinkOn ? 0xb3111f : 0x000000);
+    }));
+  }
+
+  // Oinker pop-scale (aging happens in advance(), presentation only here)
+  if (pigPop) {
+    const s = Math.max(0, 1 - pigPop.t / OINK_FX.popTime);
+    groups.forEach(g => {
+      if (s > 0) { g.scale.set(1 + s * .2, s, 1 + s * .2); }  // squash as it vanishes
+      else g.visible = false;
+    });
+  }
+
+  // glide the camera toward the current phase's rig
+  let target, rate;
+  if ((state === 'zoomIn' || state === 'hold') && closeRig) {
+    target = closeRigPos(closeRig);
+    rate = state === 'zoomIn' ? 3.2 : 6;      // ease in, then track the drift firmly
+  } else {
+    target = overviewRig();
+    rate = 4.5;
+  }
+  const k = 1 - Math.exp(-rate * elapsed);
+  cam.position.lerp(target.pos, k);
+  camLook.lerp(target.look, k);
+  cam.lookAt(camLook);
+
+  // keep visible chips glued to their pigs while the camera moves
+  pigs.forEach((pig, i) => {
+    if (chips[i].style.opacity !== '0') {
+      const pr = v3ToScreen({ x: pig.position.x, y: pig.position.y + 0.75, z: pig.position.z });
+      chips[i].style.left = pr.x + 'px'; chips[i].style.top = pr.y + 'px';
+    }
+  });
+  renderer.render(scene, cam);
+}
+// Keep the physics alive when rAF isn't firing (hidden/backgrounded pane).
+// Instead of trusting document.hidden, detect rAF starvation directly: if no
+// frame has run recently, the interval steps the sim itself.
+// Hidden tabs throttle timers to ~1/sec, so each starved tick must advance a
+// full second of sim time to keep the arena running at real speed.
+let lastFrameAt = 0, lastStarvedTick = 0;
+setInterval(() => {
+  const now = performance.now();
+  if (now - lastFrameAt > 250) {
+    const dt = lastStarvedTick ? Math.min((now - lastStarvedTick) / 1000, 2) : 1/30;
+    advance(dt);
+  }
+  lastStarvedTick = now;
+}, 33);
+
+// debug hook for headless inspection
+window.__arena = {
+  get info() {
+    return { state, sinceToss, pigSettled: pigState.map(s => s.settled), nTosses, rafAlive: performance.now() - lastFrameAt < 250,
+             pigY: pigs.map(p => +p.position.y.toFixed(3)), hidden: document.hidden,
+             oinkerRound, boomDone, pigsVisible: groups.map(g => g.visible) };
+  },
+  toss,
+  // debug: drop the pigs touching mid-green so the round resolves as an Oinker
+  forceOinker() {
+    toss();
+    pigs.forEach((pig, i) => {
+      pig.position.set(i === 0 ? -0.14 : 0.14, 0.45, 0);
+      pig.quaternion.setFromEuler(0, i * 0.5, 0);
+      pig.velocity.set(0, -0.5, 0);
+      pig.angularVelocity.set(0, 0, 0);
+      pig.wakeUp();
+    });
+  },
+};
+
+document.getElementById('toss').onclick = toss;
+document.getElementById('auto').onclick = e => {
+  auto = !auto; e.target.classList.toggle('on', auto);
+  e.target.textContent = auto ? '▶ Auto-toss: on' : '⏸ Auto-toss: off';
+  if (auto && state === 'settled') toss();
+};
+document.getElementById('slow').onclick = e => {
+  timeScale = timeScale === 1 ? .22 : 1;
+  e.target.classList.toggle('on', timeScale !== 1);
+};
+document.getElementById('orbit').onclick = e => {
+  orbitOn = !orbitOn; e.target.classList.toggle('on', orbitOn);
+};
+const pigStyleBtn = document.getElementById('pigStyle');
+function labelPigStyle() {
+  pigStyleBtn.textContent = pigStyle === 'real' ? '🐖 Pigs: game model' : '🧱 Pigs: collider blocks';
+}
+if (!PIG) { pigStyleBtn.disabled = true; pigStyleBtn.textContent = '🧱 Pigs: blocks (pig.js mid-edit)'; }
+else {
+  labelPigStyle();
+  pigStyleBtn.onclick = () => {
+    pigStyle = pigStyle === 'real' ? 'block' : 'real';
+    localStorage.setItem('arena.pigStyle', pigStyle);
+    rebuildPigVisuals();
+    labelPigStyle();
+  };
+}
+
+document.getElementById('verdict').textContent = 'ready';
+toss();
+requestAnimationFrame(frame);
+</script>
+<script src="devnav.js" defer></script>
+</body>
+</html>

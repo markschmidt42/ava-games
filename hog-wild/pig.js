@@ -1843,7 +1843,11 @@ function buildPigGeometry() {
   const earColor = (u, v, p) => {
     const up = Math.cos(u * Math.PI * 2);
     const edge = 1 - Math.abs(up);
-    let c = mixLin(skin, skinLight, clamp(up, 0, 1) * 0.22 + edge * edge * 0.30);
+    // …and the top face is lifted only 14%, not 34%: MEASURED against the head in
+    // a side-rest screenshot, the old value made the near ear the BRIGHTEST thing
+    // on the pig, so it read as a pale flap laid over the cheek rather than as part
+    // of the same moulding. The rim carries the thickness now; the face just tilts.
+    let c = mixLin(skin, skinLight, clamp(up, 0, 1) * 0.14 + edge * edge * 0.26);
     c = mixLin(c, skinDeep, clamp(-up, 0, 1) * 0.30 + smoothstep(0.62, 1.0, v) * 0.22);
     return aoMul(c, p);
   };

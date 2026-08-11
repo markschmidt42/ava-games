@@ -46,8 +46,15 @@ export const OINKER_CHANCE;              // 0.0038
 export function drawToss(rng=Math.random);
 // → { oinker:true } | { a:poseKey, b:poseKey }
 export function scoreToss(a, b);
-// → { type:'sider'|'pigout'|'double'|'mixed', points, headline, detail }
-//   (port headline/detail copy from the 2D game, git show 7be8349:hog-wild/index.html)
+// → { type:'sider'|'pigout'|'double'|'mixed', points, name, headline, detail }
+//   (port headline copy from the 2D game, git show 7be8349:hog-wild/index.html)
+//   `detail` MAY BE '' — and on a scoring round it is. ROUND-3: "the result card ships
+//   a rules tutorial in the reward moment, EVERY single round … after toss three the
+//   player knows the rule; what they want is the pose names and the number, big." It is
+//   reserved for the two results a headline cannot explain: a Pig Out (why zero) and a
+//   Sider (why only one point, in two words). game.js no longer appends the turn total
+//   either — the header pill carries it, and bumps on the reveal's arrival.
+//   `.result-detail:empty` is display:none, so an empty line costs no height.
 export function verifyDistribution(n, rng); // harness helper → tally object
 ```
 
@@ -278,6 +285,21 @@ must reproduce these beats (constants in one editable block each):
    against the closest candidate in the pool rather than against the ceiling, so
    "twice as far away" costs something.
 
+   **ROUND-4: the arrival fitted and then the BEAT walked out of its own frame.**
+   MEASURED on a Leaning Jowler + Trotter (3.33 m spread, desktop canvas 654×551):
+   the rig solved to 5.16 m and arrived clean — worst |ndc| 0.813 on the frame the
+   camera landed — and then `holdOrbit` drifted the hero pig steadily out through
+   0.905, 0.956 and **1.005** over the next 1.5 s. The fit test had only ever been
+   asked about the arrival bearing. `holdOrbit × holdMs` is a KNOWN quantity, so
+   `solveRig` now tests every candidate distance at `REVEAL.driftChecks` bearings
+   across the whole sweep (with the ARRIVAL's pitch, not a re-optimised one, because
+   that is the pitch the live camera holds), and `stepReveal` clamps the live drift to
+   exactly the span that was tested. The distance the search returns is therefore the
+   closest one that holds for the entire beat, not for its first frame. It costs about
+   5% of size: the same case re-solved to 5.61 m, hero pig 219 × 217 px, 23.0 px of
+   eye, and worst |ndc| **0.903 across every frame of zoom-in, hold and zoom-out**.
+   A Double Snouter on the same canvas: rig 5.93 m, 23 px of eye, worst 0.878.
+
    MEASURED after all of the above, desktop 1280×860 (canvas 654×551), a 4.21 m
    spread — WIDER than the round-3 review's 3.89 m case: rig 5.97 m, swing 73°, hero
    pig 288 × 229 px with 21.4 px of eye, partner 108 × 141 px. Every one of the 8
@@ -288,12 +310,40 @@ must reproduce these beats (constants in one editable block each):
    Earlier measurement, kept for the record (portrait 375×812, canvas 351×546, a
    2.8 m spread): 5.66 m, near pig 170 × 186 px, eye 20.2 px.
 
-   **Timing of the reward.** `celebrateScore` is handed to `startReveal` and fires
-   on the frame the camera ARRIVES, not when the result is computed. Firing it early
+   **Timing of the reward, and of the ANNOUNCEMENT.** `celebrateScore` is handed to
+   `startReveal` and fires on the frame the camera ARRIVES, not when the result is
+   computed. ROUND-3 pointed out that the same reasoning had never been applied to the
+   words: "the result card headline and the THIS TURN score both fire the instant the
+   round resolves, ~1.3 s before the camera arrives … the text spoils the outcome
+   before the reveal plays." Both now travel with the celebration. `revealResult`
+   still commits the MODEL immediately — points, `pending` cleared, `saveGame()`, which
+   Approach B requires — but wraps the two things that ANNOUNCE it (the card's text and
+   the turn counter's bump) in a `showdown` closure that `startReveal` fires on arrival,
+   and that a skip tap fires early for the same reason the Oinker still pops on a skip.
+   MEASURED: reveal begins at t = 2190 ms, card becomes visible at t = 3491 ms — one
+   `zoomInMs` later, to the millisecond.
+
+   The card is still SET at the round call, as `.pending`: invisible but LAID OUT,
+   because `frameBand()` and `projectChips()` both measure its live box to keep the pigs
+   and their chips out of its band. A card that were `display:none` until the camera
+   landed would let the solve frame the pigs exactly where the card is about to appear.
+   And its entrance is a fill-less CSS animation that a hidden document SKIPS rather
+   than a transition: MEASURED, neither transitions nor animations advance while the
+   document is hidden, so a card whose visibility depended on one stayed at opacity 0
+   five seconds after the camera had landed. An unwatched flourish is worth nothing; an
+   invisible result is a bug. Firing it early
    spawned the burst while the camera was still 23 m out, and two thirds of its
    1.15 s life was over before the 1.3 s zoom-in finished. A skip tap fires it too,
    for the same reason the Oinker still pops on a skip.
-4. **Failure feedback:** Pig Out → both pigs blink red (~180ms cadence, ~2.4s).
+4. **Failure feedback, and the card is part of it.** ROUND-3: "the Pig Out card is
+   visually identical to the 'Ava's turn!' card — same dark slab, same corner radius,
+   same size, same type scale, same position. Only the words and the headline colour
+   change. The event that zeroes a turn gets no shake, no scale-in, no icon, no card
+   treatment of its own." The `bad` and `awful` tones now have their own slab — a
+   danger-tinted panel with a lit red edge — a struck-alert glyph in the headline, and
+   a SHAKE for an entrance instead of the scoring card's rise (0.5 s on a Pig Out,
+   0.72 s on an Oinker, because one costs the turn and the other the whole score).
+   Pig Out → both pigs blink red (~180ms cadence, ~2.4s).
    Oinker → blink red until ~1.2s after the camera settles, then the pigs
    squash-pop away and burst — gone until the next toss brings them back.
 
@@ -456,6 +506,42 @@ supersedes conflicting placement notes):**
   re-verify grounding in pig-viewer poses 5 and 6 (flush on felt, no hover).
 - The freed-up face area is where the mouth and blush live — the fix for
   "mouth renders below the visible face" is this layout change, not a nudge.
+
+**SHIPPED, and MEASURED in the build frame.** `FACE.eyeU` 0.183 → **0.352** (`u` is
+the fraction around a body ring: 0 belly, 0.25 the +X flank, 0.5 the spine), which on
+the head's ring at the eye's z (yc 0.341, ry 0.141) moves the eye from y 0.284 —
+below the head's own centre of 0.360, i.e. the jawline the review measured — to
+y 0.425, level with the shrunk snout's top rim (0.443) and in the upper quarter of the
+head mass (0.207…0.513).
+
+**Height is also what makes the eye EXIST for the camera the game actually uses**, and
+that is the real bug behind "from the front NO EYE IS VISIBLE AT ALL". The reveal
+stands at `heightRatio` 0.34, ~19° above the pig. The old eye's surface normal was
+(0.91, −0.41, 0) — pointing DOWN, so its dot with the direction to the camera was
+NEGATIVE and the hero shot was looking at the back of the eye's hemisphere. The new
+normal is (0.80, 0.60, 0), up and out, into the lens. Verified in pig-viewer from a
+front-on reveal rig: both eyes, both brows and both ears read, and the ears read as
+ears rather than the horns/mandibles round 3 saw.
+
+The SNOUT is `SNOUT_SHRINK` 0.855 of its old radius. Shrinking a disc about its centre
+raises its bottom edge, so `SNOUT_DROP` (DERIVED, not tuned: exactly the radius lost,
+down the ring's own −SN_EY axis) moves the sweep back down until the contact rim is
+where it was — which is also precisely "keep the bottom edge, pull the top profile
+down", since the top rim then falls by twice the radius lost, 35 mm. MEASURED: the disc
+spanned y 0.220…0.478 and 265 mm wide against a 306 mm tall, 304 mm wide head — 84% of
+the head's height. It is now y 0.220…0.443 and 226 mm wide. Grounding is unchanged BY
+CONSTRUCTION and re-measured: snouter −3.4 mm, jowler −2.6 mm, worst pose 3.4 mm (better
+than the 5.4 mm the reshape shipped with). Getting the sign of that derivation wrong is
+not subtle — with the drop omitted, grounding.mjs put the snouter 8.3 mm and the jowler
+11.6 mm in the AIR, with a hoof as the lowest vertex.
+
+The mouth and the blush keep their eye-local frame (`mouthAt` / `blushAt`, +x forward
+and +y down, in board-metres) so the carved atlas window can still be sized from one
+known ink bounding box — but 84 mm below an eye at y 0.425 now lands at y 0.346,
+z 0.338: on the cheek just behind the snout's root, where a pig's mouth line is. The
+blush sits between the two. `mouthK` is up from 0.038 to 0.048, because a mouth that
+renders is not the same as a mouth that reads. The carved window moved with them
+(`u0/u1` 0.204…0.450, `z0/z1` 0.244…0.396) and the atlas re-tiles from those numbers.
 
 **Scale is the requirement, not a detail.** The first juice review's verdict was
 that the pigs had "no readable face at any scale the game ever shows": the whole
@@ -661,6 +747,20 @@ microsurface breakup — `microSurface()` builds one tiled noise sheet used as
 `clearcoatRoughnessMap` and, differentiated, as a shallow `normalMap` — because an
 un-broken hotspot is an airbrushed blob, and the reference photos are full of mould
 seams, polish variation and grime.
+**ROUND-3: and then it was a wet latex balloon.** "The gloss overshot from round 2's
+matte-clay problem into glazed porcelain. clearcoat 0.85 / clearcoatRoughness 0.16 on
+smooth geometry produces one long unbroken specular streak running the full length of
+each pig's back plus a second broad hotspot on the rump … microSurface() is not visibly
+breaking the hotspot at ANY magnification." Two different faults in one sentence. The
+STREAK is the coat's strength against its lobe width: a nearly-full coat with a 0.16
+lobe on a smooth barrel can only make ONE continuous highlight, and a continuous
+highlight along a back gets read as a shape — round 2 read it as a crease, round 3 as
+latex. The BREAKUP failing is separate — the sheet existed, but its normal was too
+shallow (0.28) and its tile too large (5×) to modulate a lobe that tight, so it did
+nothing at any magnification. **0.66 / 0.27, normal 0.44 at 8× tiling**: a real specular
+that still says vinyl, with the grain visible inside it. Satin PVC, which is what the
+reference photos are.
+
 ACESFilmic tone mapping, soft shadows (one directional + hemisphere + env),
 contact shadow under pigs, felt table with subtle procedural texture.
 
@@ -742,6 +842,29 @@ is a socket. The ear is lit like a thin lobe instead: `u` runs around the paddle
 section against `ey = −Y`, so `cos(2πu)` is +1 on the top face and −1 underneath — the
 top takes light, the underside deepens mildly, the tip carries the last of the
 shading.
+
+**ROUND-3's ear also had no THICKNESS, and that is a third value.** "Its inner
+surface is a flat plum/mauve plane with a hard elliptical outline and no rim thickness;
+its outer surface is unshaded near-white with no thickness either." Two values were
+doing all the work and both sat at their extremes — the top face lifted 34% toward
+`skinLight` (a near-white plane), the underside sank 40% toward `skinDeep` (a flat plum
+one), nothing in between. A real lobe is three things: a lit top, a shaded underside,
+and a bright rolled EDGE where the thickness catches light. The paddle's section has its
+`ey` on −Y and its `ex` on +Z, so `cos(2πu)` is +1 on top and −1 underneath and
+`1 − |cos|` peaks exactly on the two rims — that term IS the edge. The top face's own
+lift came down to 0.14 at the same time, because MEASURED against the head in a
+side-rest screenshot the old value made the near ear the brightest thing on the pig: a
+pale flap laid over the cheek rather than part of the same moulding.
+
+**`smug` was emotionally backwards, which is a legibility bug and not a taste one.**
+ROUND-3: "smug renders as a half-lidded downward-looking slit, which reads as
+sleepy/bored/stoned — emotionally backwards for the state that fires when the player
+just scored. A smug pig needs an upward-curved lower lid, a RAISED (not lowered) brow
+and a visible smirk." The closure comes from BELOW now (`bot` 0.46 against a `top` of
+0.14), which is the difference between squinting up at someone and dozing off; the heavy
+upper lid line is gone, the brow arches high and clear of it, and drawMouth's one-sided
+flick is the smirk. `neutral`'s brow is level rather than tilted down — that tilt was
+the "permanent hippo-ish scowl".
 
 **Grounding must be measured, not eyeballed.** "The pigs are never planted" was
 literally true: transform every visual vertex by `posePlacement()` and take the
@@ -900,6 +1023,36 @@ same path (`adapter.requestSkip()`) so it works regardless of frame throttling.
 
 UI copy: port from the 2D game (`git show 7be8349:hog-wild/index.html`) — the
 rules table, headlines, button labels ("Go Hog Wild" / "Stop" per PRD §4).
+
+## Iconography (index.html owns it; game.js draws from it)
+
+**There are no emoji in this build.** ROUND-3, and it is the only must-fix that is
+purely art direction: "platform emoji stand in for art direction throughout, and this
+alone caps the build below the Monument Valley/Nintendo bar. Nine distinct emoji: a DICE
+on both 'Go Hog Wild' and 'Start Game' (a die, in a game about pigs - it is the wrong
+object entirely), a BANK on Stop, a refresh arrow on New Game, a book, a speaker, a
+trophy, a PIG in the H1 and in every scoreboard row, a scream face in the Oinker
+headline, a sun in the footer. These render in the OS emoji font, so they clash with the
+flat panel language and change between platforms."
+
+The contract:
+
+- one inline `<svg class="icon-defs">` at the top of `<body>` holds every glyph as a
+  `<symbol>` on a **24x24 grid**; markup and game.js's `icon(name, px)` helper both
+  reference them with `<use href="#i-...">`. No sprite file, no icon font, no fetch.
+- ONE line language: `stroke:currentColor`, `stroke-width:1.7`, round caps and joins,
+  `fill:none`. `.solid` is for the handful of shapes that are ink rather than line (the
+  pig's eyes, a nostril, a coin's face); nothing else fills. `currentColor` is what lets
+  one glyph sit in a gold headline, a dim quiet control and a pink primary button
+  without a second copy of it.
+- the set: `pig toss bank refresh book trophy sound muted oinker sun plus people
+  forward`. **`toss` is a pig on a dashed flight arc** - the dice are gone, they were
+  the wrong object. `pig` is the app's mark and the scoreboard's current-player marker.
+  `oinker` is a struck alert star, used by both failure tones' cards.
+- every glyph is checked at **19 px, 26 px and 96 px** in one contact strip before it
+  ships: 19 px is the scoreboard marker, and a glyph that only reads at 96 is a drawing,
+  not an icon. That check is what sent the first `pig` and `toss` back - dense ear
+  strokes, and a dotted arc over a full pig, both turned to mush at 19 px.
 
 ## Design tokens (CSS + 3D must agree)
 

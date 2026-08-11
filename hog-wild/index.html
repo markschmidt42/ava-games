@@ -352,12 +352,76 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     pointer-events:none;
     z-index:2;
 }
-.result-headline{ font-size:clamp(1.1rem,4.5vw,1.4rem); font-weight:800; margin:0 0 3px; }
-.result-detail{ margin:0; font-size:.9rem; color:var(--ink-dim); }
+.result-headline{
+    font-size:clamp(1.1rem,4.5vw,1.4rem); font-weight:800; margin:0;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.result-headline .icon{ flex:none; }
+/* The detail line is a SECOND-CLASS citizen — see the round-3 copy note in
+   odds.js. When there is one it sits under the headline; most rounds have none. */
+.result-detail{ margin:3px 0 0; font-size:.9rem; color:var(--ink-dim); }
+.result-detail:empty{ display:none; }
 .result-card.good .result-headline{ color:var(--good); }
 .result-card.big  .result-headline{ color:var(--gold); }
 .result-card.bad  .result-headline{ color:#ff8f6b; }
 .result-card.awful .result-headline{ color:var(--danger); }
+
+/* ---- the card ARRIVES, it does not blink into existence -------------------
+   ROUND-3 REVIEW: "the result card headline and the THIS TURN score both fire the
+   instant the round resolves, ~1.3 s before the camera arrives and before any
+   celebration … the text spoils the outcome before the reveal plays, which is
+   exactly the reasoning SPEC applies to celebrateScore — it just wasn't applied to
+   the card or the score."
+
+   `.pending` is how the card can be BOTH invisible and measurable: the reveal's fit
+   test and the chip clamp both measure this element's live box to keep the pigs and
+   their labels out of its band (frameBand / projectChips), so removing it from
+   layout until the camera lands would frame the pigs where the card is about to
+   appear. It keeps its space, it just has nothing to say yet.
+
+   The entrance is an ANIMATION WITH NO FILL MODE rather than a transition, and that
+   is a deliberate fail-safe. Neither transitions nor animations advance while the
+   document is hidden — MEASURED here: with `transition:opacity`, the computed
+   opacity was still 0 five seconds after `.pending` came off. With a fill-less
+   animation the element's base style IS the arrived state, so a renderer that never
+   animates shows the card immediately instead of never. */
+.result-card.pending{ opacity:0; transform:translateY(10px) scale(.97); }
+.result-card.arrive{ animation:card-in .3s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes card-in{
+    0%{ opacity:0; transform:translateY(10px) scale(.97) }
+    100%{ opacity:1; transform:none }
+}
+
+/* ---- and a failure looks like one -----------------------------------------
+   ROUND-3 REVIEW: "the Pig Out card is visually identical to the 'Ava's turn!'
+   card — same dark slab, same corner radius, same size, same type scale, same
+   position. Only the words and the headline colour change. The event that zeroes a
+   turn gets no shake, no scale-in, no icon, no card treatment of its own."
+   So the two failure tones get their own slab — a danger-tinted panel with a lit
+   edge and a struck glyph — and their entrance is a shake rather than a rise. The
+   Oinker's is longer and harder than the Pig Out's, because it costs the whole
+   score rather than the turn. */
+.result-card.bad, .result-card.awful{
+    border:1px solid rgba(255,92,122,.55);
+    box-shadow:0 0 0 1px rgba(255,92,122,.12), 0 14px 34px rgba(0,0,0,.5);
+}
+.result-card.bad{ background:linear-gradient(rgba(48,14,22,.72), rgba(30,8,14,.93)); }
+.result-card.awful{
+    background:linear-gradient(rgba(70,12,26,.80), rgba(38,6,14,.95));
+    border-color:var(--danger);
+}
+.result-card.bad.arrive{ animation:card-in-bad .5s ease; }
+.result-card.awful.arrive{ animation:card-in-bad .72s ease; }
+@keyframes card-in-bad{
+    0%{ opacity:0; transform:translateY(10px) scale(.97) }
+    22%{ opacity:1; transform:translateX(-7px) scale(1.04) }
+    40%{ transform:translateX(6px) }
+    56%{ transform:translateX(-4px) }
+    72%{ transform:translateX(3px) }
+    86%{ transform:translateX(-2px) }
+    100%{ opacity:1; transform:none }
+}
+.reduced-motion .result-card{ animation:none !important; }
 
 /* ---------- action bar ---------- */
 
@@ -388,22 +452,33 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
 
 #stopBtn{ order:2; flex:1 1 auto; }
 
+/* ROUND-3 REVIEW: "'Quick Toss (skip the animation)' is styled as an underlined
+   HTML hyperlink and is the second-loudest text on the portrait screen. It reads as
+   browser chrome, not a game control — and the copy apologises for the animation you
+   just spent three rounds polishing." It is a quiet pill with a skip-ahead glyph
+   now, and the copy is just what it does. */
+/* its own row, so the two big controls keep the line above to themselves */
+.quick-row{ order:3; flex:1 1 100%; display:flex; justify-content:center; }
+.reduced-motion .quick-row,
+.mode-quick-only .quick-row{ order:0; }
 #quickTossBtn{
-    order:3;
-    flex:1 1 100%;
-    background:none;
+    flex:0 0 auto;
+    background:color-mix(in srgb, var(--panel-2) 70%, transparent);
     color:var(--ink-dim);
     font-weight:700;
-    font-size:.88rem;
-    text-decoration:underline;
-    padding:6px 10px;
+    font-size:.85rem;
+    text-decoration:none;
+    border-radius:999px;
+    padding:7px 15px;
+    display:flex; align-items:center; gap:7px;
 }
+#quickTossBtn:hover:not(:disabled){ color:var(--ink); }
+#quickTossBtn .icon{ width:1em; height:1em; }
 
 /* reduced-motion / quick-only: Quick Toss becomes the primary, full-width
    action on top; the hold gesture drops to a smaller, secondary control. */
 .reduced-motion #quickTossBtn,
 .mode-quick-only #quickTossBtn{
-    order:0;
     flex:1 1 100%;
     background:var(--pink);
     color:#2a1420;
@@ -522,19 +597,135 @@ footer a{ color:var(--ink-dim); }
     .win-trophy{ animation:none; }
     button{ transition:none; }
 }
+/* ---------- iconography ----------
+   ROUND-3 REVIEW, and it is the only must-fix that is purely art direction:
+   "platform emoji stand in for art direction throughout, and this alone caps the
+   build below the Monument Valley/Nintendo bar. Nine distinct emoji: a DICE on both
+   'Go Hog Wild' and 'Start Game' (a die, in a game about pigs — it is the wrong
+   object entirely), a BANK on Stop, 🔄 on New Game, 📖 rules, 🔊 mute, 🏆
+   scoreboard, 🐷 in the H1 and in every scoreboard row, 😱 in the Oinker headline,
+   ☀️ in the footer. These render in the OS emoji font, so they clash with the flat
+   panel language and change between platforms."
+
+   Every one of them is now a drawn glyph in `#icon-defs` below: one 24×24 grid, one
+   stroke weight (1.7 at 24, so it stays a hairline when a 20 px button scales it),
+   round caps and joins, and colour inherited through `currentColor` so a glyph
+   picks up the gold of a headline or the dim ink of a quiet control without a
+   second copy. `.solid` is for the few shapes that are ink rather than line (the
+   pig's eye, a nostril, a coin), and nothing else fills.
+
+   The dice are gone entirely: the toss control's glyph is a pig arcing over a
+   dotted flight path, which is what the button actually does. */
+.icon{
+    display:inline-block; flex:none;
+    width:1.15em; height:1.15em;
+    vertical-align:-.19em;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:1.7;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    overflow:visible;
+}
+.icon .solid{ fill:currentColor; stroke:none; }
+.icon .thin{ stroke-width:1.2; }
+.icon-defs{ position:absolute; width:0; height:0; overflow:hidden; }
+/* a glyph in a text run gets a little air after it */
+.setup-title .icon, .result-headline .icon, footer .icon{ margin-right:.1em; }
+.score-list .marker .icon{ width:19px; height:19px; vertical-align:-.28em; }
 </style>
 </head>
 <body>
 
+<!-- ============ ICONOGRAPHY ============
+     One 24x24 grid, one stroke weight, currentColor. See the .icon rules above. -->
+<svg class="icon-defs" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <!-- the pig, three-quarter head: crown, two droop ears, snout disc, one eye and
+       the painted flank dot's sibling. It is the app's mark, so it is the only
+       glyph with any ink in it. -->
+  <symbol id="i-pig" viewBox="0 0 24 24">
+    <path d="M5.2 12.5c0-3.5 3-6.1 6.8-6.1s6.8 2.6 6.8 6.1c0 3.7-3 6.5-6.8 6.5s-6.8-2.8-6.8-6.5Z"/>
+    <path class="solid" d="M7.4 7.7 4.7 3.9c-.2-.4.1-.8.5-.7l4.3 1.5Z"/>
+    <path class="solid" d="M16.6 7.7l2.7-3.8c.2-.4-.1-.8-.5-.7l-4.3 1.5Z"/>
+    <ellipse cx="12" cy="14.6" rx="3.2" ry="2.4"/>
+    <circle class="solid" cx="8.9" cy="10.6" r="1.05"/>
+    <circle class="solid" cx="15.1" cy="10.6" r="1.05"/>
+  </symbol>
+  <!-- the toss: a pig on a flight arc. Replaces the DICE. -->
+  <symbol id="i-toss" viewBox="0 0 24 24">
+    <path class="thin" stroke-dasharray="2 2.6" d="M2 20.5C3.4 13.4 6.6 9 11.4 7.6"/>
+    <path d="M12.4 14.1c0-2.6 2.2-4.5 4.9-4.5s4.9 1.9 4.9 4.5-2.2 4.7-4.9 4.7-4.9-2.1-4.9-4.7Z"/>
+    <path class="solid" d="M14 10.6l-1.9-2.7c-.2-.3.1-.6.4-.5l3 1Z"/>
+    <path class="solid" d="M20.6 10.6l1.9-2.7c.2-.3-.1-.6-.4-.5l-3 1Z"/>
+    <ellipse cx="17.3" cy="15.6" rx="2.2" ry="1.7"/>
+    <circle class="solid" cx="15.1" cy="12.6" r=".85"/>
+  </symbol>
+  <!-- bank the points: a coin dropping into a slotted pot. Replaces the BANK. -->
+  <symbol id="i-bank" viewBox="0 0 24 24">
+    <path d="M4.2 9.9h15.6l-1.5 8.6a1.7 1.7 0 0 1-1.7 1.4H7.4a1.7 1.7 0 0 1-1.7-1.4Z"/>
+    <path d="M8.9 13.4h6.2"/>
+    <g transform="rotate(-22 12 5.2)">
+      <ellipse cx="12" cy="5.2" rx="3" ry="2.9"/>
+      <path class="thin" d="M10.7 5.2h2.6"/>
+    </g>
+  </symbol>
+  <!-- new game -->
+  <symbol id="i-refresh" viewBox="0 0 24 24">
+    <path d="M20 12a8 8 0 1 1-2.6-5.9"/>
+    <path d="M20.4 3.6v4.2h-4.2"/>
+  </symbol>
+  <!-- how to play -->
+  <symbol id="i-book" viewBox="0 0 24 24">
+    <path d="M12 6.4C10.3 5 8.1 4.3 4.6 4.3v13.4c3.5 0 5.7.7 7.4 2.1 1.7-1.4 3.9-2.1 7.4-2.1V4.3c-3.5 0-5.7.7-7.4 2.1Z"/>
+    <path d="M12 6.4v13.4"/>
+  </symbol>
+  <!-- scoreboard / win -->
+  <symbol id="i-trophy" viewBox="0 0 24 24">
+    <path d="M7.6 3.9h8.8v4.8a4.4 4.4 0 0 1-8.8 0Z"/>
+    <path d="M7.6 5.2H5.1a3 3 0 0 0 2.9 3.9M16.4 5.2h2.5a3 3 0 0 1-2.9 3.9"/>
+    <path d="M12 13.1v3.4M8.4 20.1h7.2l-.7-3.6H9.1Z"/>
+  </symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24">
+    <path d="M4.4 9.4h3.1L12 5.6v12.8l-4.5-3.8H4.4Z"/>
+    <path d="M15.4 9.1a4.1 4.1 0 0 1 0 5.8M18.1 6.6a7.7 7.7 0 0 1 0 10.8"/>
+  </symbol>
+  <symbol id="i-muted" viewBox="0 0 24 24">
+    <path d="M4.4 9.4h3.1L12 5.6v12.8l-4.5-3.8H4.4Z"/>
+    <path d="M15.6 9.8l4.4 4.4M20 9.8l-4.4 4.4"/>
+  </symbol>
+  <!-- the Oinker: an impact star. Replaces the SCREAM face. -->
+  <symbol id="i-oinker" viewBox="0 0 24 24">
+    <path d="M12 2.6l2.1 4.1 4.5-1.2-1.2 4.5 4 2-4 2 1.2 4.5-4.5-1.2L12 21.4l-2.1-4.1-4.5 1.2 1.2-4.5-4-2 4-2L5.4 5.5l4.5 1.2Z"/>
+    <path class="solid" d="M11.2 8.2h1.6l-.3 4.6h-1Z"/>
+    <circle class="solid" cx="12" cy="15" r=".95"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/>
+  </symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24">
+    <path d="M12 5.2v13.6M5.2 12h13.6"/>
+  </symbol>
+  <symbol id="i-people" viewBox="0 0 24 24">
+    <circle cx="9" cy="8.4" r="3.2"/>
+    <path d="M3.4 19.6c0-3.1 2.5-5.2 5.6-5.2s5.6 2.1 5.6 5.2"/>
+    <path d="M16.1 5.6a3.2 3.2 0 0 1 0 6.1M17.2 14.7c2.1.5 3.4 2.3 3.4 4.9"/>
+  </symbol>
+  <!-- quick toss: skip ahead -->
+  <symbol id="i-forward" viewBox="0 0 24 24">
+    <path d="M4.6 6.2 11.4 12l-6.8 5.8ZM12.6 6.2 19.4 12l-6.8 5.8Z"/>
+  </symbol>
+</svg>
+
 <!-- ============ SETUP ============ -->
 <section id="screen-setup" class="screen">
-    <h1 class="setup-title">🐷 Hog Wild</h1>
+    <h1 class="setup-title"><svg class="icon" aria-hidden="true"><use href="#i-pig"/></svg>Hog Wild</h1>
 
     <div class="panel">
         <h2 style="margin-bottom:12px">Who's playing?</h2>
         <div id="playerRows"></div>
         <div class="setup-actions">
-            <button type="button" class="secondary" id="addPlayerBtn">➕ Add Player</button>
+            <button type="button" class="secondary" id="addPlayerBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Add Player</button>
         </div>
     </div>
 
@@ -549,7 +740,7 @@ footer a{ color:var(--ink-dim); }
     </div>
 
     <div class="panel">
-        <button type="button" class="big" id="startGameBtn" style="width:100%">🎲 Start Game</button>
+        <button type="button" class="big" id="startGameBtn" style="width:100%"><svg class="icon" aria-hidden="true"><use href="#i-toss"/></svg> Start Game</button>
         <p class="hint" id="setupHint">Toss the pigs, stack up points, then bank them before a Pig Out wipes your turn.</p>
     </div>
 </section>
@@ -568,15 +759,15 @@ footer a{ color:var(--ink-dim); }
                 <span class="num" id="turnPoints">0</span>
             </div>
         </div>
-        <button type="button" class="icon-btn" id="rulesToggle" aria-expanded="false" aria-label="How to play">📖</button>
-        <button type="button" class="icon-btn" id="scoreboardToggle" aria-expanded="false" aria-label="Scoreboard">🏆</button>
-        <button type="button" class="icon-btn" id="muteBtn" aria-label="Mute">🔊</button>
+        <button type="button" class="icon-btn" id="rulesToggle" aria-expanded="false" aria-label="How to play"><svg class="icon" aria-hidden="true"><use href="#i-book"/></svg></button>
+        <button type="button" class="icon-btn" id="scoreboardToggle" aria-expanded="false" aria-label="Scoreboard"><svg class="icon" aria-hidden="true"><use href="#i-trophy"/></svg></button>
+        <button type="button" class="icon-btn" id="muteBtn" aria-label="Mute sound"><svg class="icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
     </div>
 
     <div class="pen-wrap" id="penWrap">
         <canvas id="penCanvas" aria-hidden="true"></canvas>
         <div class="pen-fallback">
-            <span class="emoji">🐷🐷</span>
+            <span class="emoji"><svg class="icon" aria-hidden="true"><use href="#i-pig"/></svg><svg class="icon" aria-hidden="true"><use href="#i-pig"/></svg></span>
             <p style="margin:0;font-weight:700">Quick Toss mode</p>
             <p style="margin:0;font-size:.85rem">The 3D pen couldn't load — tossing works the same, just without the tumble.</p>
         </div>
@@ -608,21 +799,23 @@ footer a{ color:var(--ink-dim); }
     <div class="action-bar">
         <button type="button" class="big hold-btn" id="hogWildBtn">
             <span class="hold-fill" id="holdFill"></span>
-            <span class="label">🎲 Go Hog Wild</span>
+            <span class="label"><svg class="icon" aria-hidden="true"><use href="#i-toss"/></svg> Go Hog Wild</span>
         </button>
-        <button type="button" class="big secondary" id="stopBtn" disabled>🏦 Stop</button>
-        <button type="button" id="quickTossBtn">Quick Toss (skip the animation)</button>
+        <button type="button" class="big secondary" id="stopBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-bank"/></svg> Stop</button>
+        <div class="quick-row">
+            <button type="button" id="quickTossBtn"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg> Quick toss</button>
+        </div>
     </div>
     <p class="keyboard-hint" id="inputHint">Hold <strong>Space</strong> to toss · <strong>Enter</strong> to stop</p>
 
     <aside class="slide-panel" id="scoreboardPanel" hidden>
         <h2>Scoreboard <span style="font-weight:400;color:var(--ink-dim);font-size:.85rem">— first to <span id="targetLabel">100</span></span></h2>
         <ul class="score-list" id="scoreList"></ul>
-        <button type="button" class="secondary" id="newGameBtn" style="width:100%">🔄 New Game</button>
+        <button type="button" class="secondary" id="newGameBtn" style="width:100%"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> New Game</button>
     </aside>
 
     <aside class="slide-panel" id="rulesPanel" hidden>
-        <h2>📖 How to play</h2>
+        <h2><svg class="icon" aria-hidden="true"><use href="#i-book"/></svg> How to play</h2>
         <table class="rules-table">
             <thead><tr><th>How the pigs land</th><th>Points</th></tr></thead>
             <tbody>
@@ -647,19 +840,19 @@ footer a{ color:var(--ink-dim); }
 <!-- ============ WIN ============ -->
 <section id="screen-win" class="screen" hidden>
     <div class="panel win-box">
-        <span class="win-trophy">🏆</span>
+        <span class="win-trophy"><svg class="icon" aria-hidden="true"><use href="#i-trophy"/></svg></span>
         <p class="win-name" id="winName">—</p>
         <p id="winDetail" style="margin:0 0 18px;color:var(--ink-dim)">wins!</p>
         <ul class="score-list" id="finalScores" style="text-align:left;margin-bottom:16px"></ul>
         <div class="setup-actions">
-            <button type="button" id="playAgainBtn">🎲 Play Again</button>
-            <button type="button" class="secondary" id="changePlayersBtn">👥 Change Players</button>
+            <button type="button" id="playAgainBtn"><svg class="icon" aria-hidden="true"><use href="#i-toss"/></svg> Play Again</button>
+            <button type="button" class="secondary" id="changePlayersBtn"><svg class="icon" aria-hidden="true"><use href="#i-people"/></svg> Change Players</button>
         </div>
     </div>
 </section>
 
 <footer>
-Made by Ava ☀️ Summer of 2026 · <a href="../">All games</a>
+Made by Ava <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg> Summer of 2026 · <a href="../">All games</a>
 </footer>
 
 <script type="importmap">
@@ -671,6 +864,6 @@ Made by Ava ☀️ Summer of 2026 · <a href="../">All games</a>
 }
 </script>
 <script type="module" src="./game.js"></script>
-<script src="/_watch/devnav.js" defer></script>
+<script src="../_watch/devnav.js" defer></script>
 </body>
 </html>

@@ -123,7 +123,36 @@ window.__probe = (() => {
     await p.catch(()=>{});
     return window.__log.length;
   }
-  return {run, drive, runDriven, readBuf, sampleWorld, boardLum, rimProfile, blackShare, snap, pigMetrics, chipInfo, canvasSize,
+
+  /** Batch: drive N reveals and return per-round framing stats. */
+  async function batch(outcomes, per=8200){
+    const res=[];
+    for(const o of outcomes){
+      if(hw.state.turnState!=='ready'){ hw.skip&&hw.skip(); await new Promise(r=>setTimeout(r,60)); }
+      await runDriven(o, per, 120);
+      const L=window.__log.filter(x=>x.mode==='reveal');
+      if(!L.length){ res.push({o, err:'no reveal frames'}); continue; }
+      let worst=0, arr=null;
+      for(const s of L){
+        worst=Math.max(worst, s.pigs[0].worst, s.pigs[1].worst);
+        if(!arr || s.distMid<arr.distMid) arr=s;
+      }
+      const chipBad = L.some(s=>s.chips[0]&&s.chips[1]&&[0,1].some(i=>{
+        const c=s.chips[i]; if(!c||!c.show||c.off) return false;
+        return c.onCard || !c.inCanvas;
+      }));
+      // a chip shown while its own pig is off-frame (the "labels empty felt" bug)
+      const chipLies = L.some(s=>[0,1].some(i=>{
+        const c=s.chips[i]; if(!c||!c.show||c.off) return false;
+        return s.pigs[i].worst>1.0;
+      }));
+      res.push({o:JSON.stringify(o), frames:L.length, worstNdc:+worst.toFixed(3),
+        rig:arr.distMid, eyePx:arr.pigs[0].eyePx, heroPx:arr.pigs[0].px,
+        chipOnCardOrCut:chipBad, chipNamesNothing:chipLies});
+    }
+    return res;
+  }
+  return {batch, run, drive, runDriven, readBuf, sampleWorld, boardLum, rimProfile, blackShare, snap, pigMetrics, chipInfo, canvasSize,
     summary:()=>window.__log.map(s=>({t:s.t,mode:s.mode,d:s.distMid,camY:s.cam[1],
       p0:s.pigs[0].worst,p1:s.pigs[1].worst,e0:s.pigs[0].eyePx,px0:s.pigs[0].px,px1:s.pigs[1].px,
       c:s.chips.slice(0,2).map(c=>c&&(c.show?(c.off?'off':'ON'):'-')).join('/'), card:!!s.card}))};

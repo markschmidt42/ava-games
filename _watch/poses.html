@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐷 Pose Gallery — live collider landings</title>
+<script type="importmap">
+{ "imports": {
+    "three": "../hog-wild/vendor/three.module.js",
+    "cannon-es": "../hog-wild/vendor/cannon-es.js"
+} }
+</script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-monospace,Menlo,monospace;background:#0d1712;color:#e8f5ee;padding:18px;font-size:13px}
+h1{font-family:system-ui,sans-serif;font-size:1.3rem;margin:0 0 4px}
+.sub{color:#7fa892;margin:0 0 14px}
+.sub a{color:#54a0ff}
+.controls{margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{background:#e0457b;border:none;color:#fff;font-weight:bold;border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit}
+button.secondary{background:#3f6555}
+.stat{color:#a9c9b8}
+.pose-row{margin-bottom:20px}
+.pose-head{display:flex;gap:12px;align-items:baseline;margin-bottom:6px}
+.pose-name{font-family:system-ui,sans-serif;font-weight:bold;color:#ffd54a;font-size:1.05rem}
+.pose-meta{color:#7fa892}
+.cells{display:flex;gap:10px;flex-wrap:wrap}
+.cell{background:#16241d;border:1px solid #23392e;border-radius:10px;padding:6px;text-align:center}
+.cell canvas{border-radius:6px;display:block}
+.cell .lbl{color:#7fa892;font-size:.72rem;padding-top:4px}
+.err{background:#3a1a22;border:1px solid #7a3a4a;border-radius:10px;padding:12px;margin:10px 0}
+.empty{color:#5c7264;font-style:italic;padding:8px}
+</style>
+</head>
+<body>
+<h1>🐷 Pose Gallery — how the collider is landing</h1>
+<p class="sub">Live view of the <b>actual work-in-progress physics collider</b> — random tosses simulated in your browser right now, classified, last 5 landings kept per pose. Reload to pick up the tuning agent's latest edits. <a href="./">← dashboard</a></p>
+<div class="controls">
+  <button id="tossBtn">🎲 Toss 100</button>
+  <button id="autoBtn" class="secondary">▶ Auto-toss until every pose has 5</button>
+  <span class="stat" id="stat">loading physics.js…</span>
+</div>
+<div id="err"></div>
+<div id="gallery"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import { buildPigGroup } from './pig-render.mjs';
+
+const POSE_LABELS = {
+  'side-blank': 'Sider (blank side up) · 0 pts',
+  'side-dot':   'Sider (dot up) · 0 pts',
+  'razorback':  'Razorback · 5 pts',
+  'trotter':    'Trotter · 5 pts',
+  'snouter':    'Snouter · 10 pts',
+  'jowler':     'Leaning Jowler · 15 pts',
+};
+const KEEP = 5, CELL = 190;
+
+let P; // the live physics module
+try {
+  P = await import('../hog-wild/physics.js?ts=' + Date.now());
+} catch (e) {
+  document.getElementById('err').innerHTML =
+    `<div class="err">physics.js didn't import — the tuning agent is probably mid-edit. Auto-retrying in 5s…<br><small>${e.message}</small></div>`;
+  setTimeout(() => location.reload(), 5000);
+  throw e;
+}
+
+/* ---------- headless sim world (built fresh here; read-only use of the module) ---------- */
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, P.GRAVITY ?? -21.6, 0) });
+world.allowSleep = true;
+const floorMat = new CANNON.Material('floor');
+const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: floorMat });
+floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+world.addBody(floor);
+const pig = P.buildPigBody ? P.buildPigBody({}) : null;
+if (!pig) { document.getElementById('err').innerHTML = '<div class="err">buildPigBody not exported yet — refresh later.</div>'; throw new Error('no buildPigBody'); }
+world.addBody(pig);
+if (pig.material && floorMat) {
+  world.addContactMaterial(new CANNON.ContactMaterial(pig.material, floorMat,
+    { friction: 0.7, restitution: 0.4 }));
+}
+
+function randomToss() {
+  pig.position.set((Math.random() - .5) * 1.2, 1.2 + Math.random() * 1.2, (Math.random() - .5) * 1.6);
+  pig.quaternion.setFromEuler(Math.random() * 6.283, Math.random() * 6.283, Math.random() * 6.283);
+  pig.velocity.set((Math.random() - .5) * 4, -1 - Math.random() * 2, (Math.random() - .5) * 4);
+  pig.angularVelocity.set((Math.random() - .5) * 18, (Math.random() - .5) * 18, (Math.random() - .5) * 18);
+  pig.wakeUp();
+  const dt = P.FIXED_DT ?? 1 / 120;
+  for (let i = 0; i < 6 * 120; i++) {
+    world.step(dt);
+    if (pig.velocity.lengthSquared() < 1e-4 && pig.angularVelocity.lengthSquared() < 1e-4 && i > 60) break;
+  }
+  const c = P.classify(pig.quaternion);
+  return { pose: c.pose, confidence: c.confidence, q: pig.quaternion.clone(), p: pig.position.clone() };
+}
+
+/* ---------- rendering: cannon compound shapes -> three meshes ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(CELL * 2, CELL * 2, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+
+function snapshotScene(rec) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x16241d);
+  scene.add(new THREE.HemisphereLight(0xdfffee, 0x1c2a22, 1.1));
+  const key = new THREE.DirectionalLight(0xffffff, 2.2);
+  key.position.set(2, 4, 2.5); key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  scene.add(key);
+  const floorM = new THREE.Mesh(new THREE.CircleGeometry(1.6, 48),
+    new THREE.MeshStandardMaterial({ color: 0x2f6b52, roughness: .95 }));
+  floorM.rotation.x = -Math.PI / 2; floorM.receiveShadow = true;
+  scene.add(floorM);
+
+  const group = buildPigGroup(pig, P);
+  group.quaternion.set(rec.q.x, rec.q.y, rec.q.z, rec.q.w);
+  group.position.y = rec.p.y;
+  scene.add(group);
+
+  const cam = new THREE.PerspectiveCamera(38, 1, .1, 20);
+  cam.position.set(1.5, 1.15, 1.9);
+  cam.lookAt(0, 0.22, 0);
+  renderer.render(scene, cam);
+  const c = document.createElement('canvas');
+  c.width = c.height = CELL * 2; c.style.width = c.style.height = CELL + 'px';
+  c.getContext('2d').drawImage(renderer.domElement, 0, 0);
+  return c;
+}
+
+/* ---------- gallery state ---------- */
+const kept = Object.fromEntries(Object.keys(POSE_LABELS).map(k => [k, []]));
+const counts = Object.fromEntries(Object.keys(POSE_LABELS).map(k => [k, 0]));
+let total = 0, unstable = 0;
+
+const gallery = document.getElementById('gallery');
+for (const [k, label] of Object.entries(POSE_LABELS)) {
+  const row = document.createElement('div');
+  row.className = 'pose-row'; row.id = 'row-' + k;
+  row.innerHTML = `<div class="pose-head"><span class="pose-name">${label}</span>
+    <span class="pose-meta" id="meta-${k}">0 seen</span></div>
+    <div class="cells" id="cells-${k}"><div class="empty">none landed yet…</div></div>`;
+  gallery.appendChild(row);
+}
+
+function addSnapshot(rec) {
+  const k = rec.pose;
+  if (!(k in kept)) { unstable++; return; }
+  counts[k]++;
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.appendChild(snapshotScene(rec));
+  const lbl = document.createElement('div');
+  lbl.className = 'lbl';
+  lbl.textContent = `#${total} · conf ${(rec.confidence * 100 | 0)}%`;
+  cell.appendChild(lbl);
+  const cells = document.getElementById('cells-' + k);
+  cells.querySelector('.empty')?.remove();
+  cells.prepend(cell);
+  while (cells.children.length > KEEP) cells.lastChild.remove();
+  document.getElementById('meta-' + k).textContent =
+    `${counts[k]} seen · ${(counts[k] / total * 100).toFixed(2)}% emergent`;
+}
+
+function updateStat() {
+  document.getElementById('stat').textContent =
+    `${total} tosses · unclassified/other: ${unstable}`;
+}
+
+async function tossBatch(n) {
+  for (let i = 0; i < n; i++) {
+    total++;
+    addSnapshot(randomToss());
+    if (i % 10 === 9) {
+      updateStat();
+      // rAF never fires in hidden tabs — race it with a timeout so auto-toss survives backgrounding
+      await new Promise(r => { requestAnimationFrame(r); setTimeout(r, 120); });
+    }
+  }
+  updateStat();
+}
+
+document.getElementById('tossBtn').onclick = () => tossBatch(100);
+let auto = false;
+document.getElementById('autoBtn').onclick = async (e) => {
+  auto = !auto;
+  e.target.textContent = auto ? '⏸ stop auto-toss' : '▶ Auto-toss until every pose has 5';
+  while (auto && Object.values(counts).some(c => c < KEEP) && total < 30000) {
+    await tossBatch(50);
+  }
+  if (auto) { auto = false; e.target.textContent = '▶ Auto-toss until every pose has 5'; }
+};
+
+document.getElementById('stat').textContent = 'physics.js loaded — toss away';
+tossBatch(100);
+</script>
+<script src="devnav.js" defer></script>
+</body>
+</html>
