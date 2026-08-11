@@ -218,11 +218,25 @@ must reproduce these beats (constants in one editable block each):
      translation. The lift is therefore inside the fit, which is what finally makes
      "it can never crop what it is revealing" true.
    - distance is binary-searched (fit is monotone in distance) for each of 13
-     swings × 4 axis sign families, and the winner is scored on `front` — the
-     camera's alignment with the hero pig's snout — minus `dist/maxDist ×
-     frontWeight`. **A reveal that cannot see a face is a failed reveal:** the first
-     build of the exact-fit solve produced a beautifully framed 4.7 m two-pig shot
-     of two RUMPS.
+     swings × 4 axis sign families, and the winner is scored on the hero pig's own
+     painted FACES — minus `dist/maxDist × frontWeight`. **A reveal that cannot see a
+     face is a failed reveal:** the first build of the exact-fit solve produced a
+     beautifully framed 4.7 m two-pig shot of two RUMPS.
+
+     **ROUND-5: and then it aimed at the wrong feature for two more rounds.** The term
+     was `front`, the camera's alignment with the hero pig's SNOUT, and on a back rest
+     the snout points at the sky — so the term actively rewarded a bearing from which
+     no eye is visible. The judge measured eye-normal · direction-to-camera coming out
+     NEGATIVE while `minEyePx` passed, which is the other half of it: `minEyePx` is a
+     SIZE test and cannot tell a 26-px eye from 26 px of the back of a head. Both terms
+     are now the EYE, per flank (a pig has two faces and only needs to show one):
+     `minEyeFace` (0.25) is a hard filter on the eye's own surface normal against the
+     direction to the camera, and `minUpright` / `uprightWeight` ask whether that
+     face's down-axis projects DOWN the screen — see "The face's ORIENTATION". Both are
+     filters with a graceful fallback, in two steps: bearings that show an eye AND carry
+     the mouth below it; failing that, bearings that at least show an eye; failing that,
+     everything, plus a `console.warn`, because reaching the third step means a rest
+     whose face is in the felt. The winning flank is also the flank the wink closes.
    - `swingMax` is 88°, not 52°. Near 90° the camera looks down the pig-pig line and
      the separation costs the frame's width nothing.
    - **Hero fallback.** If no pair shot fits inside `maxDist` — or inside
@@ -243,6 +257,21 @@ must reproduce these beats (constants in one editable block each):
      Portrait razorback double: 3.06 m, 26.4 px. Desktop is unaffected — a landscape
      canvas can hold both pigs AND a face, and all three sampled desktop rounds stayed
      pair shots at 20.4–30.0 px of eye.
+
+     **ROUND-5: "materially more" was hiding a threshold.** The judge measured 17 px
+     accepted on a 736×354 canvas, and the 1.25× rule is how it got there: a canvas that
+     short needs the camera nearer than `minDist` to pay 20 px, so the pair sat at 17 and
+     a hero shot at 21 was rejected for being "only" 1.24× better. The promise is a
+     THRESHOLD — crossing it IS the gain — so the hero shot also wins whenever it reaches
+     `minEyePx` at any margin. And when NOT ONE candidate can pay (`close` comes back
+     empty), the distance penalty switches to `starvedWeight`: with the whole pool
+     starved the ordinary penalty loses to a 1.0 swing in the face terms and the solve
+     picks the frontal shot over the big one, so when nobody can clear the bar SIZE is
+     the tiebreak. MEASURED on that canvas, a jowler + trotter: **9.9 px at 6.08 m →
+     16.5 px at 3.50 m**. It is short of 20 because the promise asks for 3.01 m on a
+     354-px canvas and 3.50 m is the CLOSEST distance whose whole beat — drift sweep and
+     zoom-in included — still fits that band, not because a filter let it through. The
+     remaining gap is the fit, and the fit is not negotiable.
 
      **EXCEPT when both pigs ARE the result.** A Pig Out means "these two are opposite
      sides" and an Oinker means "these two are touching"; a close-up of one pig cannot
@@ -620,6 +649,183 @@ add dev/shake-test.html doing exactly that with pass/fail readouts.
 
 The pigs must be characters, not props. Requirements for pig.js + fx.js:
 
+**CUTE mandate (owner, 2026-08-11 — "the pigs look kinda scary"; overrides
+any conflicting face detail below).** The eye realism that made faces
+*readable* (iris, limbal ring, brow) is what makes them *uncanny*. Cute
+follows baby-schema rules, not anatomy:
+- Eyes: SOLID dark bean/oval — no sclera, no limbal ring, no iris detail —
+  with exactly one large soft catchlight. Big and widely spaced.
+- NO default brow (brows read angry/adult). Expressions may draw temporary
+  brow marks (ouch/panic) but neutral/smug/happy faces have none.
+- Mouth: small, simple, gently smiling at neutral. Blush: bigger and softer.
+- Everything rounded; if a face mark has a sharp corner, round it.
+- Archetypes to satisfy simultaneously: Sanrio / Toca Boca / Pua (Moana).
+Build THREE variants (A solid-bean minimal, B huge-pupil glossy, C
+sleepy-lidded content) switchable in dev/pig-viewer.html (keys a/b/c),
+screenshot each at reveal distance and face zoom, and set the default to the
+strongest baby-schema read pending owner pick. Expression states must be
+re-derived per variant (outline changes, not anatomy changes).
+
+**SHIPPED, and the default is B.** All three are one set of primitives with
+different proportions — `beanPath` (two cubics, so the eye has no vertex to
+sharpen), `bean()` (halo → solid bean → optional SKIN lid → one catchlight),
+`slitEye`, `archEye`, `wedgeEye`, `ringEye`, `browMark` — because a variant that
+needed its own drawing code would drift from the other two by the second state.
+`VARIANT` in pig.js is the whole difference:
+
+| | eye × eyeR | aspect | catchlight | lid | mouth × mouthK |
+| --- | --- | --- | --- | --- | --- |
+| A solid-bean minimal | 0.84 | 1.14 tall | 0.30 r | — | 0.84 |
+| B huge-pupil glossy | 1.08 | 1.00 round | 0.40 r | — | 0.86 |
+| C sleepy-lidded | 0.98 | 1.10 | 0.30 r | 0.36 | 0.98 |
+
+`eyeK` is capped by the carved window, not by taste: the window reaches 0.070 m
+forward of the eye and B's bean already spends 0.056 of it, with panic's shock
+ring spending the rest (0.066).
+
+**ROUND-5: B's second glint was a second pupil, and the wash was still a wash.**
+"Exactly one catchlight" has been the rule since round 2 and B was breaking it with
+a 0.11 r sparkle in the bean's low-rear corner. MEASURED on the live atlas cell, by
+counting the bright regions fully ENCLOSED by the bean's ink: **2 → 1** (the second
+was 95 px at mean luminance 0.54 — a dim pupil, which is exactly how a second
+highlight reads at 26 px). There is now one highlight-drawing call in the whole ink,
+so the rule is structural rather than remembered, and the `glint` proportion is gone
+from `VARIANT`.
+
+The wash came down with it, 1.35 r / 0.20 alpha → **1.18 r / 0.12**. On B (whose
+core is 0.40 rx) the old wash reached 0.54 rx — over half the bean's radius, and the
+reveal is the one shot that resolves it. MEASURED on the same cell, the fraction of
+the bean's pixels lifted above luminance 0.14 fell **8.4% → 2.8%**, and the bean's
+90th-percentile luminance 0.133 → 0.102. The catchlight core is untouched (1346 px
+at 0.95): softening a highlight is about its EDGE, not its body.
+
+**Why B.** Judged on `faceSheet()` (all eight states at face zoom, one image) and
+on `revealCam(0, 26)` — a MEASURED 26-px eye, same arithmetic as game.js's
+`eyePxOf` solved for depth, which is what makes "judge it at reveal distance" a
+number instead of a zoom level. At 26 px B's bean is the largest dark mass with
+the clearest single highlight and its smile still reads; A reads clean but small,
+i.e. less baby schema at the scale that matters; and **C loses its eye at reveal
+distance** — the sleepy lid eats the bean's mass and 26 px of half-closed eye
+reads as a squint rather than as bliss. C stays the charming one at face zoom, so
+it is the strongest candidate if the owner wants "content" over "big-eyed".
+
+Three things had to be MEASURED rather than drawn, and each is a rule:
+
+- **the mouth's weight, not its size.** At the mandate's "small" the neutral smile
+  was 10 mm of ink — 2.5 px at a 26-px eye, gone once the shader had shaded the
+  cheek. Line width went 0.30 → 0.44 of the mouth scale and the ink deepened to
+  `rgba(104,34,58,.96)`. Small is about the mouth's EXTENT.
+- **a soft catchlight is a whisper of wash around a bright core.** The first build
+  wrapped the highlight in a 1.75 r wash at 0.34 alpha, which covered most of the
+  bean and rendered the eye a warm GREY — a smudge, and a hue the no-browns rule
+  does not allow. 1.35 r at 0.20.
+- **a blush must be DEEPER than the cheek, not lighter.** #ff789e over a #f0a3b5
+  cheek is a six-level difference; the blush only became an area once it went to
+  `rgba(255,96,140,·)` at 0.70–0.74 alpha, at 0.052 m base radius (from 0.042).
+
+The eight states are outline changes per variant: base bean · curved slit ·
+`><` wedge · offset derp (a big high eye on one flank against a small low one on
+the other — a spiral is a graphic laid on a face, an offset IS the face) ·
+half-lid from BELOW for smug · bean-plus-arch wink · skin lid drooped and tipped
+rear-down for sad · shock ring for panic. Temporary brow marks exist ONLY in ouch
+and panic, and they are light (0.19 thickness at 0.72 alpha) because at 0.26/0.85
+the ouch mark was the one ink in the build that still read as a threat.
+
+Cost: unchanged. One draw call, 11,744 triangles, one 1024-wide sheet. Only the
+CURRENT variant is baked — 16 cells in 6 atlas rows; all three at once would need
+16 rows and take the texture from 1024×1350 to 1024×2760, which is 11 MB of VRAM
+on a Pixel for two cells nobody looks at. `setFaceVariant` repaints those 16 cells
+and re-uploads; UVs never move, so `setExpression` and every live pig are
+untouched. Grounding re-measured after the change: worst pose 3.4 mm, identical to
+before (the face is ink, not geometry).
+
+## The face's ORIENTATION (round-5 review — the cuteness judge)
+
+**MOUTH-AS-EYEBROW.** The face is painted on the FLANK, so in a flank rest it
+rotates ON SCREEN: the judge measured the eye→mouth vector at 134° from screen-down
+on a side-blank, −140° on a razorback and −114° on a jowler — the mouth arcing ABOVE
+the eye, on 58% of single-pig outcomes. The ink is authored in a frame that only
+agrees with the screen when the pig is standing up, which is the one attitude Pass
+the Pigs never produces. Two mechanisms fix it, and neither can do it alone:
+
+1. **the ink turns, per REST POSE** (`faceRestAngle` in pig.js). The rotation is a
+   pure function of the pose and NOT of the yaw, which is the fact that makes this
+   cheap: the world-vertical component of any body direction under a rest whose
+   up-axis is `L` is exactly `dot(d, L)`, and yaw is a rotation about world up, so
+   the angle between the eye's normal and the ink's down-axis — the whole problem —
+   cannot depend on it. Everything is therefore solved in the pig's own body frame
+   with `L` standing in for world up.
+2. **the camera swings to meet it** (`solveRig`'s `upright` term, below). On a flank
+   rest the eye's normal IS world-up, so no rotation moves the vertical at all; the
+   residual is horizontal, and the reveal's own 19° elevation foreshortens a
+   horizontal direction pointing TOWARD the camera into screen-down.
+
+**Plumbing the ink is not the answer, and the razorback is why.** The first build
+rotated the ink so its down-axis pointed as world-DOWN as it could (a = 180° on a
+back rest). MEASURED: that put the mouth 6.9 px below a 32-px eye — inside it. On a
+razorback the eye's normal and the ink's down-axis have OPPOSITE horizontal
+components, so the bearing that shows the eye is the bearing the mouth leans away
+from, and "as vertical as possible" spends the whole budget on a component the camera
+then foreshortens. The rotation is solved against the camera instead, **jointly** and
+with the same objective `solveRig` scores (`facing + 1.15 × upright` over every
+bearing that clears `minEyeFace`), which is why `REVEAL_SHAPE` in pig.js mirrors
+three of REVEAL's numbers the way `REVEAL.eyeR` mirrors `FACE.eyeR`.
+
+**The WINDOW gets a veto, and `z1` is why it has to.** `z1` is pinned at the nose —
+past z ≈ 0.395 the body rings are the nose tip and a carved window pinches to nothing
+— so a correction that wants the mouth 90° forward of the eye is asking for ink on the
+snout. `inkOverflow` tests each mark's exact elliptical SUPPORT against the window's
+four budgets (a bounding-box corner is r·√2 out, which for the halo alone is 40 mm of
+empty texture and vetoes every rotation on its own), and gradients get slack while the
+mouth and the bean get none: a clipped mouth is the bug this mechanism exists to fix.
+MEASURED, the jowler's dot flank asks for −90° and is granted −21°. `FACE.u1` went
+0.450 → **0.474** for one measured reason: the razorback's half turn sends the blush
+104 mm toward the SPINE against an old up-budget of 88 mm, and a hard straight cut
+across a blush at half alpha is a visible line on the cheek. 0.474 buys 110 mm and
+cannot grow much further — the mirrored patch starts at u = 0.526.
+
+**Two atlas cells per pig, repainted, not a baked rotation dimension.** Restricted to
+the five states a settled pig can wear and the four distinct rest rotations, baking
+would need 40 extra cells — 14 more atlas rows, a 1024×3300 sheet, 13 MB of VRAM on a
+Pixel. Two pigs can only ever show two orientations at once, so `FACE_DYN_SLOTS` is 2
+and `setSettledFace` repaints them when the reveal solves. MEASURED: **0.28 ms** of
+canvas work per call and ONE texture upload however many pigs changed that frame
+(`needsUpdate` is a flag), against a sheet that grew 1024×1380 → **1024×1526** (+11%:
+one atlas row for the four cells, plus a 10% wider cell for the taller window).
+`setExpression` clears the dynamic pair, which is what puts a tumbling pig back on the
+shared baked face with no extra bookkeeping at the call sites.
+
+**MEASURED, before and after, at the reveal's own camera** (desktop canvas 654×551;
+"gap" is the mouth's centre below the bean's lower lip, so a positive number means the
+mouth is outside the eye and under it; "was" re-projects the same pig through the same
+solved camera with the ink UNROTATED, and BEFORE re-runs the whole solve with the old
+snout-scored term):
+
+| round | eye · toCam BEFORE → AFTER | gap below bean | screen angle from down |
+| --- | --- | --- | --- |
+| Pig Out (side-blank + side-dot) | 0.59 → **0.87** | −1.6 → **+7.0 px** | 129° → **−18°** |
+| razorback + side-blank | 0.02 → **0.48** | −5.8 → **+1.9 px** | 163° → **27°** |
+| double razorback (wink) | 0.02 → **0.48** | −5.8 → **+2.0 px** | 163° → **29°** |
+| jowler + trotter | 0.73 → **0.48** | +6.0 → **+8.1 px** | −51° → **−14°** |
+| snouter + side-dot | 0.99 → **0.84** | +6.0 → **+5.3 px** | −27° → **−10°** |
+| trotter + side-blank | 0.88 → **0.94** | +6.2 → **+6.2 px** | 5° → **12°** |
+
+Portrait 351×548 is where the old build was worst — the judge's negative facings
+reproduce there exactly: side-blank+side-dot **−0.15 → 0.80**, razorback **−0.09 →
+0.57**, and every AFTER shot still pays the file's 20-px promise (20.2–23 px of eye).
+`front` (the camera's alignment with the SNOUT) is gone: on a back rest the snout
+points at the sky, so it was an argument for standing exactly where no eye is visible.
+
+**Residual, measured and deliberate.** A razorback's eyes point 37° INTO the felt
+(they sit high on the head, and the pig is on its back), so its best possible facing
+from the reveal's 19° elevation is 0.57 and the face is always seen near its
+silhouette: +1.9 px of gap is on the right side of the eye but thin. The one lever
+that moves it is the reveal's ELEVATION, and it is a pose-by-pose trade, MEASURED at
+8°: razorback facing 0.46 → **0.67** and gap 2.2 → **5.4 px**, while side-blank pays
+0.88 → 0.70 and 32 → 25 px of eye. So a per-pose elevation would help both and a
+global one cannot — and it is a change to the owner-approved composition (19° for
+every reveal), so it is left as the next lever rather than taken here.
+
 **Faces.** Give the pigs proper eyes (they currently have a sleepy painted eye —
 upgrade to eyes that can change state) and an expression system with a small
 set of states, swapped by texture/UV offset or morphing eyelid geometry —
@@ -685,7 +891,12 @@ blush, all drawn in ONE anchor frame so the carved atlas window can be sized fro
 a single known ink bounding box. The eye also moved forward onto the cheek and the
 visual ear sweeps rearward at the tip.
 
-**The lens is FOUR separable values, or it is a hole.** ROUND-2 REVIEW: "the eye is
+**The lens is FOUR separable values, or it is a hole.** SUPERSEDED by the CUTE
+mandate — `eyeLens`, `eyeSocket`, `openEye`, `clenchEye` and `spiralEye` no longer
+exist, and neither do `INK.iris`, `INK.pupil`, `INK.irisRing` or `INK.sclera`. Kept
+for the two rules that survived the rewrite: **exactly one catchlight per eye**
+(two bright dots in one eye read as two pupils, and that is still true of a solid
+bean), and a state must change the eye's OUTLINE. ROUND-2 REVIEW: "the eye is
 an amorphous black void with two catchlights … a large white catchlight at
 bottom-left AND a grey one at top-right — two bright dots in one eye read as two
 pupils / wall-eyed. There is no iris ring, no lid line, no lash, and the outline is
@@ -841,6 +1052,34 @@ export function buildBarrel()     // → THREE.Group, the shaker. Upright, BASE 
                                   //   about the same pivot a real barrel tips on).
 export { buildBarrel as buildCup }// the old specifier; game.js keeps the CUP_* hooks
 export function buildScene(canvas)// renderer, scene, camera, lights, resize → handles
+
+export const EXPRESSIONS;         // the eight state keys, in viewer order
+export function setExpression(pigGroup, state); // → bool, a UV rewrite only
+export function getExpression(pigGroup);
+export function pigTriangles();
+
+// SPEC "Character & expressions" — the CUTE variants
+export const FACE_VARIANTS;       // ['A','B','C']
+export function setFaceVariant(v);      // repaints the 16 atlas cells → bool
+export function getFaceVariant();
+export function faceVariantLabel(v?);   // dev HUD text
+export function faceMetrics();    // { eyeR, eyeU, eyeZ, eyeAt (COM frame), variant,
+                                  //   window (the carved ink budget, in metres),
+                                  //   ink (mouth/blush anchors) }
+                                  // so a dev page can size a camera against the
+                                  // real eye instead of a copied magic number
+
+// SPEC "The face's ORIENTATION" — the rest-pose correction
+export function faceInkFrame(side);          // { at, inkX, inkY, n } in the BODY frame
+export function faceInkPoint(x, y, side);    // an ink-frame point → its point ON the pig
+export function faceRestAngle(up, side);     // → { angle, plumb, reach, vertical,
+                                             //     facing, upright, score }
+                                             // `up` is world-up in the BODY frame,
+                                             // i.e. a physics.js POSE_UP row
+export function setSettledFace(pigGroup, { slot, expr, up, closeSide });
+                                  // repaints this pig's OWN two atlas cells with
+                                  // the expression rotated for that rest and the
+                                  // wink closing `closeSide`; setExpression undoes it
 ```
 
 **The barrel's INTERIOR is a contract, not a look.** game.js stages the rattling
