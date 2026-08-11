@@ -21,6 +21,15 @@
 
 *{ box-sizing:border-box; }
 
+/* The `hidden` attribute is the ONLY thing that decides whether a screen or
+   panel is on stage, so it has to beat every layout rule in this file — and
+   several of those rules are id-selectors (`#screen-game{display:grid}` in the
+   desktop media query), which outrank any attribute/class selector. Without
+   `!important` a hidden screen keeps its display value, takes real layout
+   space, paints its absolutely-positioned children over the visible screen,
+   and stays keyboard-focusable and in the accessibility tree. */
+[hidden]{ display:none !important; }
+
 html,body{
     height:100%;
     overscroll-behavior:none;
@@ -71,7 +80,6 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
 }
 
 .screen{ flex:1; display:flex; flex-direction:column; min-height:0; }
-.screen[hidden]{ display:none; }
 
 /* ---------- setup ---------- */
 
@@ -205,19 +213,22 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
 .mode-quick-only .pen-fallback{ display:flex; }
 .pen-fallback .emoji{ font-size:3.4rem; }
 
-/* Pose labels ride at the TOP of the pen and the hint/result card at the
-   bottom: the pigs always come to rest in the near third of the felt (the
-   throw is short and the felt is grippy), so anything centred low sits on top
-   of the pigs the player is trying to read. */
+/* TWO layers over the felt, and they never fight.
+   Round-1 review: the top-of-canvas chip row, the projected per-pig chips, the
+   shake hint and the result card could all be on the felt at once, "with the hint
+   literally running through the chips and the pigs". Two of the four are gone —
+   the label row said the same words as the chips (see the markup) and the hint
+   moved down beside the buttons it describes. What is left is the projected
+   chips, which sit on their pigs, and the result card, which is a lower-third
+   band the reveal camera composes around (REVEAL.aimBias in game.js). */
 .pen-overlay{
     position:absolute; inset:0;
     display:flex;
     flex-direction:column;
     align-items:center;
-    justify-content:space-between;
-    padding:12px 16px 16px;
+    justify-content:flex-end;
+    padding:12px 16px 14px;
     pointer-events:none;
-    gap:10px;
 }
 .overlay-bottom{
     display:flex;
@@ -227,42 +238,120 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     width:100%;
 }
 
-.pen-hint{
-    color:var(--ink-dim);
-    font-size:.95rem;
-    font-weight:700;
-    text-align:center;
-    text-shadow:0 2px 6px rgba(0,0,0,.5);
+/* Visually hidden, still announced. */
+.sr-only{
+    position:absolute;
+    width:1px; height:1px;
+    margin:-1px; padding:0;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+    border:0;
 }
-.mode-quick-only .pen-hint{ display:none; }
-[data-turnstate="shaking"] .pen-hint,
-[data-turnstate="tossing"] .pen-hint,
-[data-turnstate="settling"] .pen-hint,
-[data-turnstate="resolved"] .pen-hint{ opacity:0; }
 
-.pose-labels{ display:flex; gap:24px; }
-.pose-label{
-    min-width:80px;
-    text-align:center;
-    font-weight:800;
-    font-size:.85rem;
-    color:var(--ink);
-    background:rgba(0,0,0,.32);
+/* A soft inner vignette so the felt disc fades into the panel edge instead of
+   being sliced off by it (round-1 review: "the board disc is cropped by the
+   canvas panel's hard straight edge"). */
+.pen-vignette{
+    position:absolute; inset:0;
+    pointer-events:none;
+    background:radial-gradient(128% 108% at 50% 42%,
+        rgba(0,0,0,0) 58%, rgba(4,10,8,.22) 84%, rgba(4,10,8,.46) 100%);
+    z-index:1;
+}
+
+/* The "hold to shake" hint used to be a THIRD text layer floating on the felt,
+   directly above the result card — the round-1 review found it "literally
+   running through the chips and the pigs". Input instructions belong next to the
+   input, so it moved to .keyboard-hint under the action bar, which already said
+   the same thing on desktop. Nothing is painted over the board now except the
+   per-pig chips and the lower-third card. */
+
+/* Per-pig settle chips (SPEC "Presentation model" beat 1). One per pig, glued
+   to that pig by game.js re-projecting its world position every frame — they
+   appear the moment THAT pig settles, without waiting for its partner. These are
+   now the ONLY per-pig labels in the game, so they earn a leader: the ::after
+   notch points down at the pig the chip is naming, which is the whole reason to
+   prefer them over a static row. */
+.pig-chip{
+    position:absolute; left:0; top:0;
+    transform:translate(-50%,-100%);
+    background:rgba(22,36,29,.93);
+    border:1px solid #3f6555;
     border-radius:10px;
-    padding:6px 10px;
+    padding:3px 9px;
+    margin-top:-7px;
+    font-size:.78rem;
+    font-weight:800;
+    color:var(--gold);
+    white-space:nowrap;
+    pointer-events:none;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .22s ease;
+    box-shadow:0 4px 12px rgba(0,0,0,.35);
+    z-index:3;
 }
+/* The leader. `--lead` is written by game.js's projectChips: when the clamp has
+   to slide a chip away from the canvas edge, the notch slides the other way so it
+   still points at the pig instead of lying about where it is. `.below` flips the
+   notch to the top edge for a chip that had to drop onto its pig. */
+/* ROUND-3 REVIEW: "No chip shows the leader/notch the SPEC describes, so they
+   float over the pigs instead of pointing at them." The notch existed but was a
+   6 px triangle in the chip's own near-black fill against dark felt — invisible
+   at the size the reveal actually shows. It is bigger (9 px), it carries a
+   hairline STEM down to the pig so the connection survives the gap the chip's
+   -7px margin leaves, and both are drawn in the chip's border colour rather than
+   its fill so they read against the felt. */
+.pig-chip::after{
+    content:"";
+    position:absolute;
+    left:var(--lead,50%); top:100%;
+    transform:translateX(-50%);
+    border:9px solid transparent;
+    border-bottom-width:0;
+    border-top-color:#527f6b;
+}
+.pig-chip::before{
+    content:"";
+    position:absolute;
+    left:var(--lead,50%); top:100%;
+    width:2px; height:9px;
+    margin-top:7px;
+    transform:translateX(-50%);
+    background:linear-gradient(#527f6b, rgba(82,127,107,0));
+}
+.pig-chip.below::after{
+    top:auto; bottom:100%;
+    border-bottom-width:9px;
+    border-top-width:0;
+    border-top-color:transparent;
+    border-bottom-color:#527f6b;
+}
+.pig-chip.below::before{ display:none; }
+.pig-chip.show{ opacity:1; visibility:visible; }
+/* Its pig is off-frame or behind the camera — hide it rather than pinning it to
+   the canvas edge, where it names nothing and stacks on its partner. */
+.pig-chip.offscreen{ opacity:0; visibility:hidden; }
+.pig-chip.resettling{ opacity:.5; color:var(--ink-dim); }
+.pig-chip small{ color:var(--ink-dim); font-weight:600; }
+.mode-quick-only .pig-chip,
+.reduced-motion .pig-chip{ display:none; }
 
+/* A lower-third BAND, not a floating slab: the reveal camera biases its aim so
+   the pigs sit above it (REVEAL.aimBias), and keeping the card short and wide is
+   what keeps that bias small enough not to crop them. */
 .result-card{
     width:100%;
-    max-width:420px;
+    max-width:460px;
     text-align:center;
-    background:rgba(15,26,20,.82);
-    backdrop-filter:blur(3px);
+    background:linear-gradient(rgba(11,20,15,.62), rgba(11,20,15,.90));
+    backdrop-filter:blur(4px);
     border-radius:14px;
-    padding:12px 16px;
+    padding:9px 16px;
     pointer-events:none;
+    z-index:2;
 }
-.result-card[hidden]{ display:none; }
 .result-headline{ font-size:clamp(1.1rem,4.5vw,1.4rem); font-weight:800; margin:0 0 3px; }
 .result-detail{ margin:0; font-size:.9rem; color:var(--ink-dim); }
 .result-card.good .result-headline{ color:var(--good); }
@@ -343,7 +432,6 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     box-shadow:0 -10px 30px rgba(0,0,0,.4);
     z-index:20;
 }
-.slide-panel[hidden]{ display:none; }
 .slide-panel h2{ font-size:1.1rem; margin-bottom:10px; }
 
 .score-list{ list-style:none; margin:0 0 12px; padding:0; }
@@ -372,7 +460,15 @@ table.rules-table td:last-child{ text-align:right; white-space:nowrap; font-weig
 footer{ text-align:center; padding:12px; opacity:.6; font-size:.82rem; }
 footer a{ color:var(--ink-dim); }
 
-.keyboard-hint{ display:none; }
+.keyboard-hint{
+    text-align:center;
+    color:var(--ink-dim);
+    font-size:.85rem;
+    font-weight:600;
+    margin:8px 0 0;
+    padding:0 12px;
+}
+.mode-quick-only .keyboard-hint{ display:none; }
 
 /* ---------- desktop ---------- */
 
@@ -415,12 +511,8 @@ footer a{ color:var(--ink-dim); }
     #scoreboardToggle{ display:none; }
 
     .keyboard-hint{
-        display:block;
         grid-row:4;
         grid-column:1;
-        text-align:center;
-        color:var(--ink-dim);
-        font-size:.85rem;
         margin:2px 0 0;
     }
 }
@@ -488,19 +580,29 @@ footer a{ color:var(--ink-dim); }
             <p style="margin:0;font-weight:700">Quick Toss mode</p>
             <p style="margin:0;font-size:.85rem">The 3D pen couldn't load — tossing works the same, just without the tumble.</p>
         </div>
+        <div class="pig-chip" id="pigChip0" aria-hidden="true"></div>
+        <div class="pig-chip" id="pigChip1" aria-hidden="true"></div>
         <div class="pen-overlay">
-            <div class="pose-labels" aria-live="off">
-                <div class="pose-label" id="poseLabel0">Ready</div>
-                <div class="pose-label" id="poseLabel1">Ready</div>
-            </div>
+            <!-- The pose names live here for screen readers ONLY.
+                 They used to be a visible chip row across the top of the pen,
+                 which said exactly the same words as the projected per-pig chips
+                 ("Side · blank" / "Trotter") without tracking the camera, showed
+                 "Ready" during the shake and "…" during flight, and — with the
+                 hint and the result card — put four text layers on the felt at
+                 once. The projected chips won: they point at the pig they are
+                 talking about. This live region keeps the information
+                 announced. -->
+            <p class="sr-only" id="poseLabels" aria-live="polite">
+                <span id="poseLabel0"></span> <span id="poseLabel1"></span>
+            </p>
             <div class="overlay-bottom">
-                <p class="pen-hint" id="penHint">Hold to shake</p>
                 <div class="result-card" id="resultCard" aria-live="polite" hidden>
                     <p class="result-headline" id="resultHeadline">Tap Go Hog Wild to start!</p>
                     <p class="result-detail" id="resultDetail">Keep tossing to build up points — but bank them before you lose them.</p>
                 </div>
             </div>
         </div>
+        <div class="pen-vignette" aria-hidden="true"></div>
     </div>
 
     <div class="action-bar">
@@ -511,7 +613,7 @@ footer a{ color:var(--ink-dim); }
         <button type="button" class="big secondary" id="stopBtn" disabled>🏦 Stop</button>
         <button type="button" id="quickTossBtn">Quick Toss (skip the animation)</button>
     </div>
-    <p class="keyboard-hint">Hold <strong>Space</strong> to toss · <strong>Enter</strong> to stop</p>
+    <p class="keyboard-hint" id="inputHint">Hold <strong>Space</strong> to toss · <strong>Enter</strong> to stop</p>
 
     <aside class="slide-panel" id="scoreboardPanel" hidden>
         <h2>Scoreboard <span style="font-weight:400;color:var(--ink-dim);font-size:.85rem">— first to <span id="targetLabel">100</span></span></h2>
@@ -569,5 +671,6 @@ Made by Ava ☀️ Summer of 2026 · <a href="../">All games</a>
 }
 </script>
 <script type="module" src="./game.js"></script>
+<script src="/_watch/devnav.js" defer></script>
 </body>
 </html>

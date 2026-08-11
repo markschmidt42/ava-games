@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hog Wild — Audio Lab</title>
+<style>
+  :root {
+    --felt-1:#2f6b52; --felt-2:#245240;
+    --bg-1:#14231c; --bg-2:#0d1712;
+    --panel:#1e3a2e; --panel-2:#27473a;
+    --ink:#f4fbf7; --ink-dim:#a9c9b8;
+    --gold:#ffd54a; --pink:#f291ac; --danger:#ff5c7a; --good:#5ddb92;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; padding:20px 18px 60px;
+    background:linear-gradient(160deg,var(--bg-1),var(--bg-2));
+    color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  h1 { font-size:22px; font-weight:800; margin:0 0 2px; }
+  h2 { font-size:13px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+       color:var(--ink-dim); margin:26px 0 10px; }
+  p.sub { color:var(--ink-dim); margin:0 0 18px; font-size:13px; }
+  .wrap { max-width:960px; margin:0 auto; }
+
+  .bar {
+    position:sticky; top:0; z-index:5; margin:0 -18px 18px; padding:12px 18px;
+    background:rgba(13,23,18,.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  }
+  .stat { font:600 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--ink-dim); }
+  .stat b { color:var(--ink); font-weight:800; }
+  .stat.ok b { color:var(--good); }
+  .stat.bad b { color:var(--danger); }
+
+  .meter {
+    flex:1 1 220px; min-width:180px; height:22px; border-radius:11px;
+    background:var(--panel); overflow:hidden; position:relative;
+    border:1px solid rgba(255,255,255,.08);
+  }
+  .meter i {
+    display:block; height:100%; width:0%;
+    background:linear-gradient(90deg,var(--good),var(--gold),var(--danger));
+    transition:width .04s linear;
+  }
+  .meter span {
+    position:absolute; inset:0; display:grid; place-items:center;
+    font:700 11px/1 ui-monospace,Menlo,monospace; color:#04140d; mix-blend-mode:screen;
+  }
+  .peak { font:700 12px/1 ui-monospace,Menlo,monospace; color:var(--gold); min-width:110px; }
+
+  .grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); }
+  button {
+    font:700 13px/1.2 inherit; color:var(--ink); cursor:pointer;
+    background:var(--panel); border:1px solid rgba(255,255,255,.1);
+    border-radius:12px; padding:12px 10px; text-align:left;
+    display:flex; flex-direction:column; gap:3px;
+  }
+  button:hover { background:var(--panel-2); }
+  button:active { transform:translateY(1px); }
+  button small { font-weight:500; color:var(--ink-dim); font-size:11px; }
+  button.big { background:linear-gradient(180deg,#3c7d5f,#2c5f47); }
+  button.gold { background:linear-gradient(180deg,#6d5a1c,#4c3f14); }
+  button.bad  { background:linear-gradient(180deg,#6b2436,#4a1926); }
+
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  input[type=range] { flex:1 1 220px; accent-color:var(--pink); }
+  label { font-size:12px; color:var(--ink-dim); font-weight:600; }
+
+  #log {
+    margin-top:26px; background:#0a1410; border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:10px 12px; max-height:230px; overflow:auto;
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--ink-dim);
+    white-space:pre-wrap;
+  }
+  #log .err { color:var(--danger); }
+  #log .ok { color:var(--good); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hog Wild — Audio Lab</h1>
+  <p class="sub">Every cue in <code>fx.js</code>, one button each. WebAudio synthesis only; no files, no fetches.
+     The meter is an <code>AnalyserNode</code> tapped off the master compressor inside fx.js —
+     RMS &gt; 0 proves a call actually scheduled nodes.</p>
+
+  <div class="bar">
+    <button id="unlock" class="big" style="flex:0 0 auto">Unlock audio<small>ensureAudio()</small></button>
+    <button id="mute" style="flex:0 0 auto">🔊 Mute<small>setMuted()</small></button>
+    <div class="stat" id="ctxState">ctx: <b>none</b></div>
+    <div class="stat" id="voiceState">voices: <b>0</b></div>
+    <div class="meter"><i id="meterFill"></i><span id="meterTxt">RMS 0.0000</span></div>
+    <div class="peak" id="peak">peak 0.0000</div>
+  </div>
+
+  <h2>Shake loop</h2>
+  <div class="row">
+    <label for="shakeI">intensity</label>
+    <input type="range" id="shakeI" min="0" max="1" step="0.01" value="0.3">
+    <span class="stat"><b id="shakeV">0.30</b></span>
+  </div>
+  <div class="grid">
+    <button data-act="shakeStart" class="big">Start rattle<small>shakeLoop(i)</small></button>
+    <button data-act="shakeRamp" class="big">Auto ramp 0→1<small>2 s sweep, then stop</small></button>
+    <button data-act="shakeStop">Stop rattle<small>stopShakeLoop()</small></button>
+  </div>
+
+  <h2>Impacts — <span id="impLabel">impulse 8.0</span></h2>
+  <div class="row">
+    <label for="impI">impulse</label>
+    <input type="range" id="impI" min="0.5" max="24" step="0.5" value="8">
+  </div>
+  <div class="grid" id="impactGrid"></div>
+  <div class="grid" style="margin-top:8px">
+    <button data-act="flurry" class="gold">Flurry ×12<small>rate-limit check</small></button>
+  </div>
+
+  <h2>Pig voices</h2>
+  <div class="grid" id="voiceGrid"></div>
+
+  <h2>Scoring pips</h2>
+  <div class="grid" id="scoreGrid"></div>
+
+  <h2>Doubles (escalating by rarity)</h2>
+  <div class="grid" id="doubleGrid"></div>
+
+  <h2>Results &amp; screens</h2>
+  <div class="grid">
+    <button data-act="bank" class="big">bank()<small>cha-ching</small></button>
+    <button data-act="win" class="big">win()<small>full fanfare</small></button>
+    <button data-act="pigOut" class="bad">pigOut()<small>descending buzzer</small></button>
+    <button data-act="oinker" class="bad">oinker()<small>the sting</small></button>
+  </div>
+
+  <h2>game.js surface (dedupe-guarded)</h2>
+  <div class="grid">
+    <button data-act="rv-sider">revealToss sider<small>side-blank ×2, 1pt</small></button>
+    <button data-act="rv-mixed">revealToss mixed<small>trotter + side, 5pt</small></button>
+    <button data-act="rv-big">revealToss mixed big<small>jowler + snouter, 25pt</small></button>
+    <button data-act="rv-double">revealToss double<small>double jowler, 60pt</small></button>
+    <button data-act="rv-pigout" class="bad">revealToss pigout</button>
+    <button data-act="rv-oinker" class="bad">revealToss oinker</button>
+    <button data-act="cel-double" class="gold">celebrate('double')</button>
+    <button data-act="cel-bank">celebrate('bank')</button>
+    <button data-act="cel-win">celebrate('win')</button>
+    <button data-act="sad-pigout" class="bad">sadness('pigout')</button>
+    <button data-act="sad-oinker" class="bad">sadness('oinker')</button>
+  </div>
+
+  <h2>Haptics</h2>
+  <div class="grid">
+    <button data-act="hap-land">haptic('land')<small>no sound expected</small></button>
+    <button data-act="hap-fail">haptic('fail')</button>
+    <button data-act="hap-win">haptic('win')</button>
+  </div>
+
+  <h2>Self test</h2>
+  <div class="grid">
+    <button data-act="selftest" class="big">Run every cue<small>fires each API, asserts RMS &gt; 0</small></button>
+    <button data-act="clear">Clear log</button>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script type="module">
+import * as fx from '../fx.js';
+
+window.fx = fx; // handy from the console / automation
+
+const $ = (id) => document.getElementById(id);
+const logEl = $('log');
+let errors = 0;
+
+window.addEventListener('error', (e) => { errors++; log('window error: ' + e.message, 'err'); });
+window.addEventListener('unhandledrejection', (e) => { errors++; log('unhandled rejection: ' + e.reason, 'err'); });
+
+function log(msg, cls = '') {
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = `${(performance.now() / 1000).toFixed(2)}s  ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* ---------------------------------------------------------------- meter
+ *
+ * Two taps, on purpose:
+ *  - fx.getAnalyser() polled from rAF drives the on-screen bar. Pretty, but
+ *    rAF stops dead in a hidden tab, so it can't be trusted for assertions.
+ *  - a ScriptProcessor hung off the same analyser accumulates block RMS on
+ *    the AUDIO thread, which keeps running when the tab is hidden. That is
+ *    what the self test measures, so "did this cue make sound?" is answerable
+ *    headlessly / in a background tab.
+ * ------------------------------------------------------------------------ */
+
+let peak = 0;
+let peakSince = 0;
+window.__peak = 0;      // for automated inspection
+window.__rms = 0;
+window.__tap = { installed: false, blocks: 0, rms: 0, peak: 0 };
+
+function installTap() {
+  if (window.__tap.installed) return;
+  const c = fx.getAudioContext();
+  const an = fx.getAnalyser();
+  if (!c || !an) return;
+  const sp = c.createScriptProcessor(2048, 1, 1);
+  const sink = c.createGain();
+  sink.gain.value = 0;             // a ScriptProcessor only pulls if it is
+  an.connect(sp);                  // connected onward; the sink is silent so
+  sp.connect(sink);                // the tap can't colour the output
+  sink.connect(c.destination);
+  sp.onaudioprocess = (e) => {
+    const d = e.inputBuffer.getChannelData(0);
+    let s = 0;
+    for (let i = 0; i < d.length; i++) s += d[i] * d[i];
+    const r = Math.sqrt(s / d.length);
+    const tap = window.__tap;
+    tap.blocks++;
+    tap.rms = r;
+    if (r > tap.peak) tap.peak = r;
+  };
+  window.__tap.installed = true;
+  window.__tapNode = sp;           // keep a reference so it isn't collected
+  log('meter tap installed (audio-thread RMS)', 'ok');
+}
+
+function pump() {
+  const rms = window.__tap.installed ? window.__tap.rms : fx.getLevel();
+  window.__rms = rms;
+  if (rms > peak) { peak = rms; peakSince = performance.now(); }
+  if (rms > window.__peak) window.__peak = rms;
+  const pct = Math.min(100, Math.sqrt(rms) * 160);
+  $('meterFill').style.width = pct + '%';
+  $('meterTxt').textContent = 'RMS ' + rms.toFixed(4);
+  $('peak').textContent = 'peak ' + peak.toFixed(4);
+  if (performance.now() - peakSince > 2500) peak = rms;
+
+  const st = fx.getState();
+  const cs = $('ctxState');
+  cs.innerHTML = `ctx: <b>${st.state}</b> ${st.sampleRate ? '@' + Math.round(st.sampleRate / 1000) + 'k' : ''}`;
+  cs.className = 'stat ' + (st.state === 'running' ? 'ok' : st.state === 'none' ? '' : 'bad');
+  $('voiceState').innerHTML = `voices: <b>${st.voices}</b>${st.shaking ? ' · shaking' : ''}${st.muted ? ' · MUTED' : ''}`;
+  requestAnimationFrame(pump);
+}
+requestAnimationFrame(pump);
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Peak RMS over a window — the proof a cue actually scheduled audible nodes. */
+async function measure(ms) {
+  window.__tap.peak = 0;
+  const before = window.__tap.blocks;
+  await sleep(ms);
+  if (window.__tap.blocks === before) return -1; // audio thread never ran
+  return window.__tap.peak;
+}
+
+/* --------------------------------------------------------------- unlock */
+
+async function unlock() {
+  const c = await fx.ensureAudio();
+  log(c ? `ensureAudio → ${c.state} @ ${c.sampleRate}Hz` : 'ensureAudio → null (no WebAudio)', c ? 'ok' : 'err');
+  if (c) installTap();
+  return c;
+}
+$('unlock').addEventListener('click', unlock);
+
+$('mute').addEventListener('click', () => {
+  const next = !fx.isMuted();
+  fx.setMuted(next);
+  $('mute').firstChild.textContent = next ? '🔇 Unmute' : '🔊 Mute';
+  log('setMuted(' + next + ')');
+});
+
+/* ---------------------------------------------------------------- grids */
+
+const REGIONS = ['snout', 'head', 'back', 'side', 'rump', 'belly', 'legs'];
+const REGION_DESC = {
+  snout: 'indignant squeal blip', head: 'mid tok + grunt', back: 'mid thud',
+  side: 'mid thud', rump: 'low oof', belly: 'flat slap', legs: 'clatter',
+};
+$('impactGrid').innerHTML = REGIONS.map((r) =>
+  `<button data-act="impact" data-region="${r}">impact · ${r}<small>${REGION_DESC[r]}</small></button>`).join('');
+
+const KINDS = [
+  ['happy-oink', 'scoring settle'], ['sad-oink', 'Pig Out'],
+  ['squeal', 'hard face-plant'], ['panic', 'Oinker, pre-pop'],
+  ['grunt', 'everyday bump'], ['oof', 'winded rump hit'],
+];
+$('voiceGrid').innerHTML = KINDS.map(([k, d]) =>
+  `<button data-act="voice" data-kind="${k}">pigVoice('${k}')<small>${d}</small></button>`).join('');
+
+const SCORES = [[1, 'Sider'], [5, 'Razorback / Trotter'], [10, 'Snouter'], [15, 'Leaning Jowler'], [20, 'double 20'], [60, 'double 60']];
+$('scoreGrid').innerHTML = SCORES.map(([p, d]) =>
+  `<button data-act="score" data-points="${p}">score(${p})<small>${d}</small></button>`).join('');
+
+const DOUBLES = [['razorback', '20 pts · tier 1'], ['trotter', '20 pts · tier 2'], ['snouter', '40 pts · tier 3'], ['jowler', '60 pts · 1 in 28,000']];
+$('doubleGrid').innerHTML = DOUBLES.map(([t, d]) =>
+  `<button data-act="double" data-tier="${t}" class="gold">doubleFanfare('${t}')<small>${d}</small></button>`).join('');
+
+/* -------------------------------------------------------------- actions */
+
+$('shakeI').addEventListener('input', (e) => {
+  $('shakeV').textContent = Number(e.target.value).toFixed(2);
+  if (fx.getState().shaking) fx.shakeLoop(Number(e.target.value));
+});
+$('impI').addEventListener('input', (e) => {
+  $('impLabel').textContent = 'impulse ' + Number(e.target.value).toFixed(1);
+});
+
+let rampRaf = null;
+
+const ACTIONS = {
+  shakeStart: () => fx.shakeLoop(Number($('shakeI').value)),
+  shakeStop: () => fx.stopShakeLoop(),
+  shakeRamp: () => {
+    cancelAnimationFrame(rampRaf);
+    const t0 = performance.now();
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / 2000);
+      $('shakeI').value = k; $('shakeV').textContent = k.toFixed(2);
+      fx.shakeLoop(k);
+      if (k < 1) rampRaf = requestAnimationFrame(step);
+      else setTimeout(() => fx.stopShakeLoop(), 350);
+    };
+    step();
+  },
+  impact: (btn) => fx.impact(Number($('impI').value), btn.dataset.region),
+  flurry: () => {
+    const imp = Number($('impI').value);
+    REGIONS.concat(REGIONS).slice(0, 12).forEach((r, i) =>
+      setTimeout(() => fx.impact(imp * (1 - i * 0.05), r), i * 22));
+  },
+  voice: (btn) => fx.pigVoice(btn.dataset.kind),
+  score: (btn) => fx.score(Number(btn.dataset.points)),
+  double: (btn) => fx.doubleFanfare(btn.dataset.tier),
+  bank: () => fx.bank(),
+  win: () => fx.win(),
+  pigOut: () => fx.pigOut(),
+  oinker: () => fx.oinker(),
+  'rv-sider': () => fx.revealToss({ type: 'sider', points: 1, a: 'side-blank', b: 'side-blank' }),
+  'rv-mixed': () => fx.revealToss({ type: 'mixed', points: 5, a: 'trotter', b: 'side-dot' }),
+  'rv-big': () => fx.revealToss({ type: 'mixed', points: 25, a: 'jowler', b: 'snouter' }),
+  'rv-double': () => fx.revealToss({ type: 'double', points: 60, a: 'jowler', b: 'jowler' }),
+  'rv-pigout': () => fx.revealToss({ type: 'pigout', points: 0, a: 'side-blank', b: 'side-dot' }),
+  'rv-oinker': () => fx.revealToss({ type: 'oinker', points: 0, oinker: true }),
+  'cel-double': () => fx.celebrate('double'),
+  'cel-bank': () => fx.celebrate('bank'),
+  'cel-win': () => fx.celebrate('win'),
+  'sad-pigout': () => fx.sadness('pigout'),
+  'sad-oinker': () => fx.sadness('oinker'),
+  'hap-land': () => fx.haptic('land'),
+  'hap-fail': () => fx.haptic('fail'),
+  'hap-win': () => fx.haptic('win'),
+  clear: () => { logEl.innerHTML = ''; errors = 0; },
+  selftest: () => selfTest(),
+};
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const act = ACTIONS[btn.dataset.act];
+  if (!act) return;
+  if (!fx.getAudioContext()) await unlock();
+  try {
+    act(btn);
+    log(btn.dataset.act + (btn.dataset.region || btn.dataset.kind || btn.dataset.points || btn.dataset.tier
+      ? ` (${btn.dataset.region || btn.dataset.kind || btn.dataset.points || btn.dataset.tier})` : ''));
+  } catch (err) {
+    errors++;
+    log('THREW: ' + err.message, 'err');
+  }
+});
+
+/* ------------------------------------------------------------- selftest */
+
+const SUITE = [
+  ['pigVoice happy-oink', () => fx.pigVoice('happy-oink'), 500],
+  ['pigVoice sad-oink', () => fx.pigVoice('sad-oink'), 800],
+  ['pigVoice squeal', () => fx.pigVoice('squeal'), 500],
+  ['pigVoice panic', () => fx.pigVoice('panic'), 700],
+  ['pigVoice grunt', () => fx.pigVoice('grunt'), 350],
+  ['pigVoice oof', () => fx.pigVoice('oof'), 400],
+  ...REGIONS.map((r) => [`impact ${r}`, () => fx.impact(9, r), 400]),
+  ['shakeLoop 0.2', () => fx.shakeLoop(0.2), 500],
+  ['shakeLoop 1.0', () => fx.shakeLoop(1), 500],
+  ['stopShakeLoop', () => fx.stopShakeLoop(), 300],
+  ['score(1)', () => fx.score(1), 500],
+  ['score(5)', () => fx.score(5), 500],
+  ['score(15)', () => fx.score(15), 600],
+  ['doubleFanfare razorback', () => fx.doubleFanfare('razorback'), 1200],
+  ['doubleFanfare jowler', () => fx.doubleFanfare('jowler'), 2400],
+  ['bank', () => fx.bank(), 900],
+  ['win', () => fx.win(), 2600],
+  ['pigOut', () => fx.pigOut(), 1200],
+  ['oinker', () => fx.oinker(), 2600],
+  ['revealToss mixed', () => fx.revealToss({ type: 'mixed', points: 15, a: 'jowler', b: 'side-dot' }), 1200],
+  ['celebrate bank', () => fx.celebrate('bank'), 900],
+  ['haptic land (silent ok)', () => fx.haptic('land'), 120, true],
+];
+
+let running = false;
+async function selfTest() {
+  if (running) return;
+  running = true;
+  errors = 0;
+  window.__peak = 0;
+  window.__selftest = { done: false, pass: 0, fail: 0, rows: [] };
+  logEl.innerHTML = '';
+  const c = await unlock();
+  if (!c) { log('no AudioContext — abort', 'err'); running = false; return; }
+  if (fx.isMuted()) { fx.setMuted(false); log('unmuted for the test run'); }
+
+  for (const [name, fn, ms, silentOk] of SUITE) {
+    fn();
+    const p = await measure(ms);
+    const ok = p < 0 ? false : (silentOk || p > 0.0005);
+    if (ok) window.__selftest.pass++; else window.__selftest.fail++;
+    window.__selftest.rows.push({ name, peak: p, ok });
+    log(`${ok ? 'PASS' : 'FAIL'}  ${name.padEnd(28)} ${p < 0 ? 'audio thread idle' : 'peakRMS ' + p.toFixed(5)}`,
+        ok ? 'ok' : 'err');
+  }
+  fx.stopShakeLoop();
+  window.__selftest.errors = errors;
+  window.__selftest.done = true;
+  log(`— ${window.__selftest.pass} pass, ${window.__selftest.fail} fail, ${errors} console errors —`,
+      window.__selftest.fail || errors ? 'err' : 'ok');
+  running = false;
+}
+
+log('ready · click any button (the first click unlocks audio)');
+</script>
+<script src="/_watch/devnav.js" defer></script>
+</body>
+</html>

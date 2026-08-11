@@ -57,20 +57,40 @@ function isSide(pose) {
   return pose.startsWith('side-');
 }
 
+export const DOUBLE_POINTS = {
+  razorback: 20,
+  trotter: 20,
+  snouter: 40,
+  jowler: 60,
+};
+
 /**
  * Score a pair of poses.
+ *
+ * Round classification vocabulary (SPEC "Presentation model" beat 2 — the names
+ * the owner settled on in the demo arena). `name` is the round's NAME with no
+ * points attached, which is what the reveal camera beat and the pen chips want;
+ * `headline` is that name plus the score, which is what the result card wants:
+ *
+ *   matching siders    → "Sider"                     (1 pt, never "Double Sider")
+ *   sider + scorer     → named by the scorer         "Trotter"
+ *   two scorers        → "Trotter + Razorback Combo"
+ *   matching scorers   → "Double Trotter Bonus"
+ *   opposite siders    → "Pig Out"
+ *
  * @param {string} a - first pose key
  * @param {string} b - second pose key
- * @returns {Object} { type: 'sider'|'pigout'|'double'|'mixed', points, headline, detail }
+ * @returns {Object} { type: 'sider'|'pigout'|'double'|'mixed', points, name, headline, detail }
  */
 export function scoreToss(a, b) {
   // Both sides
   if (isSide(a) && isSide(b)) {
     if (a === b) {
-      // Same side = Sider
+      // Same side = Sider. Never "Double Sider" — matching sides are worth 1.
       return {
         type: 'sider',
         points: 1,
+        name: 'Sider',
         headline: 'Sider! +1',
         detail: 'Both pigs landed the same way up.',
       };
@@ -79,6 +99,7 @@ export function scoreToss(a, b) {
     return {
       type: 'pigout',
       points: 0,
+      name: 'Pig Out',
       headline: 'Pig Out!',
       detail: "Opposite sides — this turn's points are gone.",
     };
@@ -86,32 +107,29 @@ export function scoreToss(a, b) {
 
   // Both same non-side pose = Double
   if (a === b) {
-    const doublePoints = {
-      razorback: 20,
-      trotter: 20,
-      snouter: 40,
-      jowler: 60,
-    };
-    const points = doublePoints[a];
-    const label = POSES[a].label;
+    const points = DOUBLE_POINTS[a];
+    const name = `Double ${POSES[a].label} Bonus`;
     return {
       type: 'double',
       points,
-      headline: `Double ${label}! +${points}`,
+      name,
+      headline: `${name}! +${points}`,
       detail: "Both pigs the same — that's worth way more than two.",
     };
   }
 
-  // Mixed: different poses
+  // Mixed: one scorer (the sider adds nothing to the name), or two — a Combo.
   const points = POSES[a].points + POSES[b].points;
   const aLabel = isSide(a) ? null : POSES[a].label;
   const bLabel = isSide(b) ? null : POSES[b].label;
-  const named = [aLabel, bLabel].filter(Boolean).join(' + ');
+  const named = [aLabel, bLabel].filter(Boolean);
+  const name = named.length > 1 ? `${named.join(' + ')} Combo` : named[0];
 
   return {
     type: 'mixed',
     points,
-    headline: `${named}! +${points}`,
+    name,
+    headline: `${name}! +${points}`,
     detail: isSide(a) || isSide(b)
       ? 'A pig on its side is worth nothing, but the other one counts.'
       : 'Two different positions score the sum of both pigs.',

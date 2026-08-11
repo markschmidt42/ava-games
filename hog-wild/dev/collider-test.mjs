@@ -14,9 +14,9 @@
 //                 and we report which initial conditions produce the rare ones
 //                 so the M1 trajectory search knows where to look.
 import {
-  PigSim, POSE_KEYS, POSE_UP, PEN, GRAVITY, FIXED_DT, MAX_OFF_AXIS_DEG,
-  classify, poseQuaternion, pigMassProperties, colliderPointCloud, CONTACT_TOL,
-  randomToss, PIG_PARTS, PIG_MASS, MATERIAL_TUNING,
+  PigSim, POSE_KEYS, POSE_UP, BOARD, GRAVITY, FIXED_DT, MAX_OFF_AXIS_DEG,
+  classify, poseQuaternion, bodyUp, pigMassProperties, colliderPointCloud, CONTACT_TOL,
+  randomToss, PIG_PARTS, PIG_MASS, MATERIAL_TUNING, boardZone,
 } from '../physics.js';
 import { supportFaces, summarize } from './support-analysis.mjs';
 
@@ -70,10 +70,10 @@ console.log(`mass    : ${PIG_MASS}  COM in build frame ${mp.com.map((v) => v.toF
 console.log(`          COM sits ${(-lo[1]).toFixed(3)} above the feet, ${mp.com[2] >= 0 ? '' : '-'}${Math.abs(mp.com[2]).toFixed(3)} ${mp.com[2] >= 0 ? 'ahead of' : 'behind'} mid-body`);
 console.log(`inertia : diag ${mp.inertiaDiag.map((v) => v.toFixed(5)).join(', ')}  (analytic, written onto the body —`);
 console.log(`          cannon-es would otherwise approximate it with the world AABB)`);
-console.log(`world   : gravity ${GRAVITY.toFixed(2)}  dt 1/${Math.round(1 / FIXED_DT)}  pen ${PEN.w}x${PEN.d} wall ${PEN.wallH}`);
+console.log(`world   : gravity ${GRAVITY.toFixed(2)}  dt 1/${Math.round(1 / FIXED_DT)}  board green r${BOARD.greenR} / rough r${BOARD.roughR} / fringe r${BOARD.stopR}, NO walls`);
 console.log(`materials: pig-floor mu=${MATERIAL_TUNING.pigFloor.friction} e=${MATERIAL_TUNING.pigFloor.restitution}` +
-  `  pig-wall e=${MATERIAL_TUNING.pigWall.restitution}  pig-pig mu=${MATERIAL_TUNING.pigPig.friction}` +
-  `  angDamp=${MATERIAL_TUNING.angularDamping}`);
+  `  pig-pig mu=${MATERIAL_TUNING.pigPig.friction}  angDamp=${MATERIAL_TUNING.angularDamping}` +
+  `  zones rough x${BOARD.roughDamp}/step, fringe x${BOARD.stopDamp}/step`);
 
 // ===========================================================================
 // 1. STATIC
@@ -149,6 +149,14 @@ if (iErr > 1e-9) {
     `${liveI.map((v) => v.toFixed(5)).join(', ')} vs ${mp.inertiaDiag.map((v) => v.toFixed(5)).join(', ')}`);
 } else ok('analytic inertia tensor survives stepping');
 
+// SPEC "Jowler attitude": the Leaning Jowler is a Snouter WITH A LEAN, not a
+// side-lie. Decompose a rest as roll-about-the-body's-long-axis then pitch, and
+// the roll is asin(|up.x|) where up is world-up in the body frame — the same
+// quantity whatever the yaw, which is what makes it a property of the POSE.
+const restRollDeg = (up) => (Math.asin(Math.min(1, Math.abs(up[0]))) * 180) / Math.PI;
+const restPitchDeg = (up) => (Math.atan2(-up[2], up[1]) * 180) / Math.PI;
+const MAX_JOWLER_ROLL = 45;   // >= 55 reads as lying down and is wrong
+
 const YAWS = [0, 0.7, 2.4, 4.1];
 const IMPULSE = NUDGE * PIG_MASS * Math.sqrt(2 * Math.abs(GRAVITY) * 1.0);
 
@@ -156,6 +164,7 @@ console.log('pose         yaws  settles-as    conf   off-axis  drift/2s  support
 const stability = {};
 for (const pose of POSE_KEYS) {
   let allOk = true, worstConf = 1, worstDrift = 0, worstOff = 0, worstV = 0, nudgeOk = 0;
+  let worstRoll = 0, pitchAt = 0;
   let settledAs = new Set(), contacts = new Set(), worstSupport = 9;
   for (const yaw of YAWS) {
     // place hovering just above the floor and let it settle
@@ -174,6 +183,7 @@ for (const pose of POSE_KEYS) {
     worstOff = Math.max(worstOff, cHold.offAxisDeg);
     worstV = Math.max(worstV, hold.maxV);
     worstSupport = Math.min(worstSupport, cHold.support);
+    if (restRollDeg(cHold.up) > worstRoll) { worstRoll = restRollDeg(cHold.up); pitchAt = restPitchDeg(cHold.up); }
     for (const c of cHold.contacts) contacts.add(c);
     if (cHold.pose !== pose) { allOk = false; fail(`${pose} (yaw ${yaw}): settled as ${cHold.pose} on ${cHold.contacts.join('+')}`); }
     if (cHold.confidence < MIN_CONFIDENCE) { allOk = false; fail(`${pose} (yaw ${yaw}): confidence ${cHold.confidence.toFixed(2)} < ${MIN_CONFIDENCE}`); }
@@ -186,7 +196,7 @@ for (const pose of POSE_KEYS) {
     sim.settleInPlace(0, 1.6);
     if (classify(sim.pigs[0].quaternion).pose === pose) nudgeOk++;
   }
-  stability[pose] = { allOk, worstConf, worstDrift, nudgeOk, contacts: [...contacts].sort() };
+  stability[pose] = { allOk, worstConf, worstDrift, nudgeOk, roll: worstRoll, pitch: pitchAt, contacts: [...contacts].sort() };
   console.log(
     '  ' + pose.padEnd(11), String(YAWS.length).padStart(4), ' ',
     [...settledAs].join('/').padEnd(12), worstConf.toFixed(2).padStart(5),
@@ -195,6 +205,25 @@ for (const pose of POSE_KEYS) {
     VERBOSE ? `  peakV ${worstV.toFixed(3)}` : '',
   );
   if (nudgeOk === 0) fail(`${pose}: a small nudge always breaks it — the rest is a knife edge, not a basin`);
+}
+
+// --- attitude of the two nose-down rests (SPEC "Jowler attitude") -----------
+{
+  const sn = stability.snouter, jw = stability.jowler;
+  // measured off poseQuaternion() too, so a drift between the placement math and
+  // what the sim actually settles into would show up as a mismatch here
+  const nominal = restRollDeg(bodyUp(poseQuaternion('jowler', 1.3)));
+  console.log(`\nnose-down rests: snouter pitches ${sn.pitch.toFixed(1)}° with ${sn.roll.toFixed(1)}° of roll;` +
+    ` jowler is the same prop pitched ${jw.pitch.toFixed(1)}° and ROLLED ${jw.roll.toFixed(1)}°`);
+  console.log(`                 (poseQuaternion('jowler') gives ${nominal.toFixed(1)}°; SPEC wants 25-40°,` +
+    ` and >= 55° would be a pig lying on its side)`);
+  if (jw.roll > MAX_JOWLER_ROLL) {
+    fail(`jowler rests rolled ${jw.roll.toFixed(1)}° from upright, over the ${MAX_JOWLER_ROLL}° limit — ` +
+      'that is a side-lie, not a Snouter with a lean');
+  }
+  if (Math.abs(nominal - jw.roll) > 6) {
+    fail(`poseQuaternion('jowler') is ${nominal.toFixed(1)}° rolled but the sim settles at ${jw.roll.toFixed(1)}° — POSE_UP is stale (run dev/derive-poseup.mjs)`);
+  }
 }
 
 // ===========================================================================
@@ -224,7 +253,7 @@ const allStats = [];
 let lowConf = 0, unsettled = 0, settleTimes = [];
 const ambiguous = new Map();
 const finalQs = [];
-let ambiguousOnWall = 0;
+const zoneTally = { green: 0, rough: 0, fringe: 0, off: 0 };
 const t0 = Date.now();
 for (let i = 0; i < TOSSES; i++) {
   const ic = randomToss(rng, 0);
@@ -233,9 +262,8 @@ for (let i = 0; i < TOSSES; i++) {
   if (rec.confidence < 0.15) {
     const c = classify(sim.pigs[0].quaternion);
     ambiguous.set(c.contacts.join('+'), (ambiguous.get(c.contacts.join('+')) || 0) + 1);
-    const p = sim.pigs[0].position;
-    if (Math.abs(p.x) > PEN.w / 2 - 0.75 || Math.abs(p.z) > PEN.d / 2 - 0.75) ambiguousOnWall++;
   }
+  zoneTally[boardZone(rec.finalP)]++;
   const spin = Math.hypot(ic.w[0], ic.w[1], ic.w[2]);
   const feat = {
     spin, speed: Math.hypot(ic.v[0], ic.v[1], ic.v[2]), height: ic.p[1],
@@ -277,9 +305,18 @@ console.log('\nThe emergent column does NOT have to match the real game: under a
 console.log('the outcome is drawn from odds.js and then a matching real trajectory is searched for.');
 console.log('What matters here is that every pose is REACHABLE and that the rarity ordering is sane,');
 console.log('so the search never has to work absurdly hard for one particular result.');
+{
+  // SPEC "Board design": the throw ranges must keep the pigs on the playable
+  // felt. A settle out on the fringe is legal but should be rare.
+  const onFelt = (zoneTally.green + zoneTally.rough) / TOSSES;
+  console.log(`\nwhere they came to rest: green ${pct(zoneTally.green / TOSSES)}%  rough ` +
+    `${pct(zoneTally.rough / TOSSES)}%  fringe ${pct(zoneTally.fringe / TOSSES)}%  off-board ${pct(zoneTally.off / TOSSES)}%`);
+  if (onFelt < 0.9) fail(`only ${pct(onFelt)}% of tosses settle on the green or the rough (SPEC wants >= 90%)`);
+  if (zoneTally.off) fail(`${zoneTally.off} tosses ended off the board entirely`);
+}
 if (ambiguous.size) {
-  console.log(`\nwhat the ambiguous rests are resting on ` +
-    `(${pct(ambiguousOnWall / Math.max(1, lowConf))}% of them are propped against a pen wall):`);
+  console.log(`\nwhat the ambiguous rests are resting on (no walls to lean on any more,`);
+  console.log(`so these are all near-knife-edge rests on the pig's own geometry):`);
   for (const [k, n] of [...ambiguous.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)) {
     console.log(`  ${pct(n / TOSSES).padStart(6)}%  ${k}`);
   }

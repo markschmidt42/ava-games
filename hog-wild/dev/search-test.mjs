@@ -8,11 +8,11 @@
 //                    has abandoned other candidates mid-flight in the same world
 //                    (the fallback path and the cache both rely on this)
 //   2. PER-POSE      findRecording must hit every pose within maxSims=800, on
-//                    BOTH halves of the pen; every frame of every accepted
-//                    recording is checked against the pen and its own half, and
+//                    BOTH halves of the board; every frame of every accepted
+//                    recording is checked against the board and its own half, and
 //                    the last frame is re-classified independently
 //   3. MIRROR        mirror augmentation: reflecting a recording through the
-//                    pen's long axis must produce either a verified recording of
+//                    board's midline must produce either a verified recording of
 //                    the mirror pose, or nothing (the pig is chiral — see
 //                    physics.js MIRROR_POSE)
 //   4. OINKER        the joint search finds two pigs at rest in contact within
@@ -20,9 +20,9 @@
 //   5. CACHE         prefill(budgetMs) respects its budget and fills every pool;
 //                    take() hands back verified recordings and asks for a refill
 import {
-  PigSim, TrajectoryCache, POSE_KEYS, POSE_UP, PEN, PIG_RADIUS, LANE, FIXED_DT,
+  PigSim, TrajectoryCache, POSE_KEYS, POSE_UP, BOARD, PIG_RADIUS, LANE, FIXED_DT,
   MIRROR_POSE, POSE_SAMPLING, classify, mirrorRecording, verifyRecording,
-  withinPen, withinHalf, randomToss,
+  withinBoard, withinHalf, randomToss,
 } from '../physics.js';
 
 // --- args ------------------------------------------------------------------
@@ -65,20 +65,22 @@ const ok = (msg) => { if (VERBOSE) console.log(`   ok    ${msg}`); };
 // ---------------------------------------------------------------------------
 // Independent frame audit. Deliberately does NOT call physics.js's own
 // verifyRecording for the containment part: the point of the test is to check
-// the recordings against the pen geometry itself, not against the module's
-// opinion of the pen geometry.
+// the recordings against the board geometry itself, not against the module's
+// opinion of the board geometry.
 // ---------------------------------------------------------------------------
-const HW = PEN.w / 2, HD = PEN.d / 2;
+const EDGE2 = BOARD.stopR * BOARD.stopR;
+const onBoard = (p) => p[0] * p[0] + p[2] * p[2] <= EDGE2 && p[1] >= -0.02;
 
 function auditFrames(rec, side) {
-  const out = { n: 0, penFail: -1, halfFail: -1, unitFail: -1, minX: Infinity, maxAbsX: 0, maxY: -Infinity, closestToMid: Infinity };
+  const out = { n: 0, boardFail: -1, halfFail: -1, unitFail: -1, minX: Infinity, maxAbsX: 0, maxY: -Infinity, maxR: 0, closestToMid: Infinity };
   const frames = rec.frames || [];
   out.n = frames.length;
   for (let i = 0; i < frames.length; i++) {
     const f = frames[i];
     const p = f.p ?? f.p1;
     const q = f.q ?? f.q1;
-    if (Math.abs(p[0]) > HW || Math.abs(p[2]) > HD || p[1] < -0.02) { if (out.penFail < 0) out.penFail = i; }
+    if (!onBoard(p)) { if (out.boardFail < 0) out.boardFail = i; }
+    out.maxR = Math.max(out.maxR, Math.hypot(p[0], p[2]));
     if (side && (side > 0 ? p[0] < PIG_RADIUS : p[0] > -PIG_RADIUS)) { if (out.halfFail < 0) out.halfFail = i; }
     const ql = Math.hypot(q[0], q[1], q[2], q[3]);
     if (Math.abs(ql - 1) > 1e-6) { if (out.unitFail < 0) out.unitFail = i; }
@@ -90,11 +92,11 @@ function auditFrames(rec, side) {
 }
 
 function auditPair(rec) {
-  const out = { n: rec.frames.length, penFail: -1, minGap: Infinity };
+  const out = { n: rec.frames.length, boardFail: -1, minGap: Infinity };
   for (let i = 0; i < rec.frames.length; i++) {
     const f = rec.frames[i];
     for (const p of [f.p1, f.p2]) {
-      if (Math.abs(p[0]) > HW || Math.abs(p[2]) > HD || p[1] < -0.02) { if (out.penFail < 0) out.penFail = i; }
+      if (!onBoard(p)) { if (out.boardFail < 0) out.boardFail = i; }
     }
     out.minGap = Math.min(out.minGap, Math.hypot(f.p1[0] - f.p2[0], f.p1[1] - f.p2[1], f.p1[2] - f.p2[2]));
   }
@@ -105,7 +107,8 @@ function auditPair(rec) {
 console.log('='.repeat(78));
 console.log('HOG WILD — M1 trajectory search gate');
 console.log('='.repeat(78));
-console.log(`pen ${PEN.w} x ${PEN.d}   pig bounding radius ${PIG_RADIUS.toFixed(4)}`);
+console.log(`board: green r${BOARD.greenR} / rough r${BOARD.roughR} / fringe r${BOARD.stopR}, no walls` +
+  `   pig bounding radius ${PIG_RADIUS.toFixed(4)}`);
 console.log(`halves: a COM may never come within ${LANE.inner.toFixed(3)} of the midline, so two`);
 console.log(`        recordings on opposite halves are >= ${(2 * LANE.inner).toFixed(3)} apart — wider than`);
 console.log(`        the ${(2 * PIG_RADIUS).toFixed(3)} it would take for the two colliders to touch`);
@@ -151,7 +154,7 @@ const rows = {};
 for (const pose of POSE_KEYS) {
   const n = TRIALS * (EXTRA_TRIALS[pose] ?? 1);
   const rng = mulberry32(SEED + pose.length * 17);
-  const sims = [], ms = [], rejects = { lane: 0, pen: 0, attitude: 0, pose: 0, unsettled: 0, weak: 0 };
+  const sims = [], ms = [], rejects = { lane: 0, board: 0, attitude: 0, pose: 0, unsettled: 0, weak: 0 };
   let confMin = 1, frames = [], closest = Infinity, sideOk = { '-1': 0, 1: 0 };
   for (let i = 0; i < n; i++) {
     const side = i % 2 ? 1 : -1;
@@ -179,9 +182,9 @@ for (const pose of POSE_KEYS) {
     const drift = Math.max(...rec.finalQ.map((v, k) => Math.abs(v - last.q[k])));
     if (drift > 1e-12) fail(`${pose}: last frame is not the settled attitude (drift ${drift.toExponential(1)})`);
 
-    // --- containment: EVERY frame, in the pen and in its own half ----------
+    // --- containment: EVERY frame, on the board and in its own half --------
     const a = auditFrames(rec, side);
-    if (a.penFail >= 0) fail(`${pose}: frame ${a.penFail} of ${a.n} is outside the pen`);
+    if (a.boardFail >= 0) fail(`${pose}: frame ${a.boardFail} of ${a.n} is off the board`);
     if (a.halfFail >= 0) fail(`${pose}: frame ${a.halfFail} of ${a.n} crossed into the other half`);
     if (a.unitFail >= 0) fail(`${pose}: frame ${a.unitFail} has a non-unit quaternion`);
     closest = Math.min(closest, a.closestToMid);
@@ -214,7 +217,7 @@ for (const pose of POSE_KEYS) {
   const r = rows[pose];
   const total = r.sims.reduce((a, b) => a + b, 0);
   const p = (v) => `${((100 * v) / total).toFixed(1)}%`;
-  console.log('  ' + pose.padEnd(11), p(r.rejects.lane + r.rejects.pen).padStart(10),
+  console.log('  ' + pose.padEnd(11), p(r.rejects.lane + r.rejects.board).padStart(10),
     p(r.rejects.pose).padStart(12), p(r.rejects.attitude).padStart(15),
     p(r.rejects.unsettled).padStart(14), p(r.rejects.weak).padStart(11));
 }
@@ -224,7 +227,7 @@ console.log(' was nowhere near the target; that early-out is what keeps the rare
 // ===========================================================================
 // 3. MIRROR AUGMENTATION
 // ===========================================================================
-console.log(`\n${'-'.repeat(78)}\n3. MIRROR AUGMENTATION  (reflect through the pen's long axis)\n${'-'.repeat(78)}`);
+console.log(`\n${'-'.repeat(78)}\n3. MIRROR AUGMENTATION  (reflect across the board's midline)\n${'-'.repeat(78)}`);
 console.log('pose          mirror of it   verified   why not');
 {
   const rng = mulberry32(SEED + 5);
@@ -236,7 +239,7 @@ console.log('pose          mirror of it   verified   why not');
     // the mirror must land in the other half, whatever else is true of it
     if (m.side !== 1) fail(`${pose}: mirrored recording kept side ${m.side}`);
     const a = auditFrames(m, 1);
-    if (a.penFail >= 0) fail(`${pose}: mirrored frame ${a.penFail} is outside the pen`);
+    if (a.boardFail >= 0) fail(`${pose}: mirrored frame ${a.boardFail} is off the board`);
     if (v.ok && a.halfFail >= 0) fail(`${pose}: mirrored frame ${a.halfFail} crossed into the other half`);
     if (v.ok && m.settledPose !== MIRROR_POSE[pose]) {
       fail(`${pose}: mirror verified but as ${m.settledPose}, not MIRROR_POSE ${MIRROR_POSE[pose]}`);
@@ -272,7 +275,7 @@ const oink = { sims: [], ms: [] };
     // that the two bounding spheres overlap
     if (gap > 2 * PIG_RADIUS) fail(`oinker: pigs rest ${gap.toFixed(3)} apart, further than 2R ${(2 * PIG_RADIUS).toFixed(3)}`);
     const a = auditPair(rec);
-    if (a.penFail >= 0) fail(`oinker: frame ${a.penFail} left the pen`);
+    if (a.boardFail >= 0) fail(`oinker: frame ${a.boardFail} left the board`);
     console.log(`  found in ${String(rec.sims).padStart(4)} sims / ${dt.toFixed(0).padStart(4)}ms  ` +
       `(${rec.contacts} of those sims made contact at all)  ${rec.frames.length} frames, ` +
       `resting ${gap.toFixed(3)} apart, poses ${rec.settledPose}/${rec.settledPoseB}`);
@@ -331,7 +334,7 @@ console.log(`\n${'-'.repeat(78)}\n5. TRAJECTORY CACHE  (prefill budget, pools, t
       const v = verifyRecording(rec, { side, minConfidence: MIN_CONFIDENCE });
       if (!v.ok) fail(`take(${pose}, ${side}) handed back an unusable recording — ${v.why}`);
       const a = auditFrames(rec, side);
-      if (a.penFail >= 0 || a.halfFail >= 0) fail(`take(${pose}, ${side}): frame left the pen/half`);
+      if (a.boardFail >= 0 || a.halfFail >= 0) fail(`take(${pose}, ${side}): frame left the board/half`);
       if (dt > 40) fail(`take(${pose}, ${side}) took ${dt.toFixed(0)}ms — a pool hit must be instant`);
       ok(`take(${pose}, ${side}) -> ${rec.mirrored ? 'mirrored ' : ''}recording in ${dt.toFixed(2)}ms`);
     }

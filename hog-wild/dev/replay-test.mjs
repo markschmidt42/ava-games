@@ -13,7 +13,7 @@
 //
 // Run: node hog-wild/dev/replay-test.mjs
 
-import { PigSim, TrajectoryCache, classify, PIG_RADIUS, LANE, POSE_KEYS, withinPen, withinHalf } from '../physics.js';
+import { PigSim, TrajectoryCache, classify, PIG_RADIUS, LANE, POSE_KEYS, withinBoard, withinHalf, EVENT_REGIONS } from '../physics.js';
 import { drawToss, scoreToss, POSES } from '../odds.js';
 import { sampleAt, duration, lastState, makeState, isPair, frameCount } from '../replay.js';
 
@@ -203,7 +203,7 @@ h('4. TWO LANES, ONE SCREEN  (independent recordings replayed together)');
 // ---------------------------------------------------------------------------
 {
   let worstGap = Infinity, worstPair = '';
-  let outOfPen = 0, outOfLane = 0;
+  let outOfBoard = 0, outOfLane = 0;
   const A = makeState(), B = makeState();
   for (let i = 0; i < 25; i++) {
     const outcome = drawToss(rng);
@@ -218,13 +218,13 @@ h('4. TWO LANES, ONE SCREEN  (independent recordings replayed together)');
       sampleAt(recB, t, B);
       const gap = Math.hypot(A.p[0] - B.p[0], A.p[1] - B.p[1], A.p[2] - B.p[2]);
       if (gap < worstGap) { worstGap = gap; worstPair = `${poseA}/${poseB}`; }
-      if (!withinPen(A.p) || !withinPen(B.p)) outOfPen++;
+      if (!withinBoard(A.p) || !withinBoard(B.p)) outOfBoard++;
       if (!withinHalf(A.p, -1) || !withinHalf(B.p, 1)) outOfLane++;
     }
   }
   console.log(`  closest the two pigs ever came: ${worstGap.toFixed(3)} (${worstPair}); collider radius ${PIG_RADIUS.toFixed(3)}, lane inner ${LANE.inner.toFixed(3)}`);
   check(worstGap > 2 * PIG_RADIUS, 'replayed pigs can never intersect (gap > 2 × collider radius)');
-  check(outOfPen === 0, 'no sampled frame leaves the pen', `${outOfPen} frames`);
+  check(outOfBoard === 0, 'no sampled frame leaves the board', `${outOfBoard} frames`);
   check(outOfLane === 0, 'no sampled frame leaves its own half', `${outOfLane} frames`);
 }
 
@@ -257,7 +257,63 @@ h('5. OINKER  (one PairRecording drives both pigs)');
 }
 
 // ---------------------------------------------------------------------------
-h('6. SCORING PIPELINE  (drawn outcome → scoreToss → turn arithmetic)');
+h('6. CONTACT EVENTS  (SPEC "Physics-driven reactions" — the landing, felt)');
+// ---------------------------------------------------------------------------
+{
+  // A recording's events must be internally consistent regardless of which
+  // pose produced it: at least the landing itself, sorted, tagged with a
+  // region fx.js actually knows about, carrying a positive impulse.
+  function checkEvents(rec, label) {
+    if (!check(!!rec && Array.isArray(rec.events), `${label} carries an events array`)) return null;
+    check(rec.events.length >= 1, `${label} has >=1 event (the landing)`, `${rec.events.length} event(s)`);
+    let sorted = true, validRegion = true, positiveImpulse = true;
+    for (let i = 0; i < rec.events.length; i++) {
+      const e = rec.events[i];
+      if (i > 0 && e.t < rec.events[i - 1].t) sorted = false;
+      if (!EVENT_REGIONS.includes(e.region)) validRegion = false;
+      if (!(e.impulse > 0)) positiveImpulse = false;
+    }
+    check(sorted, `${label} events are sorted by t`);
+    check(validRegion, `${label} event regions are all valid`, [...new Set(rec.events.map((e) => e.region))].join(', '));
+    check(positiveImpulse, `${label} event impulses are all positive`);
+    return rec.events;
+  }
+
+  for (const pose of POSE_KEYS) {
+    const rec = sim.findRecording(pose, { rng, side: -1 });
+    checkEvents(rec, `${pose} recording`);
+  }
+
+  // The face-first pose: a snouter settle is the pig planting its nose, so
+  // across a handful of independent snouter finds at least one must report a
+  // real snout-region contact (a lucky trial can end in a gentle final rock
+  // with no single impulse crossing the noise floor there, so this is an
+  // "at least one of several" check rather than "every single recording").
+  let sawSnoutEvent = false;
+  const snoutTrials = [];
+  for (let i = 0; i < 6; i++) {
+    const rec = sim.findRecording('snouter', { rng, side: 1 });
+    if (!rec || !rec.events) continue;
+    const hit = rec.events.some((e) => e.region === 'snout');
+    snoutTrials.push(hit);
+    if (hit) sawSnoutEvent = true;
+  }
+  check(sawSnoutEvent, 'a snouter settle includes a snout-region event', snoutTrials.join(','));
+
+  // Oinker: a PairRecording's events are the union of both pigs' contacts,
+  // each tagged with which pig it belongs to (replay.js's 1/2 convention).
+  const pair = sim.findOinker({ rng });
+  if (check(!!pair, 'got a PairRecording for the events check')) {
+    const evs = checkEvents(pair, 'oinker PairRecording');
+    if (evs) {
+      const pigsTagged = evs.every((e) => e.pig === 1 || e.pig === 2);
+      check(pigsTagged, 'every oinker event is tagged pig 1 or 2');
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+h('7. SCORING PIPELINE  (drawn outcome → scoreToss → turn arithmetic)');
 // ---------------------------------------------------------------------------
 {
   // the exact arithmetic game.js performs, replayed headlessly over a long game

@@ -6,7 +6,8 @@
 // COORDINATE / AXIS CONTRACT (pig.js must match exactly):
 //   +Y  = up when the pig is trotting (standing on all fours)
 //   +Z  = snout direction (the pig faces +Z)
-//   +X  = the pig's BIG-EAR side (the swept-back ear that creates the jowler)
+//   +X  = the BLANK flank: the jowler ear's side, and the side the legs lean
+//         toward (SPEC "Geometry realism" — that lean is the side-bias mechanism)
 //   the painted DOT belongs on the -X flank (see POSE_UP notes below)
 //   origin = the collider's center of mass
 //
@@ -15,9 +16,28 @@
 import * as CANNON from './vendor/cannon-es.js';
 
 // ---------------------------------------------------------------------------
-// Pen (SPEC.md) — meters-ish, portrait aspect. Floor plane at y = 0, centered.
+// Board (SPEC.md "Board design") — a putting green, NOT a walled pen.
 // ---------------------------------------------------------------------------
-export const PEN = { w: 5.4, d: 7.4, wallH: 0.85 };
+// Walls were the problem: a pig that stops leaning on one is resting in none of
+// the six named poses, so it had to be re-tossed (they were more than half of
+// all ambiguous rests). A no-walls board with concentric deadening zones cannot
+// produce that rest at all, and it is what the owner's `_watch/arena.html`
+// prototype settled on. Floor plane at y = 0, board centred on the origin.
+//
+//   green  r <= greenR   hard and lively — the pig-floor material, untouched
+//   rough  r <= roughR   "frog fur": velocity * roughDamp each grounded step,
+//                        upward rebound squashed to roughBounce
+//   fringe r <= stopR    motion just dies: stopDamp / stopBounce
+//   beyond              a radial position clamp, so nothing can ever escape;
+//                       it sits well outside stopR and should never fire
+export const BOARD = {
+  greenR: 2.7, roughR: 3.9, stopR: 4.6,
+  roughDamp: 0.965, stopDamp: 0.85,     // velocity multiplier per grounded step
+  roughBounce: 0.45, stopBounce: 0.15,  // upward-velocity multiplier on rebound
+  spinDamp: 0.98,                       // extra factor on angular velocity
+  groundedY: 0.6,                       // above this the pig is airborne: zones let go
+  backstop: 0.8,                        // hard clamp radius = stopR + this
+};
 
 export const GRAVITY = -9.82 * 2.2; // toy-scale objects read better heavy
 export const FIXED_DT = 1 / 120;
@@ -41,13 +61,17 @@ export const POSE_KEYS = ['side-blank', 'side-dot', 'razorback', 'trotter', 'sno
 // computed analytically below and written straight onto the body).
 //
 // What each pose actually rests on, as measured by dev/collider-test.mjs —
-// this is also exactly what poseFromContacts() keys off:
-//   side-blank   flank + far ear + a hind foot          40%   most common
-//   side-dot     other flank's ear + two left feet      26%
-//   razorback    the narrow spine ridge on the back     22%   common
-//   trotter      all four splayed feet                   8%   uncommon
-//   snouter      snout rim + the two front feet          2%   rare
-//   jowler       snout rim + big ear tip + one foot      1.3% rarest
+// this is also exactly what poseFromContacts() keys off (percentages are the
+// emergent rate over uniform tosses after the realism pass; the real game's
+// numbers are in brackets, and we are close on every one of them):
+//   side-blank   -X flank + that ear + a hind foot    36.9%  [34.9]  commonest
+//   side-dot     +X flank + that ear + a fore foot    28.5%  [30.2]
+//   razorback    the narrow spine ridge on the back   23.7%  [22.4]  common
+//   trotter      all four splayed feet                 8.3%  [ 8.8]  uncommon
+//   snouter      snout rim + the two front feet        2.5%  [ 3.0]  rare
+//   jowler       snout rim + ear tip + one fore foot   0.16% [ 0.7]  rarest
+// side-dot is the rarer Sider because it is the rest ON the blank flank, and the
+// legs lean that way — see legLeanX in PIG_TUNING.
 const D2R = Math.PI / 180;
 
 // How these numbers were arrived at, and how to change them safely:
@@ -70,21 +94,45 @@ export const PIG_TUNING = {
   headHX: 0.131, headHY: 0.1534, headHZ: 0.115, headY: 0.36, headZ: 0.245, headD: 1.25,
   // snout (its lower front rim is the snouter/jowler contact)
   snoutR: 0.115, snoutH: 0.15, snoutY: 0.33, snoutZ: 0.415, snoutTilt: 16, snoutD: 1.5,
-  // The big ear, on +X. It is the kickstand that makes jowler exist: swept
-  // BACK (earSweep) so its tip sits level with the middle of the body, which
-  // is what pulls the snout+ear+front-foot support triangle back far enough to
-  // contain the center of mass. With a forward-swept ear there is no jowler
-  // equilibrium at all — the pig always rolls on through onto its side.
-  earHX: 0.13, earHY: 0.026, earHZ: 0.075, earX: 0.159, earY: 0.463, earZ: 0.1,
-  earSweep: 44.95, earRoll: 6, earD: 0.6,
-  // The OTHER ear (-X) sticks out about as far but is swept FORWARD, so it props
-  // that flank a similar amount (keeping the two Side rests comparably likely)
-  // WITHOUT giving the pig a mirror-image jowler: a jowler needs the ear tip
-  // level with mid-body, behind the front foot. A mirrored jowler would be a
-  // seventh resting pose the orientation classifier could not name.
-  ear2HX: 0.13, ear2X: 0.15, ear2Y: 0.4, ear2Z: 0.16, ear2Sweep: 10,
+  // The ear on +X — a paddle set FORWARD on the cheek (earZ sits in the front
+  // half of the head's z span) that flares outward and DROOPS (earRoll < 0),
+  // like the reference photos. It is the kickstand that makes jowler exist, and
+  // where its tip sits is what sets the jowler's ATTITUDE: the jowler support
+  // plane runs through the snout rim, the +X front foot and this ear's outer
+  // tip, so the rest's roll — asin(|up.x|) — is asin(d / R), where d is the ear
+  // tip's height above the SNOUTER support plane and R its distance from the
+  // snout-to-front-foot pivot line. The old ear (earY .463, earZ .10, swept back
+  // 45°) sat almost directly above the front foot: d/R ≈ .91, a 66° roll, i.e.
+  // the pig lying on its side. Dropping the tip onto the cheek — d small, R
+  // about the same — is what turns the jowler into the Snouter-with-a-lean the
+  // scoring card shows (SPEC "Jowler attitude": 25–40°, asserted <= 45 in
+  // dev/collider-test.mjs). MEASURED: roll 37.0°, support margin .043.
+  earHX: 0.138, earHY: 0.04, earHZ: 0.073, earX: 0.193, earY: 0.397, earZ: 0.258,
+  earSweep: 1, earRoll: -42.7, earD: 0.6,
+  // The OTHER ear (-X) is the same paddle at the same place, at the same droop,
+  // so it props that flank by the same amount and the two Side rests stay
+  // comparably likely — the sides are split by the LEGS, not by the ears. Only
+  // its SWEEP differs (~27° further forward), which lifts its tip off the
+  // mirror-image jowler support plane and so leaves the pig with exactly one
+  // jowler equilibrium; a mirrored jowler would be a seventh resting pose the
+  // classifier could not name. MEASURED: no -X lean equilibrium exists for
+  // ear2Sweep in [-40, -25] (checked by enumerating the mirror pig's support
+  // faces), and the -X lean is a tiny .004 even at the edge of that window.
+  ear2HX: 0.138, ear2X: 0.193, ear2Y: 0.397, ear2Z: 0.258, ear2Sweep: -25.6,
   legHX: 0.052, legHY: 0.0943, legHZ: 0.058, legX: 0.16, legZF: 0.115, legZB: -0.29,
   legSplay: 13, legD: 0.6925,
+  // LEG ASYMMETRY (SPEC "Geometry realism") — the real side-bias mechanism, and
+  // the only thing in here that is deliberately NOT mirror-symmetric about x=0.
+  // On the real pig the legs sit toward, and lean toward, the BLANK flank (+X:
+  // the dot is painted on -X). Resting on the blank flank therefore lands on
+  // legs that stick out further, which props the body up off its own flank and
+  // makes that rest tippy — so "dot up" (which IS the blank-flank rest) is the
+  // rarer Sider, 30.2% vs 34.9% in the real game. legLeanX shifts all four legs
+  // toward +X; legLeanSplay adds the same extra lean angle to all four, so the
+  // +X pair splays wider and the -X pair tucks under. Set both to 0 and the
+  // emergent side split collapses toward even — that is the check SPEC asks
+  // for, and it is what proves the ears are no longer the bias source.
+  legLeanX: 0.019, legLeanSplay: 5,
   // low curly tail: a tail up at spine height gives the pig a stable "sitting
   // on its rump" rest, which is none of the six poses
   tailHX: 0.032, tailHY: 0.032, tailHZ: 0.05, tailY: 0.3, tailZ: -0.47, tailD: 0.225,
@@ -92,9 +140,13 @@ export const PIG_TUNING = {
 
 /** Compound part list from a flat tuning vector. Build frame: y=0 = floor when trotting. */
 export function makeParts(t = PIG_TUNING) {
+  // legLeanX / legLeanSplay are applied with the SAME sign to all four legs, so
+  // they shift and tilt the whole undercarriage toward the blank (+X) flank
+  // instead of splaying it symmetrically. See the note in PIG_TUNING.
   const leg = (name, sx, z) => ({
     name, kind: 'box', he: [t.legHX, t.legHY, t.legHZ],
-    pos: [sx * t.legX, t.legHY, z], rot: [0, 0, sx * t.legSplay], density: t.legD,
+    pos: [sx * t.legX + (t.legLeanX ?? 0), t.legHY, z],
+    rot: [0, 0, sx * t.legSplay + (t.legLeanSplay ?? 0)], density: t.legD,
   });
   return [
     { name: 'torso', kind: 'box', he: [t.torsoHX, t.torsoHY, t.torsoHZ], pos: [0, t.torsoY, t.torsoZ], rot: [0, 0, 0], density: t.torsoD },
@@ -250,21 +302,22 @@ export function lowestPoint(q, cloud = CLOUD) {
 // deliberate, and it is why neither Side vector is exactly +/-X.
 //
 // These are the MEASURED settled attitudes of this collider, read off the
-// support-plane analysis (dev/support-analysis.mjs): snouter pitches ~32°
-// nose-down, and jowler is a steep, heavily-leaning nose-down rest, exactly
-// like the photo on the real scoring card. dev/collider-test.mjs asserts that
-// simulated rests agree with these, so they cannot silently drift.
+// support-plane analysis (dev/support-analysis.mjs): the snouter pitches ~36°
+// nose-down, and the jowler is that same nose-down prop rolled 37° onto one ear
+// — a Snouter with a lean, exactly like the photo on the real scoring card.
+// dev/collider-test.mjs asserts that simulated rests agree with these, and that
+// the jowler's roll stays under 45°, so neither can silently drift.
 // Regenerate with: node dev/derive-poseup.mjs  (required after any
 // PIG_TUNING change — a stale table places poses off their own equilibrium).
 export const POSE_UP = {
-  'side-blank': norm3([0.982, -0.09, 0.167]),
-  'side-dot': norm3([-0.986, 0.166, 0]),
+  'side-blank': norm3([0.97, -0.035, 0.239]),
+  'side-dot': norm3([-0.972, -0.132, 0.192]),
   // razorback and trotter keep their exact axes: both have a symmetric family
   // of leaning variants either side, so the middle is the right reference
   razorback: norm3([0, -1, 0]),
   trotter: norm3([0, 1, 0]),
-  snouter: norm3([0, 0.811, -0.585]),
-  jowler: norm3([-0.917, 0.052, -0.395]),
+  snouter: norm3([0.016, 0.812, -0.583]),
+  jowler: norm3([-0.601, 0.454, -0.658]),
 };
 
 function norm3(v) {
@@ -519,11 +572,122 @@ export function posePlacement(pose, { yaw = 0, gap = 0.004, at = [0, 0], cloud =
 }
 
 // ---------------------------------------------------------------------------
+// Contact events (SPEC "Physics-driven reactions")
+// ---------------------------------------------------------------------------
+// Recorded during simulateOne/findOinker so fx.js can time face/sound
+// reactions to REAL impacts instead of guessing from the final pose alone —
+// a face-first snouter reads differently from a flat-out belly-flop that
+// happens to settle the same way.
+//
+//   { t, impulse, region }
+//   region: 'snout' | 'head' | 'back' | 'rump' | 'belly' | 'legs' | 'side'
+//   impulse: normal-impulse magnitude of the hardest contact this step
+//
+// Only contacts above EVENT_NOISE_FLOOR are kept (a resting pig's own weight
+// is well under it — that is what keeps a settled rest event-free), and
+// anything within EVENT_MERGE_S of the last kept event merges into it,
+// keeping whichever hit harder: the two or three solver steps of one real
+// bounce must not read as a flurry of taps.
+export const EVENT_NOISE_FLOOR = 0.5;
+export const EVENT_MERGE_S = 0.05;
+export const EVENT_REGIONS = ['snout', 'head', 'back', 'rump', 'belly', 'legs', 'side'];
+
+const { com: PIG_COM } = pigMassProperties(PIG_PARTS, PIG_MASS);
+
+/**
+ * Which named region of the pig owns a body-frame contact point. `lx,ly,lz`
+ * are COM-centered (the frame cannon-es bodies live in, and the frame a
+ * contact's local point is unrotated into below); PIG_TUNING's numbers are in
+ * the un-recentered BUILD frame (y=0 is the floor when the pig trots), so
+ * PIG_COM converts one into the other. Checked from the most positionally
+ * distinctive parts to the least: legs and snout are unambiguous by position
+ * alone, so they go first; what's left is the torso's four faces (the
+ * head-ward neck, the back, the belly, and everything else on the flank).
+ */
+function regionFromLocalPoint(lx, ly, lz) {
+  const t = PIG_TUNING;
+  const x = lx + PIG_COM[0], y = ly + PIG_COM[1], z = lz + PIG_COM[2];
+  if (Math.abs(x) > 0.11 && y < 0.22) return 'legs';
+  if (z > t.headZ + t.headHZ * 0.5) return 'snout';
+  if (z > t.torsoZ + t.torsoHZ * 0.6 && y > t.torsoY) return 'head';
+  if (z < t.torsoZ - t.torsoHZ * 0.75) return 'rump';
+  if (y > t.torsoY + t.torsoHY * 0.7) return 'back';
+  if (y < t.torsoY - t.torsoHY * 0.5) return 'belly';
+  return 'side';
+}
+
+/**
+ * Rotate a world-oriented vector (a cannon-es contact's `ri`/`rj` — anchored
+ * at the body's center, but expressed in world axes) by the CONJUGATE of a
+ * unit quaternion, i.e. take it from world axes into that body's own local
+ * axes. Writes into the caller's `out` (a plain 3-array) so nothing
+ * allocates: this runs from inside the physics step loop.
+ */
+function unrotateInto(q, vx, vy, vz, out) {
+  const cx = -q.x, cy = -q.y, cz = -q.z, cw = q.w;
+  const uvx = cy * vz - cz * vy, uvy = cz * vx - cx * vz, uvz = cx * vy - cy * vx;
+  const uuvx = cy * uvz - cz * uvy, uuvy = cz * uvx - cx * uvz, uuvz = cx * uvy - cy * uvx;
+  out[0] = vx + 2 * (cw * uvx + uuvx);
+  out[1] = vy + 2 * (cw * uvy + uuvy);
+  out[2] = vz + 2 * (cw * uvz + uuvz);
+  return out;
+}
+
+/**
+ * Per-body scratch accumulator for one sim's contact events. Fixed-capacity
+ * and reused across every candidate a search tries (PigSim owns one per pig
+ * slot) so the hot loop allocates nothing. `add()` does the SPEC's
+ * noise-floor + 50ms-merge in place, so by the time a sim ends the buffer
+ * already holds the de-duplicated event list, ready to materialize.
+ */
+class ContactEventTracker {
+  constructor(cap = 64) {
+    this.t = new Float64Array(cap);
+    this.impulse = new Float64Array(cap);
+    this.region = new Array(cap).fill(null);
+    this.n = 0;
+    this.cap = cap;
+  }
+  reset() { this.n = 0; }
+  add(t, impulse, region) {
+    if (impulse < EVENT_NOISE_FLOOR) return;
+    const n = this.n;
+    if (n > 0 && t - this.t[n - 1] <= EVENT_MERGE_S) {
+      if (impulse > this.impulse[n - 1]) {
+        this.t[n - 1] = t; this.impulse[n - 1] = impulse; this.region[n - 1] = region;
+      }
+      return;
+    }
+    if (n >= this.cap) return; // a real toss never gets close to this; drop rather than grow mid-loop
+    this.t[n] = t; this.impulse[n] = impulse; this.region[n] = region;
+    this.n = n + 1;
+  }
+  /** Materializes the SPEC event objects — called once per sim, not per step. */
+  toEvents() {
+    const out = new Array(this.n);
+    for (let i = 0; i < this.n; i++) out[i] = { t: this.t[i], impulse: this.impulse[i], region: this.region[i] };
+    return out;
+  }
+}
+
+/** Combine two per-pig event streams (findOinker) into one list, tagged with
+ * which pig (1|2, matching replay.js's pair `which` convention) and sorted by
+ * time — a joint impact shows up from both pigs' point of view, at their own
+ * contact point, which is correct: they can take different expressions. */
+function combineEvents(evA, evB) {
+  const out = [];
+  for (const e of evA) out.push({ t: e.t, impulse: e.impulse, region: e.region, pig: 1 });
+  for (const e of evB) out.push({ t: e.t, impulse: e.impulse, region: e.region, pig: 2 });
+  out.sort((a, b) => a.t - b.t);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // PigSim — the headless world
 // ---------------------------------------------------------------------------
 export class PigSim {
   constructor(opts = {}) {
-    const { pigs = 2, walls = true, solverIterations = 14, parts = PIG_PARTS } = opts;
+    const { pigs = 2, solverIterations = 14, parts = PIG_PARTS } = opts;
     this.parts = parts;
     // classification is geometry-aware, so a sim built on a candidate collider
     // must classify against THAT collider, not the module default
@@ -538,41 +702,23 @@ export class PigSim {
 
     this.matPig = new CANNON.Material('pig');
     this.matFloor = new CANNON.Material('floor');
-    this.matWall = new CANNON.Material('wall');
     const t = MATERIAL_TUNING;
     world.addContactMaterial(new CANNON.ContactMaterial(this.matPig, this.matFloor, {
       friction: t.pigFloor.friction, restitution: t.pigFloor.restitution,
       contactEquationStiffness: 5e7, contactEquationRelaxation: 3,
       frictionEquationStiffness: 5e7, frictionEquationRelaxation: 3,
     }));
-    world.addContactMaterial(new CANNON.ContactMaterial(this.matPig, this.matWall, {
-      friction: t.pigWall.friction, restitution: t.pigWall.restitution,
-    }));
     world.addContactMaterial(new CANNON.ContactMaterial(this.matPig, this.matPig, {
       friction: t.pigPig.friction, restitution: t.pigPig.restitution,
     }));
 
+    // ONE infinite plane and nothing else — no walls, no geometry seams. The
+    // board's zones are applied as post-step damping (zoneDamp), exactly as in
+    // the `_watch/arena.html` reference.
     const floor = new CANNON.Body({ mass: 0, material: this.matFloor, shape: new CANNON.Plane() });
     floor.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
     world.addBody(floor);
     this.floor = floor;
-
-    if (walls) {
-      const hw = PEN.w / 2, hd = PEN.d / 2, hh = PEN.wallH / 2, t2 = 0.15;
-      const add = (he, pos) => {
-        const b = new CANNON.Body({ mass: 0, material: this.matWall });
-        b.addShape(new CANNON.Box(new CANNON.Vec3(he[0], he[1], he[2])));
-        b.position.set(pos[0], pos[1], pos[2]);
-        world.addBody(b);
-        return b;
-      };
-      this.walls = [
-        add([t2, hh, hd], [hw + t2, hh, 0]),
-        add([t2, hh, hd], [-hw - t2, hh, 0]),
-        add([hw + 2 * t2, hh, t2], [0, hh, hd + t2]),
-        add([hw + 2 * t2, hh, t2], [0, hh, -hd - t2]),
-      ];
-    }
 
     this.world = world;
     this.pigs = [];
@@ -582,7 +728,74 @@ export class PigSim {
       world.addBody(b);
       this.pigs.push(b);
     }
+    // one contact-event tracker per pig slot, reused for every candidate a
+    // search tries — see "Contact events" above
+    this._evTrackers = this.pigs.map(() => new ContactEventTracker());
+    this._evScratch = [0, 0, 0];
     this.dt = FIXED_DT;
+  }
+
+  /**
+   * The board's zones, applied to one pig AFTER a world step (SPEC "Board
+   * design"). Deliberately not a material or a mesh: a single infinite plane
+   * plus a velocity multiplier has no seams for a pig to catch on, and it can
+   * kill a bounce, which friction alone cannot.
+   *
+   * Airborne pigs are never touched — a pig sailing over the rough should not
+   * be slowed by it — so the zone only bites below BOARD.groundedY.
+   *
+   * Every sim in the game goes through here, so this must stay deterministic:
+   * it reads only the body's own position/velocity, which is what keeps
+   * re-running a stored initial condition bit-identical.
+   */
+  zoneDamp(body) {
+    const b = BOARD;
+    const r = Math.hypot(body.position.x, body.position.z);
+    if (body.position.y <= b.groundedY && r > b.greenR) {
+      const rough = r <= b.roughR;
+      const k = rough ? b.roughDamp : b.stopDamp;
+      body.velocity.scale(k, body.velocity);
+      body.angularVelocity.scale(k * b.spinDamp, body.angularVelocity);
+      if (body.velocity.y > 0) body.velocity.y *= rough ? b.roughBounce : b.stopBounce;
+    }
+    // Absolute backstop. Nothing should ever reach it (the throw sampler is
+    // tuned so ~99% of settles land on the green or the rough), but a board
+    // with no walls needs *something* that makes escape impossible.
+    const limit = b.stopR + b.backstop;
+    if (r > limit) {
+      const s = limit / r;
+      body.position.x *= s;
+      body.position.z *= s;
+      body.velocity.scale(0.1, body.velocity);
+    }
+  }
+
+  /**
+   * Finds the hardest contact this step involving `body` and, if it clears
+   * the noise floor, files it into `tracker`. A pig-pig contact (Oinker)
+   * shows up from both bodies' point of view when this is called once per
+   * body — which is correct, since each pig has its own contact point and
+   * can take its own expression. Reads only `this.world.contacts`, which
+   * cannon-es freshly populates and solves every `world.step()` call, so
+   * this must run right after that step and before the next one.
+   */
+  _captureEvents(body, tracker, t) {
+    const contacts = this.world.contacts;
+    let bestImpulse = -1, bestR = null;
+    for (let i = 0; i < contacts.length; i++) {
+      const eq = contacts[i];
+      let r;
+      if (eq.bi === body) r = eq.ri;
+      else if (eq.bj === body) r = eq.rj;
+      else continue;
+      const impulse = eq.multiplier * this.dt;
+      if (impulse > bestImpulse) { bestImpulse = impulse; bestR = r; }
+    }
+    if (bestR && bestImpulse >= EVENT_NOISE_FLOOR) {
+      const s = this._evScratch;
+      unrotateInto(body.quaternion, bestR.x, bestR.y, bestR.z, s);
+      tracker.add(t, bestImpulse, regionFromLocalPoint(s[0], s[1], s[2]));
+    }
   }
 
   reset(body, ic) {
@@ -687,28 +900,33 @@ export class PigSim {
     const body = this.pigs[pig];
     for (let i = 0; i < this.pigs.length; i++) if (i !== pig) this.park(this.pigs[i]);
     this.reset(body, ic);
+    const tracker = this._evTrackers[pig];
+    tracker.reset();
 
     const maxSteps = Math.ceil(maxSeconds / this.dt);
     if (record) this._buffers(maxSteps);
     const pBuf = this._pBuf, qBuf = this._qBuf;
     const ref = target ? POSE_UP[target] : null;
     const inner = side === 0 ? 0 : LANE.inner;
-    const hw = PEN.w / 2, hd = PEN.d / 2;
+    const edge2 = BOARD.stopR * BOARD.stopR;
 
     let calm = 0, settledAt = -1, n = 0, rejected = null;
     for (let s = 0; s < maxSteps; s++) {
       this.world.step(this.dt);
+      this.zoneDamp(body);
       const px = body.position.x, py = body.position.y, pz = body.position.z;
       if (record) {
         const i3 = n * 3, i4 = n * 4;
         pBuf[i3] = px; pBuf[i3 + 1] = py; pBuf[i3 + 2] = pz;
         qBuf[i4] = body.quaternion.x; qBuf[i4 + 1] = body.quaternion.y;
         qBuf[i4 + 2] = body.quaternion.z; qBuf[i4 + 3] = body.quaternion.w;
+        this._captureEvents(body, tracker, s * this.dt);
       }
       n++;
-      // hard containment: a pig outside the pen means the solver let it tunnel
-      if (px < -hw || px > hw || pz < -hd || pz > hd || py < -0.02) { rejected = 'pen'; break; }
-      // half-pen confinement (SPEC): two independently found recordings are
+      // containment: past the fringe the throw was simply too hard to keep, and
+      // below the floor the solver let it tunnel. Neither is a usable recording.
+      if (px * px + pz * pz > edge2 || py < -0.02) { rejected = 'board'; break; }
+      // half-board confinement (SPEC): two independently found recordings are
       // replayed together, so neither pig may ever enter the other's half
       if (inner && (side > 0 ? px < inner : px > -inner)) { rejected = 'lane'; break; }
       const w2 = body.angularVelocity.lengthSquared();
@@ -733,7 +951,7 @@ export class PigSim {
       // tools, the collider harness) should degrade rather than see undefined
       return {
         dt: this.dt, frames: null, frameCount: n, rejected,
-        settledPose: null, confidence: 0, settled: false, steps: n,
+        settledPose: null, confidence: 0, settled: false, steps: n, events: null,
         finalQ: [body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w],
         finalP: [body.position.x, body.position.y, body.position.z],
       };
@@ -746,6 +964,7 @@ export class PigSim {
       settledPose: c.pose, confidence: c.confidence, offAxisDeg: c.offAxisDeg,
       contacts: c.contacts, support: c.support,
       settled: settledAt >= 0, settleSeconds: (settledAt + 1) * this.dt,
+      events: record ? tracker.toEvents() : null,
       finalQ: [body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w],
       finalP: [body.position.x, body.position.y, body.position.z],
     };
@@ -759,6 +978,7 @@ export class PigSim {
     let maxV = 0, maxW = 0;
     for (let s = 0; s < steps; s++) {
       this.world.step(this.dt);
+      this.zoneDamp(body);
       maxV = Math.max(maxV, body.velocity.length());
       maxW = Math.max(maxW, body.angularVelocity.length());
       if (record) frames.push({
@@ -889,20 +1109,23 @@ export class PigSim {
     const maxSteps = Math.ceil(maxSeconds / this.dt);
     this._buffers(maxSteps);
     const pA = this._pBuf, qA = this._qBuf, pB = this._pBuf2, qB = this._qBuf2;
-    const hw = PEN.w / 2, hd = PEN.d / 2;
+    const edge2 = BOARD.stopR * BOARD.stopR;
     const t = MATERIAL_TUNING;
+    const [trackerA, trackerB] = this._evTrackers;
     let sims = 0, contacts = 0;
     for (let i = 0; i < maxSims; i++) {
       sims++;
       const ia = randomToss(rng, -1), ib = randomToss(rng, 1);
-      // aim them across the pen at each other: an Oinker needs a collision, and
-      // the halves rule does not apply to a pair recording (they are one sim)
+      // aim them across the board at each other: an Oinker needs a collision,
+      // and the halves rule does not apply to a pair recording (one sim)
       ia.v[0] = 0.5 + 1.9 * rng(); ib.v[0] = -(0.5 + 1.9 * rng());
       ia.p[2] = 1.2 + 1.4 * rng(); ib.p[2] = ia.p[2] + 0.5 * (rng() - 0.5);
       this.reset(a, ia); this.reset(b, ib);
+      trackerA.reset(); trackerB.reset();
       let calm = 0, ok = false, grabbing = false, touched = false, n = 0, escaped = false;
       for (let s = 0; s < maxSteps; s++) {
         this.world.step(this.dt);
+        this.zoneDamp(a); this.zoneDamp(b);
         const touching = this.pigsTouching();
         if (touching) touched = true;
         if (touching !== grabbing) {
@@ -917,9 +1140,12 @@ export class PigSim {
         qA[i4] = a.quaternion.x; qA[i4 + 1] = a.quaternion.y; qA[i4 + 2] = a.quaternion.z; qA[i4 + 3] = a.quaternion.w;
         pB[i3] = b.position.x; pB[i3 + 1] = b.position.y; pB[i3 + 2] = b.position.z;
         qB[i4] = b.quaternion.x; qB[i4 + 1] = b.quaternion.y; qB[i4 + 2] = b.quaternion.z; qB[i4 + 3] = b.quaternion.w;
+        const evT = s * this.dt;
+        this._captureEvents(a, trackerA, evT);
+        this._captureEvents(b, trackerB, evT);
         n++;
-        if (Math.abs(a.position.x) > hw || Math.abs(b.position.x) > hw
-          || Math.abs(a.position.z) > hd || Math.abs(b.position.z) > hd
+        if (a.position.x * a.position.x + a.position.z * a.position.z > edge2
+          || b.position.x * b.position.x + b.position.z * b.position.z > edge2
           || a.position.y < -0.02 || b.position.y < -0.02) { escaped = true; break; }
         // once both have deadened, decide: still touching -> Oinker
         if (a.velocity.lengthSquared() < vEps * vEps && a.angularVelocity.lengthSquared() < wEps * wEps
@@ -940,6 +1166,7 @@ export class PigSim {
           touching: true, settled: true, sims, contacts, searchMs: now() - t0,
           settledPose: classify(a.quaternion, { cloud: this.cloud }).pose,
           settledPoseB: classify(b.quaternion, { cloud: this.cloud }).pose,
+          events: combineEvents(trackerA.toEvents(), trackerB.toEvents()),
           finalP: [a.position.x, a.position.y, a.position.z],
           finalP2: [b.position.x, b.position.y, b.position.z],
         };
@@ -950,14 +1177,14 @@ export class PigSim {
 }
 
 // ---------------------------------------------------------------------------
-// Half-pen confinement (SPEC)
+// Half-board confinement (SPEC)
 // ---------------------------------------------------------------------------
 // A normal toss is TWO independent single-pig recordings replayed together, so
 // nothing in the physics stops them from occupying the same space. The rule that
-// makes it safe: pig A owns the left half of the pen, pig B the right, and
-// neither COM may ever come closer to the midline than the pig's own bounding
-// radius. Two spheres of radius PIG_RADIUS centred at x <= -inner and x >= inner
-// cannot intersect, so the replayed pigs provably never touch.
+// makes it safe: pig A owns the left SEMICIRCLE of the board, pig B the right,
+// and neither COM may ever come closer to the midline than the pig's own
+// bounding radius. Two spheres of radius PIG_RADIUS centred at x <= -inner and
+// x >= inner cannot intersect, so the replayed pigs provably never touch.
 //
 // `side`: -1 = left half, +1 = right half, 0 = no confinement (single-pig dev
 // work and the Oinker pair sim, which is one simulation and needs the collision).
@@ -970,7 +1197,7 @@ export const PIG_RADIUS = (() => {
 })();
 
 export const LANE = {
-  inner: PIG_RADIUS + 0.03,   // closest a COM may come to the pen's midline
+  inner: PIG_RADIUS + 0.03,   // closest a COM may come to the board's midline
   // Measured spawn window (dev/search-test.mjs prints the lane-reject rate):
   // launching from further out with a slight outward drift keeps ~88% of tosses
   // inside their half. Spawning nearer the midline threw away a third of them.
@@ -978,16 +1205,25 @@ export const LANE = {
   vxLo: -0.05, vxHi: 0.45,    // signed OUTWARD (away from the midline)
 };
 
-/** Is this COM position inside the pen at all? (catches solver tunnelling) */
-export function withinPen(p) {
-  return Math.abs(p[0]) <= PEN.w / 2 && Math.abs(p[2]) <= PEN.d / 2 && p[1] >= -0.02;
+/** Is this COM position on the board at all? (catches solver tunnelling) */
+export function withinBoard(p) {
+  return p[0] * p[0] + p[2] * p[2] <= BOARD.stopR * BOARD.stopR && p[1] >= -0.02;
 }
 
-/** Is this COM position inside the pen AND on `side`'s half of it? */
+/** Is this COM position on the board AND on `side`'s semicircle of it? */
 export function withinHalf(p, side) {
-  if (!withinPen(p)) return false;
+  if (!withinBoard(p)) return false;
   if (side === 0) return true;
   return side > 0 ? p[0] >= LANE.inner : p[0] <= -LANE.inner;
+}
+
+/** Which zone a COM position is over: 'green' | 'rough' | 'fringe' | 'off'. */
+export function boardZone(p) {
+  const r = Math.hypot(p[0], p[2]);
+  if (r <= BOARD.greenR) return 'green';
+  if (r <= BOARD.roughR) return 'rough';
+  if (r <= BOARD.stopR) return 'fringe';
+  return 'off';
 }
 
 // How aggressively the search abandons a candidate that has stopped tumbling
@@ -1054,7 +1290,25 @@ function rand(rng, a, b) { return a + (b - a) * rng(); }
 export const POSE_SAMPLING = {
   trotter: { mix: 0.7, spinLo: 2, spinHi: 8, hLo: 0.9, hHi: 1.5, spdLo: 1.2, spdHi: 2.4, pre: 1.1 },
   snouter: { mix: 0.85, spinLo: 2, spinHi: 8, hLo: 0.9, hHi: 1.5, spdLo: 1.2, spdHi: 2.4, pre: 1.1 },
-  jowler: { mix: 0.85, spinLo: 10, spinHi: 22, hLo: 1.0, hHi: 1.7, spdLo: 1.5, spdHi: 3.0, pre: 1.0 },
+  // The realism pass moved the jowler from a 66°-rolled side-lean to a 37°
+  // Snouter-with-a-lean, and that flipped which release arm finds it. The old
+  // rest was reachable by flinging the pig hard (`spun`, spin 10-22) because it
+  // sat right next to the Side rests; the new one is a precarious three-point
+  // prop next to the snouter, and a hard fling always rolls straight through it.
+  // MEASURED on the new collider, 2500 lane-confined targeted sims each, same
+  // rng stream; "frames" is the median length of an accepted recording, i.e.
+  // how long the toss takes on screen (the other five poses run ~250):
+  //   arm                             hit rate   miss in 800   frames
+  //   spun    pre 1.0  spin 10-22        0.24%        15%        216
+  //   soft    pre 1.1  spin  2-8         0.68%       0.4%        145
+  //   lob     pre 0.35 spin 0.8-4        2.28%       1e-6%       136   <- this
+  //   placed  pre 0.18 spin 0.5-3        9.56%      1e-33%       111
+  // `lob` is a real throw — released a body-height up at walking pace with a
+  // lazy tumble — and 2.3% leaves the 800-sim budget a factor of a million of
+  // headroom. `placed` is cheaper still, but its arc reads as a drop rather
+  // than a throw and it would make the rarest, most exciting result on the
+  // board the one with the most boring flight.
+  jowler: { mix: 0.92, spinLo: 0.8, spinHi: 4, hLo: 0.8, hHi: 1.3, spdLo: 0.9, spdHi: 1.8, pre: 0.35 },
 };
 
 const UNIFORM_TOSS = { spinLo: 2, spinHi: 30, hLo: 1.0, hHi: 1.9, spdLo: 1.7, spdHi: 4.0 };
@@ -1105,10 +1359,10 @@ export function randomToss(rng = Math.random, side = 0, targetPose = null) {
 // ---------------------------------------------------------------------------
 // Mirror augmentation (SPEC)
 // ---------------------------------------------------------------------------
-// The pen is symmetric about its long axis, so reflecting a recording through
-// the plane x = 0 gives another trajectory that obeys the same walls, the same
-// gravity and the same floor — and it lands in the OTHER half, which is exactly
-// what a pool of two-lane recordings needs.
+// The board is a disc, so reflecting a recording through the plane x = 0 gives
+// another trajectory that obeys the same zones, the same gravity and the same
+// floor — and it lands in the OTHER half, which is exactly what a pool of
+// two-lane recordings needs.
 //
 // The catch: the pig is not symmetric. It has one swept-back ear and a leg lean,
 // so a reflected trajectory is a valid motion of the pig's MIRROR IMAGE. For the
@@ -1148,6 +1402,10 @@ export function mirrorRecording(rec) {
     side: -(rec.side || 0),
     mirrored: !rec.mirrored,
     settled: rec.settled,
+    // events are unaffected by the x -> -x reflection: none of the SPEC
+    // region names encode left/right, and t/impulse are properties of the
+    // original real contact, not of the mirrored geometry
+    events: rec.events ? rec.events.map((e) => ({ ...e })) : null,
     finalP: last.p.slice(), finalQ: last.q.slice(),
     settleSeconds: rec.settleSeconds,
   };
@@ -1175,7 +1433,7 @@ export function verifyRecording(rec, opts = {}) {
   if (Math.abs(gap) > floorTol) return { ok: false, why: `rest floats/sinks by ${gap.toFixed(4)}`, classify: c };
   for (let i = 0; i < rec.frames.length; i++) {
     const p = rec.frames[i].p;
-    if (!withinPen(p)) return { ok: false, why: `frame ${i} left the pen`, classify: c };
+    if (!withinBoard(p)) return { ok: false, why: `frame ${i} left the board`, classify: c };
     if (side && !withinHalf(p, side)) return { ok: false, why: `frame ${i} left its half`, classify: c };
   }
   return { ok: true, classify: c, floorGap: gap };
@@ -1346,6 +1604,6 @@ export class TrajectoryCache {
 }
 
 export default {
-  PigSim, TrajectoryCache, PEN, POSE_UP, classify, buildPigBody,
-  randomToss, mirrorRecording, verifyRecording, withinHalf, withinPen,
+  PigSim, TrajectoryCache, BOARD, POSE_UP, classify, buildPigBody,
+  randomToss, mirrorRecording, verifyRecording, withinHalf, withinBoard, boardZone,
 };
