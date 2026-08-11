@@ -231,6 +231,38 @@ must reproduce these beats (constants in one editable block each):
      ALONE. A real close-up of one pig beats a cropped wide of two; the other pig's
      chip hides itself under the beat-6 rule below.
 
+     **ROUND-4: the hero shot is also what the SCALE promise falls back to, and on a
+     phone that is most rounds.** A pair shot can FIT and still fail this file's own
+     20-px-of-eye promise. MEASURED, portrait 375×812 (canvas 351×548), a Snouter +
+     Sider 3.4 m apart: the pair fits at 8.3 m — 14.8 px of eye, i.e. round 2's "the
+     reveal is just a slightly lower overview" arrived at from the other direction.
+     `computeCloseRig` therefore compares the two shots on the promise itself: if the
+     pair cannot pay for a face and the hero shot delivers materially more (>1.25×),
+     the hero shot wins. Same case after: 3.4 m, **29.4 px of eye**, hero pig
+     234 × 356 px, and the framed pig's worst |ndc| 0.856 for the whole beat.
+     Portrait razorback double: 3.06 m, 26.4 px. Desktop is unaffected — a landscape
+     canvas can hold both pigs AND a face, and all three sampled desktop rounds stayed
+     pair shots at 20.4–30.0 px of eye.
+
+     **EXCEPT when both pigs ARE the result.** A Pig Out means "these two are opposite
+     sides" and an Oinker means "these two are touching"; a close-up of one pig cannot
+     say either. `startReveal` passes `needBoth` for those two and they keep the pair
+     shot at whatever scale it costs (MEASURED, portrait Pig Out: 9.73 m, 11.9 px of
+     eye, worst |ndc| 0.911 — wide, uncropped, and legible as a pair).
+
+   - **The ZOOM-IN is fit-tested too** (`pathFits`, `REVEAL.pathChecks`). Round 3
+     argued the arc made this unnecessary: "the distance is monotone between the two
+     shots and the fit is monotone in distance, so if the destination fits, every frame
+     on the way in fits." The distance half is true and the BEARING half is not —
+     `arcPose` sweeps the bearing from the overview's to the rig's, and at an
+     intermediate bearing the pair's projected spread can exceed what the frame holds
+     at that intermediate distance. MEASURED, portrait, Snouter + Sider: destination
+     8.82 m at worst |ndc| 0.84 with a clean 3 s hold, while the zoom-in passed through
+     1.014, 1.076, 1.133 and **1.159** — a pig fully off-canvas mid-move. The winner is
+     now checked at four points along its own arc, with the same interpolated pitch the
+     render uses, and repaired by walking it outward (the intermediate distances grow
+     monotonically with the destination's) or abandoned to the hero shot.
+
    **ROUND-3: the fit was innocent and the TRANSPORT was broken.** The review
    measured "across ALL 5 sampled reveal frames neither pig was inside NDC ±1 …
    REVEAL.maxDist is 9.6 yet the camera sits at 12.4–12.5 m", and reproduced it on a
@@ -483,6 +515,36 @@ must reproduce these beats (constants in one editable block each):
    `CUP_HOME_MS`. Cancel — back down with no tip, because nothing was thrown. The
    cup obeys the same `SHADOW.liftOff` rule as the pigs: no hard map shadow once it
    is off the felt, only the contact patch.
+
+## Shake interaction (owner must-fixes, 2026-08-11, mobile-tested by owner)
+
+**1. The pigs live IN the cup during the shake.** PRD §7.1 says "pigs rattle
+visibly inside" — currently they do not. During ready/shaking states the pigs
+are inside the cup, and while shaking they bounce around like crazy in there:
+visible rattling motion (random jitter transforms inside the cup's interior
+volume scaled by shake intensity is fine — no physics required), synchronized
+with the rattle audio. On release they leave the cup as the throw. The cup's
+mouth must face the camera enough that the rattling is actually visible.
+
+**2. Touch-hold shake must be CONTINUOUS on mobile.** Owner observed on a real
+phone: one tick of shake sound, no ongoing shake animation, no toss. Fix the
+whole path: the pen area needs `touch-action: none`; use pointer events with
+`setPointerCapture`; a `pointercancel` must not kill the shake silently (keep
+shaking while the pointer is down anywhere on the canvas); shake intensity
+ramps over ~1s of hold and the rattle loop + cup animation + haptic pulse run
+CONTINUOUSLY until release. Verify with Chrome touch emulation (mobile preset)
+AND document what was verified.
+
+**3. Device-motion shake (PRD §7.3, decision D3) was never implemented — build
+it.** Opt-in toggle in settings (hidden where unsupported); on grant, listen to
+devicemotion; maintain an EMA of acceleration magnitude (minus gravity);
+magnitude drives the SAME shake intensity/animation/audio as touch-hold
+(continuous!); a sustained shake (≥400ms above threshold) followed by a drop
+below threshold triggers the throw; debounce ≥1.5s between throws so one
+enthusiastic shake is one toss. Must coexist with touch-hold. TESTABLE without
+hardware: dispatch synthetic DeviceMotionEvent objects on window from the
+console/test page and verify intensity, animation, throw trigger, and debounce;
+add dev/shake-test.html doing exactly that with pass/fail readouts.
 
 ## Character & expressions (owner direction for the juice phase)
 
@@ -1046,7 +1108,8 @@ The contract:
   one glyph sit in a gold headline, a dim quiet control and a pink primary button
   without a second copy of it.
 - the set: `pig toss bank refresh book trophy sound muted oinker sun plus people
-  forward`. **`toss` is a pig on a dashed flight arc** - the dice are gone, they were
+  forward medal close`. `medal` is drawn ONCE and tinted per podium place
+  (`.marker.p1/.p2/.p3`), which is how three emoji collapse into one glyph. **`toss` is a pig on a dashed flight arc** - the dice are gone, they were
   the wrong object. `pig` is the app's mark and the scoreboard's current-player marker.
   `oinker` is a struck alert star, used by both failure tones' cards.
 - every glyph is checked at **19 px, 26 px and 96 px** in one contact strip before it

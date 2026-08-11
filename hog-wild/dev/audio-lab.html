@@ -414,7 +414,10 @@ async function selfTest() {
   logEl.innerHTML = '';
   const c = await unlock();
   if (!c) { log('no AudioContext — abort', 'err'); running = false; return; }
-  if (fx.isMuted()) { fx.setMuted(false); log('unmuted for the test run'); }
+  if (fx.isMuted()) {
+    if (new URLSearchParams(location.search).has('audible')) { fx.setMuted(false); log('unmuted for the test run (?audible)'); }
+    else { log('MUTED (owner request) — add ?audible=1 to the URL to hear sounds; meter stays silent while muted'); }
+  }
 
   for (const [name, fn, ms, silentOk] of SUITE) {
     fn();

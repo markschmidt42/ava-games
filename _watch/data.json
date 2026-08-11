@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-11T11:55:18.015Z",
+ "generatedAt": "2026-08-11T15:26:17.454Z",
  "plan": [
   {
    "wf": "WF-A · Foundation",
@@ -165,7 +165,12 @@
       "aab42639dbc467816",
       "ac0d58cff0e1c2801",
       "ac45084e568020cf8",
-      "ae07e0defab41f97a"
+      "ae07e0defab41f97a",
+      "a08c83745465088ba",
+      "a0f68e237e725c9b4",
+      "a4b32d87d5922ceba",
+      "a8a9a9cffad753096",
+      "ae41a12d80ac61ed4"
      ]
     },
     {
@@ -188,8 +193,46 @@
       "round-2 critic ledger",
       "round-3 critic ledger"
      ],
-     "status": "pending",
-     "agentIds": []
+     "status": "running",
+     "agentIds": [
+      "a08c83745465088ba",
+      "a0f68e237e725c9b4",
+      "a4b32d87d5922ceba",
+      "a8a9a9cffad753096",
+      "abb27b212d662ecb1",
+      "ae41a12d80ac61ed4"
+     ]
+    }
+   ]
+  },
+  {
+   "wf": "WF-S · Shake overhaul (owner must-fix)",
+   "items": [
+    {
+     "key": "shake",
+     "label": "Cup rattle + continuous touch + device-motion",
+     "match": [
+      "Shake interaction"
+     ],
+     "status": "running",
+     "agentIds": [
+      "a209aed8fd27e4736",
+      "add7b6a432bd90f76",
+      "af808d97e5e1c09f7"
+     ]
+    },
+    {
+     "key": "shakeqa",
+     "label": "Adversarial shake verification",
+     "match": [
+      "adversarially verify the shake"
+     ],
+     "status": "running",
+     "agentIds": [
+      "ad43a9853614c21f8",
+      "add7b6a432bd90f76",
+      "af808d97e5e1c09f7"
+     ]
     }
    ]
   },
@@ -2741,17 +2784,9 @@
    "model": "opus",
    "done": false,
    "firstTs": "2026-08-11T11:00:11.841Z",
-   "lastTs": "2026-08-11T11:55:10.694Z",
+   "lastTs": "2026-08-11T12:05:45.124Z",
    "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nMISSION: clear the ENTIRE surviving critic ledger. Read the issue list at /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/round3-issues.json (JSON; 11 must-fix + 3 should-fix, each with measured evidence). These have survived three rounds — they are real. Work them ALL, root causes not patches:\n- Reveal camera: must actually deliver the character shot (SPEC: 20-33px of eye) and never crop a revealed pig; re-derive the reveal rig from projected pig bounds + result-card safe area.\n- Chips/text layering: settled chips must never stack on the result card or point at off-frame pigs; define one layering policy and enforce it.\n- Particles: fix the soap-bubble look (blending/color/size against the felt — normal blending with warm opaque debris usually beats additive on green).\n- Board: zone luminance hierarchy must read green > rough > fringe with a soft outer falloff (fix material/light values, re-measure via readPixels like the critic did).\n- Pig: resculpt the slab (rounded barrel back, neck/cheek mass, break the bevel), add baked AO (vertex AO is fine), fix the ear reading as a hole, raise mouth/blush into the visible face region, keep the verified eye.\n- Replace UI emoji with drawn inline-SVG iconography (consistent stroke, the game's palette).\n- The 3 should-fixes too (reveal timing sync, result-card copy tightening, failure-card differentiation).\nVerify each fix the way the critic did — screenshots + readPixels measurements in your own tab, pig-viewer for the model work. All suites green. Return per-issue status with your measurements.",
    "says": [
-    {
-     "ts": "2026-08-11T11:36:04.016Z",
-     "text": "Now wire `arrive` through the reveal state machine:"
-    },
-    {
-     "ts": "2026-08-11T11:37:08.517Z",
-     "text": "Now let me check the whole thing in the browser — icons, card timing, failure card:"
-    },
     {
      "ts": "2026-08-11T11:40:32.511Z",
      "text": "Now let me run a full toss in the browser and verify the new card timing plus the icons in play:"
@@ -2767,58 +2802,66 @@
     {
      "ts": "2026-08-11T11:49:44.024Z",
      "text": "All four suites and grounding are green. Now the framing batch across outcomes:"
+    },
+    {
+     "ts": "2026-08-11T11:58:43.729Z",
+     "text": "Now let me verify the pig model across all six rest poses in the viewer:"
+    },
+    {
+     "ts": "2026-08-11T12:05:45.124Z",
+     "text": "All work is verified and the tabs are closed. Final state:\n\n## Per-issue status (all measured in my own tab; suites green)\n\n**Gates:** `odds-test` PASS · `collider-test` M0 gate PASS · `search-test` M1 gate PASS · `replay-test` Replay gate PASS · `grounding.mjs` PASS, worst |minY| **3.4 mm** (was 5.4).\n\n### Must-fix (11/11)\n\n1. **Reveal framing.** Two *surviving* root causes found and fixed, both "
     }
    ],
    "tools": [
     {
-     "ts": "2026-08-11T11:50:31.227Z",
-     "name": "mcp__Claude_Browser__resize_window",
-     "detail": ""
-    },
-    {
-     "ts": "2026-08-11T11:50:39.273Z",
-     "name": "mcp__Claude_Browser__javascript_tool",
-     "detail": ""
-    },
-    {
-     "ts": "2026-08-11T11:51:29.219Z",
-     "name": "mcp__Claude_Browser__javascript_tool",
-     "detail": ""
-    },
-    {
-     "ts": "2026-08-11T11:52:08.979Z",
-     "name": "Read",
-     "detail": "hog-wild/game.js"
-    },
-    {
-     "ts": "2026-08-11T11:52:15.506Z",
-     "name": "Read",
-     "detail": "hog-wild/game.js"
-    },
-    {
-     "ts": "2026-08-11T11:53:04.598Z",
+     "ts": "2026-08-11T12:03:11.071Z",
      "name": "Bash",
-     "detail": "cd /Users/mschmidt/source/ava-games/hog-wild && python3 - <<'PY'\ns=open('game.js').read()\n\n# 1. split arcTo in"
+     "detail": "cd /Users/mschmidt/source/ava-games/hog-wild && python3 - <<'PY'\ns=open('SPEC.md').read()\na = \"\"\"- the set: `p"
     },
     {
-     "ts": "2026-08-11T11:53:43.254Z",
+     "ts": "2026-08-11T12:03:19.082Z",
      "name": "Bash",
-     "detail": "cd /Users/mschmidt/source/ava-games/hog-wild && python3 - <<'PY'\ns=open('game.js').read()\na = \"\"\"  driftChecks"
+     "detail": "tail -20 /tmp/c.txt"
     },
     {
-     "ts": "2026-08-11T11:53:51.425Z",
+     "ts": "2026-08-11T12:03:26.830Z",
+     "name": "Bash",
+     "detail": "node hog-wild/dev/collider-test.mjs 2>&1 | tail -6"
+    },
+    {
+     "ts": "2026-08-11T12:03:48.121Z",
      "name": "mcp__Claude_Browser__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T11:54:03.510Z",
+     "ts": "2026-08-11T12:03:56.145Z",
+     "name": "mcp__Claude_Browser__read_console_messages",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:04:02.816Z",
      "name": "mcp__Claude_Browser__javascript_tool",
      "detail": ""
     },
     {
-     "ts": "2026-08-11T11:54:59.713Z",
-     "name": "mcp__Claude_Browser__javascript_tool",
+     "ts": "2026-08-11T12:04:11.181Z",
+     "name": "mcp__Claude_Browser__read_console_messages",
      "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:04:16.102Z",
+     "name": "mcp__Claude_Browser__tabs_close",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:04:20.975Z",
+     "name": "mcp__Claude_Browser__tabs_close",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:04:29.843Z",
+     "name": "Bash",
+     "detail": "git status --short | cat && echo \"--- files touched by me ---\" && git diff --stat HEAD -- hog-wild | cat"
     }
    ],
    "files": [
@@ -2843,10 +2886,10 @@
     [
      "odds-test.mjs",
      {
-      "cmd": "(node hog-wild/dev/odds-test.mjs >/tmp/o.txt 2>&1; echo \"odds:$?\") & (cd /Users/mschmidt/source/ava-games && node hog-wild/dev/collider-test.mjs >/tmp/c.txt 2>&",
-      "ts": "2026-08-11T11:49:38.477Z",
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && python3 - <<'PY'\ns=open('SPEC.md').read()\na = \"\"\"- the set: `pig toss bank refresh book trophy sound muted oinke",
+      "ts": "2026-08-11T12:03:14.716Z",
       "ok": true,
-      "out": "odds:0\nreplay:0\nsearch:0\ncollider:0\npose            minY(mm)   lowest vertex (COM frame)\nside-blank        -0.9    [-0.222,-0.325,-0.299]\nside-dot            -3    [0.27,-0.32,-0.299]\nrazorback          0.9    [-0.001,0.276,-0.126]\ntrotter           -1.8    [0.18,-0.376,0.113]\nsnouter           -3.4    [-0.001,-0.13,0.52]\njowler            -2.6    [0.078,-0.103,0.512]\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)"
+      "out": "ok\ncollider:1\nodds:0\nreplay:0\nsearch:0\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\nReplay gate: PASS"
      }
     ],
     [
@@ -2866,10 +2909,899 @@
       "ok": true,
       "out": "760: * pushed UPWARD by SNOUT_RISE at the same time: the lower front rim of the\n783: * `SNOUT_SHRINK` scales every ring, and `SNOUT_DROP` is DERIVED from it rather\n799:const SNOUT_DROP = SNOUT_R_MAX * 0.985 * (1 - SNOUT_SHRINK);\n821:        SN_C[0] + SN_AXIS[0] * s - SN_EY[0] * SNOUT_DROP,\n822:        SN_C[1] + SN_AXIS[1] * s - SN_EY[1] * SNOUT_DROP,\n823:        SN_C[2] + SN_AXIS[2] * s - SN_EY[2] * SNOUT_DROP,\n833:  SN_C[0] + SN_AXIS[0] * SN_TIP - SN_EY[0] * SNOUT_DROP,\n834:  SN_C[1] + SN_AXIS[1] * SN_TIP - SN_EY[1] * SNOUT_DROP,\n835:  SN_C[2] + SN_AXIS[2] * SN_TIP - SN_EY[2] * SNOUT_DROP,\npose            minY(mm)   lowest vertex (COM frame)\nside-blank        -0.9    [-0.222,-0.325,-0.299]\nside-dot            -3    [0.27,-0.32,-0.299]\nrazorback          0.9    [-0.001,0.276,-0.126]\ntrotter           -1.8    [0.18,-0.376,0.113]\nsnouter           -3.4    [-0.001,-0.13,0.52]\njowler            -2.6    [0.078,-0.103,0.512]\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)"
      }
+    ],
+    [
+     "collider-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/collider-test.mjs 2>&1 | tail -6",
+      "ts": "2026-08-11T12:03:39.633Z",
+      "ok": true,
+      "out": "(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n=============================================================================="
+     }
     ]
    ],
-   "toolCount": 207,
-   "screenshots": 17
+   "toolCount": 246,
+   "screenshots": 23
+  },
+  {
+   "id": "a08c83745465088ba",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T12:05:54.164Z",
+   "lastTs": "2026-08-11T12:36:47.733Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nYou are the HARSH game-feel critic (lead artist; bar = polished stylized 3D mobile game, Monument Valley / Nintendo charm — NOT photorealism). Continuation round 1/4. Prior scores ran 4→5→5; a dedicated fixer has since worked the full surviving ledger.\n\nANTI-GOALPOST RULES — these bind your score:\n1. First VERIFY every item in the ledger below, with measurements (readPixels, projected sizes, screenshots), and report each as fixed/partial/not-fixed in ledgerVerification.\n2. If ALL prior must-fix items verify as fixed and you find no NEW must-fix-grade regressions, your score MUST be ≥ 8. A new must-fix must be something that would visibly embarrass this build next to a polished stylized mobile game — not a preference, not a nice-to-have promoted.\n3. Score 9+ AND wowed=true when the build genuinely delights: charming readable pig characters, a reveal that celebrates, coherent art direction, no jank.\nLedger to verify:\nInitial ledger: the 14 items in /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/round3-issues.json (read it).\n\nReview in YOUR OWN tab: fresh game, ≥6 tosses (screenshot mid-tumble, settle, per-pig calls, the full reveal for a scoring round AND a failure), pig-viewer face zoom + all 8 expressions, audio-lab spot check (console-clean), board readability, UI pass. Close your tab. Return JSON per schema.",
+   "says": [
+    {
+     "ts": "2026-08-11T12:22:58.768Z",
+     "text": "The zoom crop isn't supported here. Let me pull the captured Oinker frame out of the page and view it as a file."
+    },
+    {
+     "ts": "2026-08-11T12:23:12.562Z",
+     "text": "That route is too costly. Let me measure the particle systems numerically from the live scene instead — the same way the round-3 review diagnosed them."
+    },
+    {
+     "ts": "2026-08-11T12:24:56.680Z",
+     "text": "Let me measure the rendered pixels at the actual spark positions — additive gold over green felt can wash out."
+    },
+    {
+     "ts": "2026-08-11T12:25:41.941Z",
+     "text": "Let me capture tight crops so I can actually look at these — small enough to be cheap."
+    },
+    {
+     "ts": "2026-08-11T12:32:30.213Z",
+     "text": "API Error: an image in the conversation could not be processed and was removed. Re-read the file with a different approach if you still need it."
+    },
+    {
+     "ts": "2026-08-11T12:33:34.687Z",
+     "text": "The celebration peak washes the hero pig toward white. Let me quantify how severe and how long that lasts."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T12:25:46.579Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:25:55.887Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:26:15.597Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:32:15.157Z",
+     "name": "Bash",
+     "detail": "Decode the cheer crop to a JPEG"
+    },
+    {
+     "ts": "2026-08-11T12:32:25.547Z",
+     "name": "Read",
+     "detail": "/private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/shots/cheer.jpg"
+    },
+    {
+     "ts": "2026-08-11T12:32:32.957Z",
+     "name": "Bash",
+     "detail": "Convert to PNG"
+    },
+    {
+     "ts": "2026-08-11T12:32:41.976Z",
+     "name": "Bash",
+     "detail": "Inspect and upscale with PIL"
+    },
+    {
+     "ts": "2026-08-11T12:33:04.042Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:33:14.902Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T12:33:42.147Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "odds-test.mjs",
+     {
+      "cmd": "(node hog-wild/dev/odds-test.mjs 2>&1 | tail -6; echo \"=== ODDS exit: $? ===\"; node hog-wild/dev/collider-test.mjs 2>&1 | tail -20; echo \"=== COLLIDER exit: $? ",
+      "ts": "2026-08-11T12:06:26.663Z",
+      "ok": true,
+      "out": "╠════════════════════════════════════════════════════════════════╣\n║ Points per toss     4.71      4.70   +  0.01 pp   ✓ PASS   ║\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\n=== ODDS exit: 0 ===\n  side-dot     16.0       0%    2.90       1%     1.44     33/ 33/ 34\n  razorback    15.5      -3%    2.85      -1%     1.45     34/ 32/ 33\n  trotter      16.6       4%    2.84      -2%     1.45     31/ 35/ 34\n  snouter      16.6       4%    2.86      -1%     1.47     25/ 39/ 35\n  jowler       13.0     -19%    2.62      -9%     1.52     59/ 29/ 12\n\nsearch cost per pose (targeted tosses, so this is the M1 budget):\npose          hits        rate    sims per hit   ms per hit\n  side-blank   343/1000     34.30%             ~3         ~3ms\n  side-dot     278/1000     27.80%             ~4         ~3ms\n  razorback    230/1000     23.00%             ~5         ~4ms\n  trotter      110/1000     11.00%            ~10         ~8ms\n  snouter       32/1000      3.20%            ~32        ~29ms\n  jowler        11/1000      1.10%            ~91        ~84ms\n(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\n=== COLLIDER exit: 0 ==="
+     }
+    ],
+    [
+     "search-test.mjs",
+     {
+      "cmd": "(node hog-wild/dev/search-test.mjs 2>&1 | tail -14; echo \"=== SEARCH exit: $? ===\"; node hog-wild/dev/replay-test.mjs 2>&1 | tail -12; echo \"=== REPLAY exit: $?",
+      "ts": "2026-08-11T12:06:38.857Z",
+      "ok": true,
+      "out": "  side-dot       15.00%         6.7         3         7         7      18 sims\n  razorback      23.08%         4.3         2         3         3       8 sims\n  trotter        12.24%         8.2         4         8         8      17 sims\n  snouter         1.37%        72.8        33        79        82     170 sims\n  jowler          3.92%        25.5        11        35        41      88 sims\n  oinker                        9.7        42        46        46      11 sims\n\njowler (the rarest, so the expensive one): 11ms average, budget 400ms\nslowest pose: snouter at 33ms average — the shake covers it,\nand the idle prefill means the common case is a pool hit costing nothing at all.\n\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\n=== SEARCH exit: 0 ===\n7. SCORING PIPELINE  (drawn outcome → scoreToss → turn arithmetic)\n------------------------------------------------------------------------------\n  20k tosses: 2379 banks, 4269 pig outs, 92 oinkers, final score 650\n  ✓ turn/score arithmetic stays an integer and grows\n  ✓ a Sider is 1 point even though each side pig is worth 0\n  ✓ double jowler is 60\n  ✓ razorback + side is 5\n\ncache stats: {\"searched\":60,\"mirrored\":8,\"hits\":23,\"misses\":154,\"fallbacks\":0,\"sims\":763}\n==============================================================================\nReplay gate: PASS\n==============================================================================\n=== REPLAY exit: 0 ==="
+     }
+    ]
+   ],
+   "toolCount": 105,
+   "screenshots": 7
+  },
+  {
+   "id": "a8a9a9cffad753096",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T12:36:47.734Z",
+   "lastTs": "2026-08-11T12:46:11.515Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nYou are the HARSH game-feel critic (lead artist; bar = polished stylized 3D mobile game, Monument Valley / Nintendo charm — NOT photorealism). Continuation round 1/4. Prior scores ran 4→5→5; a dedicated fixer has since worked the full surviving ledger.\n\nANTI-GOALPOST RULES — these bind your score:\n1. First VERIFY every item in the ledger below, with measurements (readPixels, projected sizes, screenshots), and report each as fixed/partial/not-fixed in ledgerVerification.\n2. If ALL prior must-fix items verify as fixed and you find no NEW must-fix-grade regressions, your score MUST be ≥ 8. A new must-fix must be something that would visibly embarrass this build next to a polished stylized mobile game — not a preference, not a nice-to-have promoted.\n3. Score 9+ AND wowed=true when the build genuinely delights: charming readable pig characters, a reveal that celebrates, coherent art direction, no jank.\nLedger to verify:\nInitial ledger: the 14 items in /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/round3-issues.json (read it).\n\nReview in YOUR OWN tab: fresh game, ≥6 tosses (screenshot mid-tumble, settle, per-pig calls, the full reveal for a scoring round AND a failure), pig-viewer face zoom + all 8 expressions, audio-lab spot check (console-clean), board readability, UI pass. Close your tab. Return JSON per schema.",
+   "says": [],
+   "tools": [],
+   "files": [],
+   "tests": [],
+   "toolCount": 0,
+   "screenshots": 0
+  },
+  {
+   "id": "a4b32d87d5922ceba",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T12:46:11.517Z",
+   "lastTs": "2026-08-11T13:34:50.250Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nYou are the HARSH game-feel critic (lead artist; bar = polished stylized 3D mobile game, Monument Valley / Nintendo charm — NOT photorealism). Continuation round 1/4. Prior scores ran 4→5→5; a dedicated fixer has since worked the full surviving ledger.\n\nANTI-GOALPOST RULES — these bind your score:\n1. First VERIFY every item in the ledger below, with measurements (readPixels, projected sizes, screenshots), and report each as fixed/partial/not-fixed in ledgerVerification.\n2. If ALL prior must-fix items verify as fixed and you find no NEW must-fix-grade regressions, your score MUST be ≥ 8. A new must-fix must be something that would visibly embarrass this build next to a polished stylized mobile game — not a preference, not a nice-to-have promoted.\n3. Score 9+ AND wowed=true when the build genuinely delights: charming readable pig characters, a reveal that celebrates, coherent art direction, no jank.\nLedger to verify:\nInitial ledger: the 14 items in /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/round3-issues.json (read it).\n\nReview in YOUR OWN tab: fresh game, ≥6 tosses (screenshot mid-tumble, settle, per-pig calls, the full reveal for a scoring round AND a failure), pig-viewer face zoom + all 8 expressions, audio-lab spot check (console-clean), board readability, UI pass. Close your tab. Return JSON per schema.",
+   "says": [
+    {
+     "ts": "2026-08-11T13:29:15.452Z",
+     "text": "This may be my harness, not the game — rAF never fires in this hidden tab, so `applyAll()` never runs. Let me test with the loop actually running."
+    },
+    {
+     "ts": "2026-08-11T13:29:56.406Z",
+     "text": "That was my harness (no rAF → meshes at origin). With the loop running the solve is correct. Let me now pin the one *real* finding from my sweep: wide `needBoth` Pig Outs."
+    },
+    {
+     "ts": "2026-08-11T13:30:38.316Z",
+     "text": "No defect — all apparent failures were my starved harness. Let me take one final live-loop reveal screenshot to confirm what a player sees."
+    },
+    {
+     "ts": "2026-08-11T13:31:57.922Z",
+     "text": "Verification complete. Let me clean up and close my tab."
+    },
+    {
+     "ts": "2026-08-11T13:32:25.378Z",
+     "text": "The working tree changed mid-review (fx.js, pig.js, a new shake-test.html). Let me re-run all gates against the current tree."
+    },
+    {
+     "ts": "2026-08-11T13:33:01.138Z",
+     "text": "All five gates green against the current tree; I modified no files. Writing up."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T13:30:15.166Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:30:24.031Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:30:41.289Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:30:52.871Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:31:58.932Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:32:07.136Z",
+     "name": "mcp__Claude_Browser__tabs_close",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:32:13.097Z",
+     "name": "Bash",
+     "detail": "Confirm no files modified and gates green"
+    },
+    {
+     "ts": "2026-08-11T13:32:26.973Z",
+     "name": "Bash",
+     "detail": "Re-run odds and replay gates"
+    },
+    {
+     "ts": "2026-08-11T13:32:38.150Z",
+     "name": "Bash",
+     "detail": "Re-run collider, search, grounding gates"
+    },
+    {
+     "ts": "2026-08-11T13:34:50.117Z",
+     "name": "StructuredOutput",
+     "detail": ""
+    }
+   ],
+   "files": [
+    [
+     "/private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/probe.js",
+     1
+    ]
+   ],
+   "tests": [
+    [
+     "odds-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/odds-test.mjs 2>&1 | tail -3; echo \"ODDS=$?\"; node hog-wild/dev/replay-test.mjs 2>&1 | tail -2; echo \"REPLAY=$?\"",
+      "ts": "2026-08-11T13:32:31.489Z",
+      "ok": true,
+      "out": "Overall result: ✓ ALL TESTS PASSED\n\nODDS=0\nReplay gate: PASS\n==============================================================================\nREPLAY=0"
+     }
+    ],
+    [
+     "collider-test.mjs",
+     {
+      "cmd": "(node hog-wild/dev/collider-test.mjs 2>&1 | tail -3; echo \"COLLIDER=$?\") ; (node hog-wild/dev/search-test.mjs 2>&1 | tail -3; echo \"SEARCH=$?\"); (cd hog-wild &&",
+      "ts": "2026-08-11T13:32:51.928Z",
+      "ok": true,
+      "out": "==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\nCOLLIDER=0\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\nSEARCH=0\n\nworst |minY| = 3.4 mm — PASS (band ±6 mm)\nGROUNDING=0"
+     }
+    ]
+   ],
+   "toolCount": 194,
+   "screenshots": 22
+  },
+  {
+   "id": "a209aed8fd27e4736",
+   "wf": "wf_4bbb7411-bf9",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T12:49:39.046Z",
+   "lastTs": "2026-08-11T14:00:29.446Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md — especially the section \"Shake interaction (owner must-fixes, 2026-08-11, mobile-tested by owner)\" which is your mission contract, plus \"Presentation model\".\nThe four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) are GREEN and must stay green. node --check every JS file you edit.\nBROWSER RULE: create your OWN tab (tabs_create), pass tabId always, close it when done. Use resize_window mobile preset for touch verification (reload after switching — mobile preset translates mouse to touch).\nDo not commit.\n\nMISSION: implement all three items of the SPEC \"Shake interaction\" section, exactly. You own game.js, fx.js, index.html, pig.js (cup/pig staging only), and new file dev/shake-test.html.\n\n1. PIGS IN THE CUP: during ready/shaking the pigs are inside the cup (hidden or staged in its interior), and while shaking they visibly rattle like crazy inside it — jitter transforms scaled by shake intensity, cup itself shakes (it may already), rattle audio synced (fx.shakeLoop exists). Angle the cup mouth toward the camera enough that the rattle is visible. On release the pigs exit the cup into the throw replay (the recordings start at the spawn points — a brief cup-to-spawn blend ≤150ms is acceptable and should look like the pour).\n2. CONTINUOUS TOUCH SHAKE: pen area touch-action:none; pointer events with setPointerCapture; pointercancel must not silently kill the shake; intensity ramps over ~1s; rattle loop + cup animation + haptic pulses run continuously until release. This is the owner's reported bug (single tick then dead) — find the actual root cause in game.js's current input path and document it in your return.\n3. DEVICE-MOTION SHAKE: exactly per SPEC — opt-in toggle (hidden where unsupported, iOS requestPermission on toggle), EMA of |accel| (gravity-compensated), drives the SAME shake pipeline, sustained ≥400ms then drop = throw, ≥1.5s debounce. Plus dev/shake-test.html: buttons that dispatch synthetic DeviceMotionEvent bursts (gentle/vigorous/short/long) at window and assert + display pass/fail for: intensity rises, animation state enters shaking, throw fires on stop, debounce blocks a second immediate throw. Give the page the devnav include like the other dev pages (script src ../../_watch/devnav.js defer).\nWire the new page into the devnav PAGES list in /Users/mschmidt/source/ava-games/_watch/devnav.js ('🤳 shake test').\nVerify EVERYTHING yourself in the browser: desktop hold-Space, desktop hold-button, mobile-preset touch hold on the pen (screenshot the rattling cup mid-shake), shake-test.html all green, all suites green, zero console errors. Return: root cause of the mobile bug, what you built, verification evidence.",
+   "says": [
+    {
+     "ts": "2026-08-11T13:42:15.950Z",
+     "text": "Now a final full re-verification in the browser after those last edits."
+    },
+    {
+     "ts": "2026-08-11T13:44:28.156Z",
+     "text": "The last run hit timer throttling in the harness (a hidden pane), which my stale-gap guard correctly reads as \"phone not moving\". Let me make the test page report that honestly instead of failing obscurely."
+    },
+    {
+     "ts": "2026-08-11T13:46:23.635Z",
+     "text": "Keeping the pane in the foreground with screenshots while the suite runs (a background tab throttles the fake sensor)."
+    },
+    {
+     "ts": "2026-08-11T13:51:16.753Z",
+     "text": "The harness's `setInterval` sensor is being throttled by the hidden pane. Let me give it a throttle-proof clock and separate the render-dependent assertions."
+    },
+    {
+     "ts": "2026-08-11T13:51:55.925Z",
+     "text": "Now split the render-dependent assertions out of check 2."
+    },
+    {
+     "ts": "2026-08-11T14:00:29.446Z",
+     "text": "## ROOT CAUSE of the mobile bug\n\n`window.addEventListener('pointercancel', cancelHold)` in game.js.\n\nA hold-to-shake gesture **is** a long press, and a long press is a gesture the platform wants for itself. Past ~500 ms Android Chrome / iOS Safari start text-selection or the callout menu and **take the pointer away with `pointercancel`** — after which no `pointerup` for that pointer ever arrives. "
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T13:55:17.337Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:55:34.759Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:55:53.291Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:56:01.484Z",
+     "name": "mcp__Claude_Browser__read_console_messages",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:56:13.921Z",
+     "name": "Bash",
+     "detail": "Review diff stat"
+    },
+    {
+     "ts": "2026-08-11T13:57:51.905Z",
+     "name": "Bash",
+     "detail": "Check game.js hunk locations"
+    },
+    {
+     "ts": "2026-08-11T13:58:14.868Z",
+     "name": "Bash",
+     "detail": "Tail of game.js hunks"
+    },
+    {
+     "ts": "2026-08-11T13:58:34.744Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:58:52.751Z",
+     "name": "mcp__Claude_Browser__tabs_close",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:59:29.255Z",
+     "name": "Bash",
+     "detail": "Final syntax check"
+    }
+   ],
+   "files": [
+    [
+     "hog-wild/fx.js",
+     3
+    ],
+    [
+     "hog-wild/pig.js",
+     3
+    ],
+    [
+     "hog-wild/game.js",
+     32
+    ],
+    [
+     "hog-wild/index.html",
+     5
+    ],
+    [
+     "_watch/devnav.js",
+     1
+    ],
+    [
+     "hog-wild/dev/shake-test.html",
+     14
+    ]
+   ],
+   "tests": [
+    [
+     "f.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && node --check game.js && node --check fx.js && node --check pig.js && echo \"SYNTAX OK\" && for f in odds-test coll",
+      "ts": "2026-08-11T13:42:11.582Z",
+      "ok": true,
+      "out": "SYNTAX OK\nodds-test        ALL TESTS PASSED\ncollider-test    PASS\nsearch-test      PASS\nreplay-test      PASS"
+     }
+    ]
+   ],
+   "toolCount": 280,
+   "screenshots": 19
+  },
+  {
+   "id": "abb27b212d662ecb1",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T13:35:03.130Z",
+   "lastTs": "2026-08-11T13:43:45.934Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nMISSION: fix everything in this round-1 critic ledger (carryover items that did not verify + new issues), root causes first, with the critic's own measurement methods as your verification. Ledger JSON:\n{\"carryover\":[{\"item\":\"should-fix: cup / anticipation — party cup, no visible lift, text layer never acknowledges the hold\",\"status\":\"partial\",\"evidence\":\"Lift fixed and measured: cupY oscillates 1.01–1.09m through the hold with pig positions jittering ~140mm inside, the contact patch fades 0.33–0.36 as the map shadow releases, and release tips the cup toward the board before it walks home. Not fixed: still an untextured bright-pink plastic party cup with no grip and no hand or arm, and the card text stays 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold.\"},{\"item\":\"should-fix: setup screen is a generic dark settings form with no 3D, pigs or logotype\",\"status\":\"not-fixed\",\"evidence\":\"H1 still system stack, 800 weight, 36.8px, letter-spacing normal — identical to round 3 — with no logotype. No canvas on the screen (setup3d false), no pigs. Panels still rgb(30,58,46) = #1e3a2e on --bg-1 #14231c; inputs still darker than their panel. 'Custom target score' still permanently visible beside the three presets. 253 of 900 viewport px (28%) empty below the last panel.\"},{\"item\":\"should-fix: layout / desktop empty-space balance\",\"status\":\"not-fixed\",\"evidence\":\"MEASURED at 1280x860: header banner 864px wide, player name box ends at x349, 'THIS TURN' block starts at x1011 — 662px of empty space between them. Scoreboard 300x702 with row heights 21+83+43 = 147px of content, leaving 555px of empty panel. Round 3 measured ~700px and ~560px.\"},{\"item\":\"should-fix: layout / portrait header pill wraps 'NOW TOSSING' and crams the turn score beside it\",\"status\":\"partial\",\"evidence\":\"Weight hierarchy fixed: turn score is 27.2px at 800 weight against a 17.6px player name, and is no longer smaller than desktop. Wrap not fixed: `.turn-label` 'Now tossing' measures 78x27px at font-size 11.52px (two lines) against its sibling 'This turn' at 14px, inside the same 195px pill alongside the score.\"},{\"item\":\"should-fix: UI / discoverability — three unlabelled emoji icon buttons in portrait\",\"status\":\"partial\",\"evidence\":\"They are custom SVG glyphs now, not emoji, and all three expose accessible names (aria-label 'How to play', 'Scoreboard', 'Mute sound'). But there is still no visible text, badge or tooltip, so a sighted first-time player cannot tell the trophy opens the scoreboard, and desktop still renders only 2 of the 3 (scoreboardToggle is hidden), so the set remains inconsistent across breakpoints.\"},{\"item\":\"should-fix: felt texture blotches read as stains; green tone falls 37% centre to r=2.5\",\"status\":\"partial\",\"evidence\":\"Falloff more than halved: median green luminance runs 128 at centre to 106 at r=2.4 and 109 at r=2.6 — a 17% drop against round 3's measured 37% (128 to 91) — because noiseCanvas's vignette came down from 0.60 alpha to a whisper. A pig near the rim now sits on felt ~15% darker rather than 30%. The residual soft mottling reads as nap rather than mould in both breakpoints, but the centre-to-rim gradient has not been eliminated.\"}],\"newIssues\":[{\"severity\":\"should-fix\",\"area\":\"setup screen\",\"description\":\"The one surface every session opens on is untouched. MEASURED: H1 'Hog Wild' is still the system stack at 800 weight, 36.8px, default letter-spacing — the exact round-3 numbers — with no logotype and no 3D or pigs on the screen at all (only a 24px SVG glyph). --panel #1e3a2e still sits on --bg-1 #14231c, the inputs are still darker than the panel containing them, the 'Custom target score' field is still permanently visible beside the three presets instead of revealing on demand, and 253 of 900 viewport px (28%) are empty below the last panel. Everything behind this screen is now 9-grade; the door to it is still a dialog box.\"},{\"severity\":\"should-fix\",\"area\":\"layout / desktop empty space\",\"description\":\"Unchanged from round 3, and it is the frame the player stares at all game. MEASURED at 1280x860: the header banner is 864px wide with the player name ending at x349 and 'THIS TURN' starting at x1011 — 662px of nothing between them (round 3 measured ~700). The scoreboard column is 300x702 containing 147px of content (two rows plus one button), leaving 555px of empty panel (round 3 measured ~560). Two large voids in a build whose 3D is now dense and considered.\"},{\"severity\":\"should-fix\",\"area\":\"cup / anticipation\",\"description\":\"Half fixed, half untouched. The LIFT is real and measurable — cupY oscillates 1.01–1.09m during the hold with the pigs jittering inside over ~140mm, the map shadow releases per SHADOW.liftOff, and the release tips the cup toward the board before it walks home. But the cup itself is still an untextured bright-pink party cup with no grip, no diegetic identity and no hand or arm, so it shakes itself; and the text layer still never acknowledges the gesture — the card reads 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold, so the anticipation beat builds in no layer but the prop's own bounce.\"},{\"severity\":\"should-fix\",\"area\":\"build hygiene\",\"description\":\"hog-wild/index.html line 880 loads `../_watch/devnav.js`, and _watch/ is tracked in git. It renders a wrench button at page x10,y764 (38x38) over the footer in BOTH breakpoints — I have it in every full-page screenshot I took. On GitHub Pages the shipped game will carry a debug nav bar. Harmless locally, embarrassing in the live build.\"},{\"severity\":\"should-fix\",\"area\":\"layout / portrait header\",\"description\":\"Partly fixed. The turn score is now 27.2px bold against a 17.6px player name, so the 'competing at the same visual weight' and 'smaller than its desktop counterpart' clauses are answered. But the label still wraps: MEASURED, `.turn-label` 'Now tossing' is 78px wide and 27px tall at font-size 11.52px, against its sibling 'This turn' at 14px — i.e. two lines — still crammed beside the score inside the same 195px pill.\"}]}\nAll suites green. Return per-item status with measurements.",
+   "says": [
+    {
+     "ts": "2026-08-11T13:35:40.680Z",
+     "text": "I'll start by reading the SPEC and getting oriented."
+    },
+    {
+     "ts": "2026-08-11T13:43:45.934Z",
+     "text": "API Error: Connection closed mid-response. The response above may be incomplete."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T13:41:07.716Z",
+     "name": "Bash",
+     "detail": "grep -rln \"devnav\" . --exclude-dir=node_modules --exclude-dir=.git | head -20"
+    },
+    {
+     "ts": "2026-08-11T13:41:12.314Z",
+     "name": "mcp__Claude_Browser__tabs_create",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:41:15.699Z",
+     "name": "mcp__Claude_Browser__navigate",
+     "detail": "http://localhost:4173/hog-wild/"
+    },
+    {
+     "ts": "2026-08-11T13:41:24.522Z",
+     "name": "mcp__Claude_Browser__resize_window",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:41:37.257Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:41:49.272Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:41:57.555Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:42:05.591Z",
+     "name": "Bash",
+     "detail": "cd /Users/mschmidt/source/ava-games/hog-wild && sed -n '4240,4290p' game.js && grep -n \"desktopQuery\" game.js"
+    },
+    {
+     "ts": "2026-08-11T13:42:12.094Z",
+     "name": "mcp__Claude_Browser__navigate",
+     "detail": "http://localhost:4173/hog-wild/"
+    },
+    {
+     "ts": "2026-08-11T13:42:21.290Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "f.mjs",
+     {
+      "cmd": "for f in odds-test collider-test search-test replay-test; do echo \"=== $f ===\"; node hog-wild/dev/$f.mjs 2>&1 | tail -4; done",
+      "ts": "2026-08-11T13:41:02.896Z",
+      "ok": true,
+      "out": "=== odds-test ===\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\n=== collider-test ===\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\n=== search-test ===\n\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\n=== replay-test ===\ncache stats: {\"searched\":60,\"mirrored\":8,\"hits\":23,\"misses\":154,\"fallbacks\":0,\"sims\":763}\n==============================================================================\nReplay gate: PASS\n=============================================================================="
+     }
+    ]
+   ],
+   "toolCount": 32,
+   "screenshots": 0
+  },
+  {
+   "id": "a0f68e237e725c9b4",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T13:43:51.291Z",
+   "lastTs": "2026-08-11T13:59:41.565Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nYou are the HARSH game-feel critic (lead artist; bar = polished stylized 3D mobile game, Monument Valley / Nintendo charm — NOT photorealism). Continuation round 2/4. Prior scores ran 4→5→5; a dedicated fixer has since worked the full surviving ledger.\n\nANTI-GOALPOST RULES — these bind your score:\n1. First VERIFY every item in the ledger below, with measurements (readPixels, projected sizes, screenshots), and report each as fixed/partial/not-fixed in ledgerVerification.\n2. If ALL prior must-fix items verify as fixed and you find no NEW must-fix-grade regressions, your score MUST be ≥ 8. A new must-fix must be something that would visibly embarrass this build next to a polished stylized mobile game — not a preference, not a nice-to-have promoted.\n3. Score 9+ AND wowed=true when the build genuinely delights: charming readable pig characters, a reveal that celebrates, coherent art direction, no jank.\nLedger to verify:\n{\"carryover\":[{\"item\":\"should-fix: cup / anticipation — party cup, no visible lift, text layer never acknowledges the hold\",\"status\":\"partial\",\"evidence\":\"Lift fixed and measured: cupY oscillates 1.01–1.09m through the hold with pig positions jittering ~140mm inside, the contact patch fades 0.33–0.36 as the map shadow releases, and release tips the cup toward the board before it walks home. Not fixed: still an untextured bright-pink plastic party cup with no grip and no hand or arm, and the card text stays 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold.\"},{\"item\":\"should-fix: setup screen is a generic dark settings form with no 3D, pigs or logotype\",\"status\":\"not-fixed\",\"evidence\":\"H1 still system stack, 800 weight, 36.8px, letter-spacing normal — identical to round 3 — with no logotype. No canvas on the screen (setup3d false), no pigs. Panels still rgb(30,58,46) = #1e3a2e on --bg-1 #14231c; inputs still darker than their panel. 'Custom target score' still permanently visible beside the three presets. 253 of 900 viewport px (28%) empty below the last panel.\"},{\"item\":\"should-fix: layout / desktop empty-space balance\",\"status\":\"not-fixed\",\"evidence\":\"MEASURED at 1280x860: header banner 864px wide, player name box ends at x349, 'THIS TURN' block starts at x1011 — 662px of empty space between them. Scoreboard 300x702 with row heights 21+83+43 = 147px of content, leaving 555px of empty panel. Round 3 measured ~700px and ~560px.\"},{\"item\":\"should-fix: layout / portrait header pill wraps 'NOW TOSSING' and crams the turn score beside it\",\"status\":\"partial\",\"evidence\":\"Weight hierarchy fixed: turn score is 27.2px at 800 weight against a 17.6px player name, and is no longer smaller than desktop. Wrap not fixed: `.turn-label` 'Now tossing' measures 78x27px at font-size 11.52px (two lines) against its sibling 'This turn' at 14px, inside the same 195px pill alongside the score.\"},{\"item\":\"should-fix: UI / discoverability — three unlabelled emoji icon buttons in portrait\",\"status\":\"partial\",\"evidence\":\"They are custom SVG glyphs now, not emoji, and all three expose accessible names (aria-label 'How to play', 'Scoreboard', 'Mute sound'). But there is still no visible text, badge or tooltip, so a sighted first-time player cannot tell the trophy opens the scoreboard, and desktop still renders only 2 of the 3 (scoreboardToggle is hidden), so the set remains inconsistent across breakpoints.\"},{\"item\":\"should-fix: felt texture blotches read as stains; green tone falls 37% centre to r=2.5\",\"status\":\"partial\",\"evidence\":\"Falloff more than halved: median green luminance runs 128 at centre to 106 at r=2.4 and 109 at r=2.6 — a 17% drop against round 3's measured 37% (128 to 91) — because noiseCanvas's vignette came down from 0.60 alpha to a whisper. A pig near the rim now sits on felt ~15% darker rather than 30%. The residual soft mottling reads as nap rather than mould in both breakpoints, but the centre-to-rim gradient has not been eliminated.\"}],\"newIssues\":[{\"severity\":\"should-fix\",\"area\":\"setup screen\",\"description\":\"The one surface every session opens on is untouched. MEASURED: H1 'Hog Wild' is still the system stack at 800 weight, 36.8px, default letter-spacing — the exact round-3 numbers — with no logotype and no 3D or pigs on the screen at all (only a 24px SVG glyph). --panel #1e3a2e still sits on --bg-1 #14231c, the inputs are still darker than the panel containing them, the 'Custom target score' field is still permanently visible beside the three presets instead of revealing on demand, and 253 of 900 viewport px (28%) are empty below the last panel. Everything behind this screen is now 9-grade; the door to it is still a dialog box.\"},{\"severity\":\"should-fix\",\"area\":\"layout / desktop empty space\",\"description\":\"Unchanged from round 3, and it is the frame the player stares at all game. MEASURED at 1280x860: the header banner is 864px wide with the player name ending at x349 and 'THIS TURN' starting at x1011 — 662px of nothing between them (round 3 measured ~700). The scoreboard column is 300x702 containing 147px of content (two rows plus one button), leaving 555px of empty panel (round 3 measured ~560). Two large voids in a build whose 3D is now dense and considered.\"},{\"severity\":\"should-fix\",\"area\":\"cup / anticipation\",\"description\":\"Half fixed, half untouched. The LIFT is real and measurable — cupY oscillates 1.01–1.09m during the hold with the pigs jittering inside over ~140mm, the map shadow releases per SHADOW.liftOff, and the release tips the cup toward the board before it walks home. But the cup itself is still an untextured bright-pink party cup with no grip, no diegetic identity and no hand or arm, so it shakes itself; and the text layer still never acknowledges the gesture — the card reads 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold, so the anticipation beat builds in no layer but the prop's own bounce.\"},{\"severity\":\"should-fix\",\"area\":\"build hygiene\",\"description\":\"hog-wild/index.html line 880 loads `../_watch/devnav.js`, and _watch/ is tracked in git. It renders a wrench button at page x10,y764 (38x38) over the footer in BOTH breakpoints — I have it in every full-page screenshot I took. On GitHub Pages the shipped game will carry a debug nav bar. Harmless locally, embarrassing in the live build.\"},{\"severity\":\"should-fix\",\"area\":\"layout / portrait header\",\"description\":\"Partly fixed. The turn score is now 27.2px bold against a 17.6px player name, so the 'competing at the same visual weight' and 'smaller than its desktop counterpart' clauses are answered. But the label still wraps: MEASURED, `.turn-label` 'Now tossing' is 78px wide and 27px tall at font-size 11.52px, against its sibling 'This turn' at 14px — i.e. two lines — still crammed beside the score inside the same 195px pill.\"}]}\n\nReview in YOUR OWN tab: fresh game, ≥6 tosses (screenshot mid-tumble, settle, per-pig calls, the full reveal for a scoring round AND a failure), pig-viewer face zoom + all 8 expressions, audio-lab spot check (console-clean), board readability, UI pass. Close your tab. Return JSON per schema.",
+   "says": [
+    {
+     "ts": "2026-08-11T13:44:28.489Z",
+     "text": "Two gates green. Let me run the other two while I open my tab."
+    },
+    {
+     "ts": "2026-08-11T13:45:05.726Z",
+     "text": "All four gates green. Now the build-hygiene ledger item, statically."
+    },
+    {
+     "ts": "2026-08-11T13:45:55.590Z",
+     "text": "The setup screen looks unchanged. Let me measure it precisely."
+    },
+    {
+     "ts": "2026-08-11T13:46:46.099Z",
+     "text": "Window resize is clamped in this environment (viewport stays 1728×963). I'll measure at native size, and use a same-origin iframe to get exact 1280×860 and 375×812 viewports."
+    },
+    {
+     "ts": "2026-08-11T13:50:43.024Z",
+     "text": "I'll install a frame-accurate canvas capture hook so I can measure real pixels."
+    },
+    {
+     "ts": "2026-08-11T13:52:07.159Z",
+     "text": "Capture returns an empty buffer while idle. Let me rebuild the frame with `preserveDrawingBuffer` forced on."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T13:52:24.058Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:52:34.971Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:52:44.888Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:52:54.512Z",
+     "name": "mcp__claude-in-chrome__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:53:05.904Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:54:28.817Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:54:58.087Z",
+     "name": "Bash",
+     "detail": "Check game.js exports"
+    },
+    {
+     "ts": "2026-08-11T13:55:24.678Z",
+     "name": "Bash",
+     "detail": "Read applyFraming"
+    },
+    {
+     "ts": "2026-08-11T13:55:50.627Z",
+     "name": "mcp__claude-in-chrome__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T13:56:41.160Z",
+     "name": "Bash",
+     "detail": "Find keyboard handlers"
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "odds-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/odds-test.mjs 2>&1 | tail -6; echo \"=== ODDS EXIT $? ===\"; node hog-wild/dev/collider-test.mjs 2>&1 | tail -12; echo \"=== COLLIDER EXIT $? ===",
+      "ts": "2026-08-11T13:44:24.743Z",
+      "ok": true,
+      "out": "╠════════════════════════════════════════════════════════════════╣\n║ Points per toss     4.72      4.70   +  0.02 pp   ✓ PASS   ║\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\n=== ODDS EXIT 0 ===\n  side-blank   343/1000     34.30%             ~3         ~3ms\n  side-dot     278/1000     27.80%             ~4         ~4ms\n  razorback    230/1000     23.00%             ~5         ~4ms\n  trotter      110/1000     11.00%            ~10         ~9ms\n  snouter       32/1000      3.20%            ~32        ~31ms\n  jowler        11/1000      1.10%            ~91        ~90ms\n(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\n=== COLLIDER EXIT 0 ==="
+     }
+    ],
+    [
+     "search-test.mjs",
+     {
+      "cmd": "node hog-wild/dev/search-test.mjs > /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/search.log 2>&1; ec",
+      "ts": "2026-08-11T13:44:35.870Z",
+      "ok": true,
+      "out": "Command running in background with ID: bkgncyey1. Output is being written to: /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/tasks/bkgncyey1.output. You will be notified when it completes. To check interim output, use Read on that file path."
+     }
+    ]
+   ],
+   "toolCount": 55,
+   "screenshots": 1
+  },
+  {
+   "id": "ae41a12d80ac61ed4",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T13:59:41.568Z",
+   "lastTs": "2026-08-11T14:28:00.016Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nYou are the HARSH game-feel critic (lead artist; bar = polished stylized 3D mobile game, Monument Valley / Nintendo charm — NOT photorealism). Continuation round 2/4. Prior scores ran 4→5→5; a dedicated fixer has since worked the full surviving ledger.\n\nANTI-GOALPOST RULES — these bind your score:\n1. First VERIFY every item in the ledger below, with measurements (readPixels, projected sizes, screenshots), and report each as fixed/partial/not-fixed in ledgerVerification.\n2. If ALL prior must-fix items verify as fixed and you find no NEW must-fix-grade regressions, your score MUST be ≥ 8. A new must-fix must be something that would visibly embarrass this build next to a polished stylized mobile game — not a preference, not a nice-to-have promoted.\n3. Score 9+ AND wowed=true when the build genuinely delights: charming readable pig characters, a reveal that celebrates, coherent art direction, no jank.\nLedger to verify:\n{\"carryover\":[{\"item\":\"should-fix: cup / anticipation — party cup, no visible lift, text layer never acknowledges the hold\",\"status\":\"partial\",\"evidence\":\"Lift fixed and measured: cupY oscillates 1.01–1.09m through the hold with pig positions jittering ~140mm inside, the contact patch fades 0.33–0.36 as the map shadow releases, and release tips the cup toward the board before it walks home. Not fixed: still an untextured bright-pink plastic party cup with no grip and no hand or arm, and the card text stays 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold.\"},{\"item\":\"should-fix: setup screen is a generic dark settings form with no 3D, pigs or logotype\",\"status\":\"not-fixed\",\"evidence\":\"H1 still system stack, 800 weight, 36.8px, letter-spacing normal — identical to round 3 — with no logotype. No canvas on the screen (setup3d false), no pigs. Panels still rgb(30,58,46) = #1e3a2e on --bg-1 #14231c; inputs still darker than their panel. 'Custom target score' still permanently visible beside the three presets. 253 of 900 viewport px (28%) empty below the last panel.\"},{\"item\":\"should-fix: layout / desktop empty-space balance\",\"status\":\"not-fixed\",\"evidence\":\"MEASURED at 1280x860: header banner 864px wide, player name box ends at x349, 'THIS TURN' block starts at x1011 — 662px of empty space between them. Scoreboard 300x702 with row heights 21+83+43 = 147px of content, leaving 555px of empty panel. Round 3 measured ~700px and ~560px.\"},{\"item\":\"should-fix: layout / portrait header pill wraps 'NOW TOSSING' and crams the turn score beside it\",\"status\":\"partial\",\"evidence\":\"Weight hierarchy fixed: turn score is 27.2px at 800 weight against a 17.6px player name, and is no longer smaller than desktop. Wrap not fixed: `.turn-label` 'Now tossing' measures 78x27px at font-size 11.52px (two lines) against its sibling 'This turn' at 14px, inside the same 195px pill alongside the score.\"},{\"item\":\"should-fix: UI / discoverability — three unlabelled emoji icon buttons in portrait\",\"status\":\"partial\",\"evidence\":\"They are custom SVG glyphs now, not emoji, and all three expose accessible names (aria-label 'How to play', 'Scoreboard', 'Mute sound'). But there is still no visible text, badge or tooltip, so a sighted first-time player cannot tell the trophy opens the scoreboard, and desktop still renders only 2 of the 3 (scoreboardToggle is hidden), so the set remains inconsistent across breakpoints.\"},{\"item\":\"should-fix: felt texture blotches read as stains; green tone falls 37% centre to r=2.5\",\"status\":\"partial\",\"evidence\":\"Falloff more than halved: median green luminance runs 128 at centre to 106 at r=2.4 and 109 at r=2.6 — a 17% drop against round 3's measured 37% (128 to 91) — because noiseCanvas's vignette came down from 0.60 alpha to a whisper. A pig near the rim now sits on felt ~15% darker rather than 30%. The residual soft mottling reads as nap rather than mould in both breakpoints, but the centre-to-rim gradient has not been eliminated.\"}],\"newIssues\":[{\"severity\":\"should-fix\",\"area\":\"setup screen\",\"description\":\"The one surface every session opens on is untouched. MEASURED: H1 'Hog Wild' is still the system stack at 800 weight, 36.8px, default letter-spacing — the exact round-3 numbers — with no logotype and no 3D or pigs on the screen at all (only a 24px SVG glyph). --panel #1e3a2e still sits on --bg-1 #14231c, the inputs are still darker than the panel containing them, the 'Custom target score' field is still permanently visible beside the three presets instead of revealing on demand, and 253 of 900 viewport px (28%) are empty below the last panel. Everything behind this screen is now 9-grade; the door to it is still a dialog box.\"},{\"severity\":\"should-fix\",\"area\":\"layout / desktop empty space\",\"description\":\"Unchanged from round 3, and it is the frame the player stares at all game. MEASURED at 1280x860: the header banner is 864px wide with the player name ending at x349 and 'THIS TURN' starting at x1011 — 662px of nothing between them (round 3 measured ~700). The scoreboard column is 300x702 containing 147px of content (two rows plus one button), leaving 555px of empty panel (round 3 measured ~560). Two large voids in a build whose 3D is now dense and considered.\"},{\"severity\":\"should-fix\",\"area\":\"cup / anticipation\",\"description\":\"Half fixed, half untouched. The LIFT is real and measurable — cupY oscillates 1.01–1.09m during the hold with the pigs jittering inside over ~140mm, the map shadow releases per SHADOW.liftOff, and the release tips the cup toward the board before it walks home. But the cup itself is still an untextured bright-pink party cup with no grip, no diegetic identity and no hand or arm, so it shakes itself; and the text layer still never acknowledges the gesture — the card reads 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold, so the anticipation beat builds in no layer but the prop's own bounce.\"},{\"severity\":\"should-fix\",\"area\":\"build hygiene\",\"description\":\"hog-wild/index.html line 880 loads `../_watch/devnav.js`, and _watch/ is tracked in git. It renders a wrench button at page x10,y764 (38x38) over the footer in BOTH breakpoints — I have it in every full-page screenshot I took. On GitHub Pages the shipped game will carry a debug nav bar. Harmless locally, embarrassing in the live build.\"},{\"severity\":\"should-fix\",\"area\":\"layout / portrait header\",\"description\":\"Partly fixed. The turn score is now 27.2px bold against a 17.6px player name, so the 'competing at the same visual weight' and 'smaller than its desktop counterpart' clauses are answered. But the label still wraps: MEASURED, `.turn-label` 'Now tossing' is 78px wide and 27px tall at font-size 11.52px, against its sibling 'This turn' at 14px — i.e. two lines — still crammed beside the score inside the same 195px pill.\"}]}\n\nReview in YOUR OWN tab: fresh game, ≥6 tosses (screenshot mid-tumble, settle, per-pig calls, the full reveal for a scoring round AND a failure), pig-viewer face zoom + all 8 expressions, audio-lab spot check (console-clean), board readability, UI pass. Close your tab. Return JSON per schema.",
+   "says": [
+    {
+     "ts": "2026-08-11T13:59:46.735Z",
+     "text": "I'll start by reading the SPEC and understanding the build."
+    },
+    {
+     "ts": "2026-08-11T14:00:20.012Z",
+     "text": "All four suites are green. Let me check what the fixer changed."
+    },
+    {
+     "ts": "2026-08-11T14:28:00.016Z",
+     "text": "API Error: Unable to connect to API (ENOTFOUND)"
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T14:11:50.254Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:11:57.989Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:12:39.500Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:12:54.709Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:13:14.790Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:13:45.213Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:14:11.382Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:14:42.690Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:15:09.715Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:16:25.262Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "odds-test.mjs",
+     {
+      "cmd": "(node hog-wild/dev/odds-test.mjs 2>&1 | tail -5; echo \"=== ODDS EXIT above ===\"; node hog-wild/dev/collider-test.mjs 2>&1 | tail -12; echo \"=== COLLIDER above =",
+      "ts": "2026-08-11T14:00:14.675Z",
+      "ok": true,
+      "out": "║ Points per toss     4.72      4.70   +  0.02 pp   ✓ PASS   ║\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\n=== ODDS EXIT above ===\n  side-blank   343/1000     34.30%             ~3         ~3ms\n  side-dot     278/1000     27.80%             ~4         ~3ms\n  razorback    230/1000     23.00%             ~5         ~4ms\n  trotter      110/1000     11.00%            ~10         ~8ms\n  snouter       32/1000      3.20%            ~32        ~27ms\n  jowler        11/1000      1.10%            ~91        ~80ms\n(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\n=== COLLIDER above ===\n\njowler (the rarest, so the expensive one): 11ms average, budget 400ms\nslowest pose: snouter at 31ms average — the shake covers it,\nand the idle prefill means the common case is a pool hit costing nothing at all.\n\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\n=== SEARCH above ===\n  ✓ a Sider is 1 point even though each side pig is worth 0\n  ✓ double jowler is 60\n  ✓ razorback + side is 5\n\ncache stats: {\"searched\":60,\"mirrored\":8,\"hits\":23,\"misses\":154,\"fallbacks\":0,\"sims\":763}\n==============================================================================\nReplay gate: PASS\n==============================================================================\n=== REPLAY above ==="
+     }
+    ]
+   ],
+   "toolCount": 66,
+   "screenshots": 8
+  },
+  {
+   "id": "add7b6a432bd90f76",
+   "wf": "wf_4bbb7411-bf9",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T14:00:37.344Z",
+   "lastTs": "2026-08-11T14:19:15.422Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md — especially the section \"Shake interaction (owner must-fixes, 2026-08-11, mobile-tested by owner)\" which is your mission contract, plus \"Presentation model\".\nThe four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) are GREEN and must stay green. node --check every JS file you edit.\nBROWSER RULE: create your OWN tab (tabs_create), pass tabId always, close it when done. Use resize_window mobile preset for touch verification (reload after switching — mobile preset translates mouse to touch).\nDo not commit.\n\nMISSION: adversarially verify the shake overhaul that was just built (builder's claims: ## ROOT CAUSE of the mobile bug\n\n`window.addEventListener('pointercancel', cancelHold)` in game.js.\n\nA hold-to-shake gesture **is** a long press, and a long press is a gesture the platform wants for itself. Past ~500 ms Android Chrome / iOS Safari start text-selection or the callout menu and **take the pointer away with `pointercancel`** — after which no `pointerup` for that pointer ever arrives. `cancelHold` treated that as \"the player let go without meaning to throw\": it stopped the rattle, tweened the pigs back, and set `holdActive = false`. The finger was still on the glass, and when it lifted `endHold` early-returned on `!holdActive`, so there was no toss.\n\nReproduced on the pre-fix build, mobile preset (Pixel 8 UA, maxTouchPoints 5): `pointerdown` → `shaking`; `pointercancel` at 500 ms → `ready`; real `pointerup` 900 ms later → still `ready`, turn total unchanged. That is the owner's exact triad (one rattle tick before the cancel, no ongoing animation, no toss).\n\n`touch-action: none` was **not** the missing piece and could not have been — it was already on `.pen-wrap` (computed style verified) and touch-action governs panning/pinch-zoom, not long-press. The pen also computed `user-select: auto`, with the result card's own text sitting on the felt as the most selectable thing in the pen.\n\n## What I built\n\n**1. Pigs in the cup (`game.js` `CUP_SHAKE` + `stepShake`, `pig.js` `buildCup`)**\n- Pigs are staged in the **cup's local frame** and pushed through `cup.matrixWorld` ev).\nIndependently, in your own tab: (1) watch the cup during a hold — are pigs VISIBLY rattling inside it, scaled by hold duration, with audio? screenshot mid-shake; (2) mobile preset + reload: press-and-HOLD the pen area 2+ seconds — does the shake run continuously (not one tick)? does release toss? does a drag off the pen mid-hold break it? (3) run dev/shake-test.html — all assertions green? dispatch your own synthetic DeviceMotionEvent burst from the console and confirm the game page (not just the test page) reacts with continuous shake then a throw; (4) confirm the throw outcome distribution is untouched (spot-check: outcome still drawn before search — read the code path); (5) all four suites; (6) zero console errors across everything. Try to BREAK it: rapid tap-tap-tap, hold with two fingers, rotate mid-hold, toggle device-motion on and immediately shake. Return JSON per schema with specific evidence.",
+   "says": [
+    {
+     "ts": "2026-08-11T14:00:40.751Z",
+     "text": "I'll start by reading the SPEC and the current implementation."
+    },
+    {
+     "ts": "2026-08-11T14:00:50.414Z",
+     "text": "I have the mission contract (SPEC lines 519-547). Now let me examine the implementation."
+    },
+    {
+     "ts": "2026-08-11T14:02:01.494Z",
+     "text": "All four suites pass. Now let me check the CSS claims and the test page."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T14:11:14.095Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:11:48.122Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:12:11.420Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:12:34.649Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:12:52.787Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:13:12.492Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:13:50.338Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:14:18.032Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:14:55.978Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T14:15:57.727Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "t.mjs",
+     {
+      "cmd": "cd /Users/mschmidt/source/ava-games/hog-wild && for t in odds-test collider-test search-test replay-test; do echo \"=== $t ===\"; node dev/$t.mjs 2>&1 | tail -12;",
+      "ts": "2026-08-11T14:01:55.445Z",
+      "ok": true,
+      "out": "=== odds-test ===\n║ Pig Out            20.93%    21.10%   -0.17 pp   ✓ PASS   ║\n║ Sider              21.28%    21.30%   -0.02 pp   ✓ PASS   ║\n║ Double (all)        5.89%                              ║\n║ Mixed              51.49%                              ║\n╠════════════════════════════════════════════════════════════════╣\n║                    EXPECTED VALUE CHECK                         ║\n╠════════════════════════════════════════════════════════════════╣\n║ Points per toss     4.73      4.70   +  0.03 pp   ✓ PASS   ║\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\nexit=0\n=== collider-test ===\n  side-blank   343/1000     34.30%             ~3         ~3ms\n  side-dot     278/1000     27.80%             ~4         ~4ms\n  razorback    230/1000     23.00%             ~5         ~4ms\n  trotter      110/1000     11.00%            ~10         ~9ms\n  snouter       32/1000      3.20%            ~32        ~31ms\n  jowler        11/1000      1.10%            ~91        ~90ms\n(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\nexit=0\n=== search-test ===\n  trotter        12.24%         8.2         4         8         8      17 sims\n  snouter         1.37%        72.8        34        81        88     170 sims\n  jowler          3.92%        25.5        12        39        44      88 sims\n  oinker                        9.7        40        47        47      11 sims\n\njowler (the rarest, so the expensive one): 12ms average, budget 400ms\nslowest pose: snouter at 34ms average — the shake covers it,\nand the idle prefill means the common case is a pool hit costing nothing at all.\n\n==============================================================================\nM1 gate: PASS  — all six poses searchable on both halves, oinker reachable, cache warm\n==============================================================================\nexit=0\n=== replay-test ===\n7. SCORING PIPELINE  (drawn outcome → scoreToss → turn arithmetic)\n------------------------------------------------------------------------------\n  20k tosses: 2379 banks, 4269 pig outs, 92 oinkers, final score 650\n  ✓ turn/score arithmetic stays an integer and grows\n  ✓ a Sider is 1 point even though each side pig is worth 0\n  ✓ double jowler is 60\n  ✓ razorback + side is 5\n\ncache stats: {\"searched\":60,\"mirrored\":8,\"hits\":23,\"misses\":154,\"fallbacks\":0,\"sims\":763}\n==============================================================================\nReplay gate: PASS\n==============================================================================\nexit=0"
+     }
+    ]
+   ],
+   "toolCount": 68,
+   "screenshots": 4
+  },
+  {
+   "id": "af808d97e5e1c09f7",
+   "wf": "wf_4bbb7411-bf9",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T14:19:15.423Z",
+   "lastTs": "2026-08-11T14:30:00.042Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md — especially the section \"Shake interaction (owner must-fixes, 2026-08-11, mobile-tested by owner)\" which is your mission contract, plus \"Presentation model\".\nThe four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) are GREEN and must stay green. node --check every JS file you edit.\nBROWSER RULE: create your OWN tab (tabs_create), pass tabId always, close it when done. Use resize_window mobile preset for touch verification (reload after switching — mobile preset translates mouse to touch).\nDo not commit.\n\nMISSION: adversarially verify the shake overhaul that was just built (builder's claims: ## ROOT CAUSE of the mobile bug\n\n`window.addEventListener('pointercancel', cancelHold)` in game.js.\n\nA hold-to-shake gesture **is** a long press, and a long press is a gesture the platform wants for itself. Past ~500 ms Android Chrome / iOS Safari start text-selection or the callout menu and **take the pointer away with `pointercancel`** — after which no `pointerup` for that pointer ever arrives. `cancelHold` treated that as \"the player let go without meaning to throw\": it stopped the rattle, tweened the pigs back, and set `holdActive = false`. The finger was still on the glass, and when it lifted `endHold` early-returned on `!holdActive`, so there was no toss.\n\nReproduced on the pre-fix build, mobile preset (Pixel 8 UA, maxTouchPoints 5): `pointerdown` → `shaking`; `pointercancel` at 500 ms → `ready`; real `pointerup` 900 ms later → still `ready`, turn total unchanged. That is the owner's exact triad (one rattle tick before the cancel, no ongoing animation, no toss).\n\n`touch-action: none` was **not** the missing piece and could not have been — it was already on `.pen-wrap` (computed style verified) and touch-action governs panning/pinch-zoom, not long-press. The pen also computed `user-select: auto`, with the result card's own text sitting on the felt as the most selectable thing in the pen.\n\n## What I built\n\n**1. Pigs in the cup (`game.js` `CUP_SHAKE` + `stepShake`, `pig.js` `buildCup`)**\n- Pigs are staged in the **cup's local frame** and pushed through `cup.matrixWorld` ev).\nIndependently, in your own tab: (1) watch the cup during a hold — are pigs VISIBLY rattling inside it, scaled by hold duration, with audio? screenshot mid-shake; (2) mobile preset + reload: press-and-HOLD the pen area 2+ seconds — does the shake run continuously (not one tick)? does release toss? does a drag off the pen mid-hold break it? (3) run dev/shake-test.html — all assertions green? dispatch your own synthetic DeviceMotionEvent burst from the console and confirm the game page (not just the test page) reacts with continuous shake then a throw; (4) confirm the throw outcome distribution is untouched (spot-check: outcome still drawn before search — read the code path); (5) all four suites; (6) zero console errors across everything. Try to BREAK it: rapid tap-tap-tap, hold with two fingers, rotate mid-hold, toggle device-motion on and immediately shake. Return JSON per schema with specific evidence.",
+   "says": [
+    {
+     "ts": "2026-08-11T14:30:00.042Z",
+     "text": "API Error: Unable to connect to API (ENOTFOUND)"
+    }
+   ],
+   "tools": [],
+   "files": [],
+   "tests": [],
+   "toolCount": 0,
+   "screenshots": 0
+  },
+  {
+   "id": "a458cb41ebe8eb05b",
+   "wf": "wf_8a707d29-ce5",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T14:29:00.028Z",
+   "lastTs": "2026-08-11T14:40:14.295Z",
+   "prompt": "Retry of errored critic round — same mission as before. You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit. Review http://localhost:4173/hog-wild/ per the harsh-critic rubric (score 1-10, wowed at 9+, verify ledger: {\"carryover\":[{\"item\":\"should-fix: cup / anticipation — party cup, no visible lift, text layer never acknowledges the hold\",\"status\":\"partial\",\"evidence\":\"Lift fixed and measured: cupY oscillates 1.01–1.09m through the hold with pig positions jittering ~140mm inside, the contact patch fades 0.33–0.36 as the map shadow releases, and release tips the cup toward the board before it walks home. Not fixed: still an untextured bright-pink plastic party cup with no grip and no hand or arm, and the card text stays 'Ava starts! / Toss the pigs to begin.' unchanged for the entire hold.\"},{\"item\":\"should-fix: setup screen is a generic dark settings form with no 3D, pigs or logotype\",\"status\":\"not-fixed\",\"evidence\":\"H1 still system stack, 800 weight, 36.8px, letter-spacing normal — identical to round 3 — with no logotype. No canvas on the screen (setup3d false), no pigs. Panels still rgb(30,58,46) = #1e3a2e on --bg-1 #14231c; inputs still darker than their panel. 'Custom target score' still permanently visible beside the three presets. 253 of 900 viewport px (28%) empty below the last panel.\"},{\"item\":\"should-fix: layout / desktop empty-space balance\",\"status\":\"not-fixed\",\"evidence\":\"MEASURED at 1280x860: header banner 864px wide, player name box ends at x349, 'THIS TURN' block starts at x1011 — 662px of empty space between them. Scoreboard 300x702 with row heights 21+83+43 = 147px of content, leaving 555px of empty panel. Round 3 measured ~700px and ~560px.\"},{\"item\":\"should-fix: layout / portrait header pill wraps 'NOW TOSSING' and crams the turn score beside it\",\"status\":\"partial\",\"evidence\":\"Weight hierarchy fixed: turn score is 27.2px at 800 weight against a 17.6px player name, and is no longer smaller than desktop. Wrap not fixed: `.turn-label` 'Now tossing' measures 78x27px at font-size 11.52px (two lines) against its sibling 'This turn' at 14px, inside the same 195px pill alongside the score.\"},{\"item\":\"should-fix: UI / discoverability — three unlabelled emoji icon buttons in portrait\",\"status\":\"partial\",\"evidence\":\"They are custom SVG glyphs now, not emoji, and all three expose accessible names (aria-label 'How to play', 'Scoreboard', 'Mute sound'). But there is still no visible text, badge or tooltip, so a sighted first-time player cannot tell the trophy opens the scoreboard, and desktop still renders only 2 of the 3 (scoreboardToggle is hidden), so the set remains inconsistent across breakpoints.\"},{\"item\":\"should-fix: felt texture blotches read as stains; green tone falls 37% centre to r=2.5\",\"status\":\"partial\",\"evidence\":\"Falloff more than halved: median green luminance runs 128 at centre to 106 at r=2.4 and 109 at r=2.6 — a 17% drop against round 3's measured 37% (128 to 91) — because noiseCanvas's vignette came down from 0.60 alpha to a whisper. A pig near the rim now sits on felt ~15% darker rather than 30%. The residual soft mottling reads as nap rather than mould in both breakpoints, but the centre-to-rim gradient has not been eliminated.\"}). Return JSON per schema.",
+   "says": [
+    {
+     "ts": "2026-08-11T14:40:14.295Z",
+     "text": "API Error: Unable to connect to API (ENOTFOUND)"
+    }
+   ],
+   "tools": [],
+   "files": [],
+   "tests": [],
+   "toolCount": 0,
+   "screenshots": 0
+  },
+  {
+   "id": "ad43a9853614c21f8",
+   "wf": "wf_19f0d8c3-8db",
+   "model": "opus",
+   "done": false,
+   "firstTs": "2026-08-11T15:00:16.535Z",
+   "lastTs": "2026-08-11T15:26:14.725Z",
+   "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green; node --check every JS file you edit.\nBROWSER RULE: create your OWN tab, pass tabId always, close it when done. Mobile checks: resize_window mobile preset + reload.\nAUDIO IS MUTED globally by owner request (localStorage hogwild.muted.v1=1) — verify audio via code paths/AnalyserNode structure, do NOT unmute.\nOWNER REQUIREMENTS THAT ARE NOT DEFECTS: the devnav include (../_watch/devnav.js) in index.html and dev pages is an explicit owner feature (dev tools shipped to ALL environments, including GitHub Pages) — never remove it; _watch/ being tracked in git is intentional.\nDo not commit.\n\nMISSION: adversarially verify the shake overhaul (the builder finished; its verifier died on a network error — you replace it). In your own tab:\n(1) Cup rattle: hold Space on desktop — pigs VISIBLY rattling inside the cup, intensity ramping, screenshot mid-shake. Confirm pigs never poke through the cup wall (the builder claims geometric containment — try to catch a violation over several holds).\n(2) Mobile continuity: mobile preset + reload; press-and-HOLD the pen 2+ seconds — shake must run CONTINUOUSLY (the old bug died at ~500ms to pointercancel); release must toss. Also: drag off the pen mid-hold, rapid tap-tap-tap, two fingers.\n(3) Device-motion: run dev/shake-test.html — all assertions green? Then dispatch your own synthetic DeviceMotionEvent bursts at the GAME page and confirm continuous shake then throw then 1.5s debounce.\n(4) Outcome integrity: read the code path — outcome still drawn from odds.js BEFORE any recording is chosen; shake vigor must not influence it.\n(5) All four suites; zero NEW console errors.\nReturn JSON per schema, defects specific.",
+   "says": [
+    {
+     "ts": "2026-08-11T15:19:31.819Z",
+     "text": "Scenario A is clean. Now the old bug's exact trigger: a `pointercancel` at 500 ms with the finger still down."
+    },
+    {
+     "ts": "2026-08-11T15:21:17.994Z",
+     "text": "Now the portrait camera changes occlusion, so I'll re-run the visible poke-through test on mobile."
+    },
+    {
+     "ts": "2026-08-11T15:22:38.829Z",
+     "text": "Now the device-motion test page."
+    },
+    {
+     "ts": "2026-08-11T15:24:26.345Z",
+     "text": "The harness did start (verdict moved off \"not run yet\") but is stuck. Let me read it."
+    },
+    {
+     "ts": "2026-08-11T15:25:10.954Z",
+     "text": "The verdict text is the page's initial render, not a live run — my clicks were missing the button. Let me locate it in screenshot space."
+    },
+    {
+     "ts": "2026-08-11T15:25:39.226Z",
+     "text": "Trusted click injection isn't reaching the page in this pane. I'll invoke the harness's own button handler and let the real checks run."
+    }
+   ],
+   "tools": [
+    {
+     "ts": "2026-08-11T15:24:50.268Z",
+     "name": "mcp__Claude_Browser__read_console_messages",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:24:52.182Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:25:11.365Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:25:19.966Z",
+     "name": "mcp__Claude_Browser__computer",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:25:26.296Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:25:40.851Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:25:48.762Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:25:57.431Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:26:06.415Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T15:26:14.725Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    }
+   ],
+   "files": [],
+   "tests": [
+    [
+     "f.mjs",
+     {
+      "cmd": "for f in odds-test collider-test search-test replay-test; do echo \"===== $f =====\"; node dev/$f.mjs 2>&1 | tail -25; echo \"EXIT=$?\"; done",
+      "ts": "2026-08-11T15:00:49.069Z",
+      "ok": false,
+      "out": "===== odds-test =====\n╠════════════════════════════════════════════════════════════════╣\n║ side-blank      34.80%    34.90%   -0.10 pp   ✓ PASS     ║\n║ side-dot        30.18%    30.20%   -0.02 pp   ✓ PASS     ║\n║ razorback       22.23%    22.40%   -0.17 pp   ✓ PASS     ║\n║ trotter          8.73%     8.80%   -0.07 pp   ✓ PASS     ║\n║ snouter          3.00%     3.00%   -0.00 pp   ✓ PASS     ║\n║ jowler           0.69%     0.70%   -0.01 pp   ✓ PASS     ║\n╠════════════════════════════════════════════════════════════════╣\n║                   TWO-PIG OUTCOME TABLE                         ║\n╠════════════════════════════════════════════════════════════════╣\n║ Result           Observed    Expected    Delta (pp)   Pass/Fail ║\n╠════════════════════════════════════════════════════════════════╣\n║ Oinker              0.38%     0.38%  +  0.00 pp   ✓ PASS   ║\n║ Pig Out            21.12%    21.10%  +  0.02 pp   ✓ PASS   ║\n║ Sider              21.17%    21.30%   -0.13 pp   ✓ PASS   ║\n║ Double (all)        5.75%                              ║\n║ Mixed              51.59%                              ║\n╠════════════════════════════════════════════════════════════════╣\n║                    EXPECTED VALUE CHECK                         ║\n╠════════════════════════════════════════════════════════════════╣\n║ Points per toss     4.70      4.70    -0.00 pp   ✓ PASS   ║\n╚════════════════════════════════════════════════════════════════╝\n\nOverall result: ✓ ALL TESTS PASSED\n\nEXIT=0\n===== collider-test =====\n  ambiguous     4.97   4.60   4.45\n\ninitial conditions by outcome (population means: spin 16.0 rad/s, speed 2.89, height 1.45, spin-about-Z 34%)\npose          spin   vs pop   speed   vs pop   height   spin axis X/Y/Z\n  side-blank   16.2       1%    2.91       1%     1.45     32/ 34/ 35\n  side-dot     16.0       0%    2.90       1%     1.44     33/ 33/ 34\n  razorback    15.5      -3%    2.85      -1%     1.45     34/ 32/ 33\n  trotter      16.6       4%    2.84      -2%     1.45     31/ 35/ 34\n  snouter      16.6       4%    2.86      -1%     1.47     25/ 39/ 35\n  jowler       13.0     -19%    2.62      -9%     1.52     59/ 29/ 12\n\nsearch cost per pose (targeted tosses, so this is the M1 budget):\npose          hits        rate    sims per hit   ms per hit\n  side-blank   343/1000     34.30%             ~3         ~3ms\n  side-dot     278/1000     27.80%             ~4         ~3ms\n  razorback    230/1000     23.00%             ~5         ~4ms\n  trotter      110/1000     11.00%            ~10         ~9ms\n  snouter       32/1000      3.20%            ~32        ~30ms\n  jowler        11/1000      1.10%            ~91        ~88ms\n(PRD §10 budgets the search across the shake, which lasts >=250ms and usually ~1s,\n plus the idle prefill — so a pose costing a few hundred ms of search is still hidden.)\n\n==============================================================================\nM0 gate: PASS  — six stable poses: yes\n==============================================================================\nEXIT=0\n===== search-test =====\n  snouter         2       2\n  jowler          2       2\n  oinker pool 1\ntake: 12 pose recordings + 1 oinker served from the pools, 13 refill requests raised\nstats: {\"searched\":26,\"mirrored\":6,\"hits\":13,\"misses\":0,\"fallbacks\":0,\"sims\":174}\n\n------------------------------------------------------------------------------\nTIMING  (what the game actually pays; PRD §10 budgets the shake, >=250ms)\n------------------------------------------------------------------\n… [truncated]"
+     }
+    ]
+   ],
+   "toolCount": 117,
+   "screenshots": 7
   }
  ]
 }
