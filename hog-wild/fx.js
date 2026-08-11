@@ -998,13 +998,51 @@ const HAPTICS = {
   win: [26, 50, 26, 50, 26, 50, 200],
 };
 
+/**
+ * Can we buzz at all?
+ *
+ * Chrome refuses `navigator.vibrate` until the frame has been tapped and logs a
+ * console ERROR for every blocked call. That is fine for one call a turn and not
+ * fine for the shake pulse train, which runs at up to 10 Hz: dev/shake-test.html
+ * drives the game programmatically in an iframe nobody has tapped, and the first
+ * run of the continuous haptics filled its console with 30+ identical errors.
+ * `navigator.userActivation.hasBeenActive` is the exact condition the browser is
+ * testing, so ask it first instead of being told off.
+ */
+function canVibrate() {
+  if (!hapticsOn) return false;
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return false;
+  const ua = navigator.userActivation;
+  if (ua && ua.hasBeenActive === false) return false;
+  return true;
+}
+
 /** @param {'tick'|'toss'|'land'|'fail'|'win'} kind */
 export const haptic = safe(function haptic(kind) {
-  if (!hapticsOn) return;
   const pattern = HAPTICS[kind];
   if (!pattern) return;
-  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  if (!canVibrate()) return;
   navigator.vibrate(pattern);
+});
+
+/**
+ * A single shake pulse, its length scaled by how hard the pigs are being
+ * rattled.
+ *
+ * SPEC "Shake interaction" 2: the hold has to feel CONTINUOUS. `haptic('toss')`
+ * fires once, at the end, which is why the owner's phone buzzed once and then
+ * went dead for the rest of the gesture. game.js calls this on a cadence for as
+ * long as the shake runs — touch-hold or device-motion, same pipeline — so the
+ * phone is buzzing exactly while the cup is rattling.
+ *
+ * @param {number} intensity 0..1
+ */
+export const shakePulse = safe(function shakePulse(intensity = 0) {
+  if (!canVibrate()) return;
+  const k = clamp(Number(intensity) || 0, 0, 1);
+  // 6 ms at rest, 22 ms flat out. Short: a long buzz on a 90 ms cadence would
+  // overlap itself into one continuous drone and drain the motor.
+  navigator.vibrate([Math.round(6 + 16 * k)]);
 });
 
 /** Haptics are a separate channel from mute; this is the switch for them. */

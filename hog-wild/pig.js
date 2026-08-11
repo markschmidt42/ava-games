@@ -2629,20 +2629,33 @@ export function buildBoard() {
  *
  * Scale check, because a cup is the one prop whose size is checkable: the pigs
  * are 1.0 board-metre long and the board is a 9.2 m disc, so one board-metre is
- * about 4 cm of real pig. A real shaker is a bit under two pig-lengths across,
- * which is the 1.24 m mouth below — big enough that two pigs genuinely disappear
- * into it, which is what lets game.js hide them while it rattles.
+ * about 4 cm of real pig. A real shaker is a bit under two pig-lengths across.
+ *
+ * **SHAKE-INTERACTION FIX 1 resized it, and the resize is the whole fix.** The
+ * 1.24 m mouth was sized for a cup whose job was to HIDE the pigs ("big enough
+ * that two pigs genuinely disappear into it"). The owner's must-fix inverts that
+ * job: the pigs have to be VISIBLE rattling inside. Two 1.0 m pigs cannot rattle
+ * inside a 1.24 m mouth — the interior radius at the height they sit is 0.53 and
+ * a pig's half-length alone is 0.50, so any jitter at all pushes an end through
+ * the wall. At **1.60 m** (rMouth 0.80) the interior radius where they ride is
+ * 0.68, which holds a horizontal pig plus 0.17 m of rattle excursion. Checked
+ * against the framing volume rather than eyeballed: the focus box reaches
+ * z 4.95, so `CUP_REST` moved in to z 4.12 and the resting cup's far rim lands
+ * at 4.92 — still inside — while its NEAR rim is at 3.32, still clear of every
+ * pig rest (z ≤ 2.68).
  *
  * Returned upright with its BASE at the group origin, so game.js can set
  * `position` to a felt point and `rotation.x` to tip it without composing
- * transforms. Origin at the base is also the pivot a real cup tips about.
+ * transforms. Origin at the base is also the pivot a real cup tips about — and
+ * it is the frame game.js stages the rattling pigs in, so `userData.height` and
+ * `userData.mouthR` are load-bearing, not documentation.
  *
  * @returns {THREE.Group}
  */
 export function buildCup() {
   const g = new THREE.Group();
   g.name = 'cup';
-  const rBase = 0.46, rMouth = 0.62, H = 1.02;
+  const rBase = 0.58, rMouth = 0.80, H = 1.10;
 
   const shell = new THREE.CylinderGeometry(rMouth, rBase, H, 40, 1, true);
   const outer = new THREE.MeshPhysicalMaterial({
@@ -2665,12 +2678,20 @@ export function buildCup() {
   // The inside, drawn as its own back-facing shell. Without it the cup is a
   // one-sided tube and you can see straight through the near wall into the felt,
   // which is exactly the tell that gives a "prop" away.
+  //
+  // It also has to be a BACKDROP now rather than a void: the pigs rattle in
+  // front of it, and a tube this deep gets almost no key light on its inner far
+  // wall, so at #6d1f3d the interior measured as near-black and two pink pigs
+  // read as pink smudges on a hole. A small emissive lift is a cheap stand-in
+  // for the bounce a real cup's interior gets from its own walls.
   const innerMesh = new THREE.Mesh(
     shell,
     new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#6d1f3d'),
+      color: new THREE.Color('#8b2d51'),
       roughness: 0.78,
       metalness: 0,
+      emissive: new THREE.Color('#40121f'),
+      emissiveIntensity: 0.75,
       side: THREE.BackSide,
     }),
   );
@@ -2680,7 +2701,12 @@ export function buildCup() {
   // floor of the cup, so looking in from above sees a bottom, not the felt
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(rBase * 0.99, 32),
-    new THREE.MeshStandardMaterial({ color: new THREE.Color('#571630'), roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#6d1d3c'),
+      roughness: 0.9,
+      emissive: new THREE.Color('#3a1020'),
+      emissiveIntensity: 0.7,
+    }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.012;
@@ -2719,7 +2745,10 @@ export function buildCup() {
   foot.position.y = 0.035;
   g.add(foot);
 
-  g.userData = { height: H, mouthR: rMouth };
+  // `baseR` joins the contract because game.js stages the rattling pigs in the
+  // cup's own frame and needs the INTERIOR radius at an arbitrary height, which
+  // is lerp(baseR, mouthR, y / height) — a cone, not a cylinder.
+  g.userData = { height: H, mouthR: rMouth, baseR: rBase };
   return g;
 }
 

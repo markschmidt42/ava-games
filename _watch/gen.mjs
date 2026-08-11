@@ -30,6 +30,10 @@ const PLAN = [
     { key: 'ledger', label: 'C2: clear the 14-item surviving ledger', match: ['clear the ENTIRE surviving critic ledger'] },
     { key: 'critic2', label: 'C2: verify-score-fix rounds (target 9+, anti-goalpost)', match: ['Continuation round', 'round-1 critic ledger', 'round-2 critic ledger', 'round-3 critic ledger'] },
   ]},
+  { wf: 'WF-S · Shake overhaul (owner must-fix)', items: [
+    { key: 'shake',   label: 'Cup rattle + continuous touch + device-motion', match: ['Shake interaction'] },
+    { key: 'shakeqa', label: 'Adversarial shake verification', match: ['adversarially verify the shake'] },
+  ]},
   { wf: 'WF-D · Final polish (M5)', items: [
     { key: 'polish', label: 'A11y, wake lock check, 2D removal checklist', match: ['M5', 'removal checklist'] },
   ]},

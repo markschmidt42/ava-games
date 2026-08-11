@@ -13,6 +13,7 @@
     { href: '_watch/poses.html',              label: '🖼 pose gallery' },
     { href: 'hog-wild/dev/pig-viewer.html',   label: '🐖 pig viewer' },
     { href: 'hog-wild/dev/audio-lab.html',    label: '🔊 audio lab' },
+    { href: 'hog-wild/dev/shake-test.html',   label: '🤳 shake test' },
   ];
 
   // Site root = everything before the deepest known segment in the path.

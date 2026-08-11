@@ -8,7 +8,7 @@
 
 import {
   revealToss, celebrate, sadness, initAudio, setMuted,
-  impact, pigVoice, haptic, shakeLoop, stopShakeLoop,
+  impact, pigVoice, haptic, shakePulse, shakeLoop, stopShakeLoop,
   initVisualFx, blinkRed, clearBlink, burstPigs, resetPigVisuals, stepVisualFx,
   cheer, popPigs,
   REVEAL_FX, OINKER_POP_S,
@@ -182,32 +182,91 @@ const CUP = [
  * There is a cup now (pig.js `buildCup`), and the gesture is built around it:
  *
  *   idle     the cup sits on the felt at CUP_REST, just outside the green
- *   hold     it lifts to CUP_HOLD and rattles; the pigs are scooped up INTO it
- *            and hidden once they are deep enough to be genuinely out of sight
+ *   hold     it lifts to CUP_HOLD, tilts its mouth toward the camera, and
+ *            rattles with the two pigs bouncing around INSIDE it
  *   release  it TIPS toward the board over CUP_TIP_MS while the pigs fly out —
  *            the windup and the throw, in one gesture, with a container
  *   cancel   it settles back down and the pigs go back where they were
  *
- * The pigs are hidden inside it on purpose rather than balanced on its rim. The
- * cup's mouth is 1.24 m across and a pig is 1.0 m long, so two pigs cannot BOTH
- * sit at the mouth without interpenetrating — and you cannot see dice inside a
- * shaker either. `CUP_SWALLOW` is how far into the gather that happens.
+ * **SHAKE-INTERACTION FIX 1 (owner, 2026-08-11) reversed the pigs' role here.**
+ * The first build HID them: "you cannot see dice inside a shaker either", and
+ * `CUP_SWALLOW` was the gather fraction past which `pig.group.visible` went
+ * false. PRD §7.1 says "pigs rattle visibly inside", the owner tested it on a
+ * phone, and the note is blunt: currently they do not. So the pigs are now
+ * STAGED IN THE CUP'S OWN FRAME (see `CUP_SHAKE` and `stepShake`) and stay
+ * visible for the whole hold, the cup's mouth tilts toward the camera far enough
+ * to see into, and buildCup's mouth grew from 1.24 m to 1.60 m because two 1.0 m
+ * pigs physically could not rattle inside the old one. `CUP_SWALLOW` is gone.
  * ==================================================================== */
 // On the FRINGE, not on the green: at z 3.55 the cup sat inside the rough, on the
-// playing surface, and read as a bucket someone had left on the mat. At 4.35 it is
-// at the very edge of the board, which is where a shaker is actually put down.
-// Every rest is at z ≤ 2.68 and the cup's mouth reaches z 3.8, so they never meet.
-const CUP_REST = [0.0, 0.0, 4.35];
-const CUP_HOLD = [0.0, 1.05, 2.42];  // hovering, mouth at ≈ y 2.07
+// playing surface, and read as a bucket someone had left on the mat. At the very
+// edge of the board is where a shaker is actually put down. z came in from 4.35 to
+// 4.12 when the mouth grew to r 0.80, so the resting cup's far rim (4.92) still
+// sits inside the focus box's z 4.95; its near rim (3.32) is still clear of every
+// pig rest (z ≤ 2.68), so they never meet.
+const CUP_REST = [0.0, 0.0, 4.12];
+const CUP_HOLD = [0.0, 1.05, 2.42];  // hovering, mouth at ≈ y 2.15
 const CUP_LIFT_MS = 300;
 const CUP_TIP_MS = 260;              // the throw
 const CUP_HOME_MS = 480;             // …and back down to the felt
 const CUP_TIP_RAD = -1.15;           // ≈66° forward, mouth toward the board
-const CUP_SWALLOW = 0.62;            // gather fraction past which the pigs vanish
 const GATHER_MS = 260;   // rest -> cup, when a hold starts
 const LAUNCH_MS = 150;   // cup -> the recording's first frame, on release
 const SETTLE_HOLD_MS = 240; // PRD §8.1 beat 1: let the rest land before the reveal
 const RETURN_MS = 220;   // cup -> back down, when a hold is cancelled
+
+/* =========================================================================
+ * CUP_SHAKE — the rattle, SPEC "Shake interaction" must-fix 1.
+ *
+ * "During ready/shaking states the pigs are inside the cup, and while shaking
+ * they bounce around like crazy in there … The cup's mouth must face the camera
+ * enough that the rattling is actually visible."
+ *
+ * Everything below is expressed in the CUP'S LOCAL FRAME (base at y 0, mouth at
+ * y `height`) and transformed through `cup.matrixWorld` every frame. That is the
+ * whole trick: staging in world space and hoping the numbers keep agreeing with
+ * a cup that lifts, tilts and rattles is how you get pigs floating beside their
+ * container. In the cup's frame "inside" is a statement about `baseR`/`mouthR`
+ * and stays true through any transform the cup is given.
+ *
+ * The tilt is the other half. The play camera looks down at 64° in portrait and
+ * 52° on desktop, so an UPRIGHT cup's mouth is already 26°/38° off face-on —
+ * open, but you are looking across the rim into a shaded tube. `tiltRad` leans
+ * the mouth a further 19° toward the lens (positive rotation.x is toward +Z,
+ * which is where the camera is; CUP_TIP_RAD is negative because the throw goes
+ * the other way, toward the board) which both squares the mouth up AND swings
+ * the near wall down out of the sightline.
+ *
+ * The two pigs are separated in HEIGHT, not sideways. A 1.0 m pig in a 1.36 m
+ * interior has ~0.18 m of sideways room once it is horizontal, which is all the
+ * rattle needs and nothing like enough to stand two pigs side by side; stacked,
+ * they jostle past each other with correct depth ordering and read as two
+ * objects in one container.
+ * ==================================================================== */
+const CUP_SHAKE = {
+  tiltRad: 0.34,        // extra lean of the mouth TOWARD the camera (≈19°)
+  entryY: 0.30,         // local height above the mouth the scoop lifts them to
+  slotY: [0.34, 0.70],  // local height each pig rattles around
+  slotX: [-0.04, 0.04],
+  slotZ: [0.04, -0.04],
+  jitterIdle: 0.020,    // rattle amplitude at intensity 0 …
+  jitterFull: 0.070,    // … and flat out
+  jitterY: 1.35,        // vertical amplitude multiplier (a bounce, not a slide)
+  spinIdle: 0.0022,     // rad per ms of the tumble
+  spinFull: 0.0125,
+  /** How far into the gather the drop into the slot starts / ends, as multiples
+   *  of GATHER_MS. The scoop lifts them to the rim first and THEN drops them in,
+   *  because a straight line from the felt to the slot goes through the wall. */
+  dropFrom: 0.70,
+  dropSpan: 0.95,
+  /** Keep a pig's CENTRE this far inside the interior wall. It is the pig's half
+   *  length, deliberately: at that pad a fully horizontal pig cannot get an end
+   *  through the wall at any yaw, which makes containment geometry rather than a
+   *  tuned guess. The lateral offset is SCALED to fit rather than clipped, so
+   *  when the rattle does reach the limit it rides the wall instead of sticking
+   *  to a flat spot. */
+  wallPad: 0.50,
+};
 
 /** Chip projection: how far above a pig's COM the chip's tail points. Whether a
  *  chip is SHOWN is a question about the pig's projected size, not about a pixel
@@ -697,7 +756,7 @@ const adapter = {
 
       // The shaker. Degrades to nothing if pig.js is an older build without it,
       // because a missing prop must never cost the player the game.
-      this.cupState = { lift: 0, tip: 0 };
+      this.cupState = { lift: 0, tip: 0, tilt: 0 };
       this.cup = typeof buildCup === 'function' ? buildCup() : null;
       if (this.cup) {
         this.cupShadow = buildContactShadow ? buildContactShadow(0.72) : null;
@@ -734,6 +793,10 @@ const adapter = {
       // two skew axes so the rattle never looks like a single spin
       this._axA = new THREE.Vector3(0.31, 0.88, 0.36).normalize();
       this._axB = new THREE.Vector3(-0.74, 0.19, 0.64).normalize();
+      // rattle scratch: one point and one quaternion for the cup-local -> world
+      // transform stepShake runs twice a frame
+      this._qd = new THREE.Quaternion();
+      this._cupPt = new THREE.Vector3();
 
       // ready BEFORE the first placement: restIdle/placePose refuse to touch a
       // pen that is not ready yet, and silently leaving both pigs at the world
@@ -974,8 +1037,10 @@ const adapter = {
       if (mesh.castShadow !== wantCast) mesh.castShadow = wantCast;
     }
     if (!pig.shadow) return;
-    // a pig that burst into particles casts nothing
-    pig.shadow.visible = pig.group.visible;
+    // a pig that burst into particles casts nothing — and neither does one that
+    // is inside the cup (stepShake sets `hideShadow`): the cup has its own patch,
+    // and a second one under it reads as a pig lying on the felt
+    pig.shadow.visible = pig.group.visible && !pig.hideShadow;
     const k = clamp(1 - h / SHADOW.fadeH, 0, 1);
     pig.shadow.position.set(pig.p[0], 0.005, pig.p[2]);
     const s = SHADOW.restScale + h * SHADOW.spread;
@@ -1008,8 +1073,10 @@ const adapter = {
     this.hideChips();
     resetPigVisuals(this.pigs.map((p) => p.group));
     for (const pig of this.pigs) {
-      // the shake hides them inside the cup; nothing else may leave them hidden
+      // an Oinker's burst hides them; nothing else may leave them hidden, and
+      // nothing may leave their contact patch switched off either
       pig.group.visible = true;
+      pig.hideShadow = false;
       if (pig.shadow) pig.shadow.visible = true;
     }
     this.cupHome();
@@ -1197,9 +1264,14 @@ const adapter = {
    * Put the cup wherever `cupState` says it is.
    *
    * `lift` 0 = on the felt at CUP_REST, 1 = hovering at CUP_HOLD. `tip` 0 =
-   * upright, 1 = tipped CUP_TIP_RAD toward the board. `rattle` is the shake
+   * upright, 1 = tipped CUP_TIP_RAD toward the board. `tilt` 0..1 leans the mouth
+   * CUP_SHAKE.tiltRad toward the camera, which is what makes the pigs rattling
+   * inside it visible at all (SPEC "Shake interaction" 1). `rattle` is the shake
    * jitter, in metres, and it is deliberately the SAME amplitude the pigs get so
    * the container and its contents read as one object.
+   *
+   * The pigs are staged in this cup's frame, so this has to run BEFORE they are
+   * placed each frame — and it leaves `cup.matrixWorld` up to date for them.
    */
   placeCup(rattle = 0, now = 0) {
     const cup = this.cup;
@@ -1214,11 +1286,22 @@ const adapter = {
       y + (rattle ? Math.sin(now * 0.061 + 0.8) * rattle * 0.7 : 0),
       z + (rattle ? Math.cos(now * 0.039) * rattle : 0),
     );
-    // a little lean back as it lifts, so the lift has a direction, then the throw
-    cup.rotation.set(0.20 * f + CUP_TIP_RAD * ease(clamp(s.tip, 0, 1)), 0, 0);
+    // a little lean back as it lifts, so the lift has a direction; then the
+    // shake tilt opens the mouth to the camera; then the throw takes it the
+    // other way. All three are the same axis, so they simply add.
+    cup.rotation.set(
+      0.20 * f
+      + CUP_SHAKE.tiltRad * clamp(s.tilt, 0, 1)
+      + CUP_TIP_RAD * ease(clamp(s.tip, 0, 1)),
+      0,
+      0,
+    );
     // …and roll a touch on the rattle, so it never looks like a rigid slide
     if (rattle) cup.rotation.z = Math.sin(now * 0.053) * rattle * 1.6;
     else cup.rotation.z = 0;
+    // the pigs' staging reads this matrix in the same frame, so it cannot wait
+    // for the renderer's own traversal
+    cup.updateMatrixWorld(true);
     // Same rule as the pigs (SHADOW.liftOff): a hard 2048-map shadow from an
     // object a metre off the felt is a lie and reads as a second object lying on
     // the cloth. MEASURED in a shake screenshot: the lifted cup threw a crisp dark
@@ -1252,11 +1335,16 @@ const adapter = {
     if (ph.throwing) {
       const f = (now - ph.t0) / CUP_TIP_MS;
       this.cupState.tip = Math.min(1, f);
+      // the shake tilt unwinds over the same window: the cup rolls straight
+      // through upright on its way from "mouth at me" to "mouth at the board",
+      // which is exactly the arc a hand makes
+      this.cupState.tilt = (ph.tilt0 ?? 0) * Math.max(0, 1 - f);
       this.placeCup();
       if (f >= 1) {
         ph.throwing = false;
         ph.t0 = now;
         ph.lift0 = this.cupState.lift;   // where the return starts FROM
+        ph.tilt0 = this.cupState.tilt;
       }
       return true;
     }
@@ -1264,11 +1352,13 @@ const adapter = {
     // then the cup settles onto the felt.
     const f = clamp((now - ph.t0) / CUP_HOME_MS, 0, 1);
     const e = ease(f);
-    this.cupState.tip = 1 - e;
+    this.cupState.tip = (ph.tip0 ?? 1) * (1 - e);
+    this.cupState.tilt = (ph.tilt0 ?? 0) * (1 - e);
     this.cupState.lift = (ph.lift0 ?? 1) * (1 - e);
     this.placeCup();
     if (f >= 1) {
       this.cupState.tip = 0;
+      this.cupState.tilt = 0;
       this.cupState.lift = 0;
       this.placeCup();
       this.cupPhase = null;
@@ -1282,6 +1372,7 @@ const adapter = {
     if (!this.cup) return;
     this.cupState.lift = 0;
     this.cupState.tip = 0;
+    this.cupState.tilt = 0;
     this.placeCup();
   },
 
@@ -1295,42 +1386,139 @@ const adapter = {
     this.shakeT0 = performance.now();
     this.shakeFrom = this.snapshot();
     this.ramp = 0;
+    // null = "nobody is driving me", and stepShake falls back to its own
+    // elapsed-time ramp. The input layer normally sets this every frame — see
+    // setShakeIntensity — which is what lets device motion and a touch hold feed
+    // ONE pipeline (SPEC "Shake interaction" 3).
+    this.shakeDrive = null;
   },
 
+  /**
+   * The single entry point for "how hard are the pigs being shaken right now",
+   * 0..1. Touch-hold feeds it a 1 s ramp; device motion feeds it a normalised
+   * EMA of acceleration. Everything downstream — the pigs' jitter, the cup's
+   * rattle and tilt, the camera shake — reads only this number, so the two
+   * input sources cannot drift into two different-looking shakes.
+   *
+   * @param {number|null} v
+   */
+  setShakeIntensity(v) {
+    this.shakeDrive = v == null ? null : clamp(Number(v) || 0, 0, 1);
+    if (this.mode === 'shake') this.dirty = true;
+  },
+
+  /**
+   * The interior radius of the cup at a given local height — a cone, not a
+   * cylinder, so a pig riding low has less room than one near the rim.
+   */
+  cupInnerR(localY) {
+    const ud = this.cup?.userData;
+    if (!ud) return 0.5;
+    const baseR = ud.baseR ?? 0.46;
+    const mouthR = ud.mouthR ?? 0.62;
+    const H = ud.height ?? 1.02;
+    return baseR + (mouthR - baseR) * clamp(localY / H, 0, 1);
+  },
+
+  /**
+   * The rattle (SPEC "Shake interaction" 1): the pigs are IN the cup and going
+   * berserk in there.
+   *
+   * The gather is two moves, not one, because a straight line from a pig lying on
+   * the felt to a point 0.4 m up inside a cup passes through the cup's wall. So
+   * the scoop lifts each pig to a point just ABOVE the mouth (`entryY`) and then
+   * drops it in — which is also what a hand does.
+   *
+   * Once they are in, everything is computed in the cup's LOCAL frame and pushed
+   * through `cup.matrixWorld`, so the pigs inherit the cup's lift, its tilt, its
+   * roll and its own rattle for free and cannot come unstuck from it. The
+   * containment is geometric: the lateral offset is scaled to fit inside
+   * `cupInnerR(y) - CUP_SHAKE.wallPad`, and wallPad is the pig's half length.
+   */
   stepShake(now) {
     const e = now - this.shakeT0;
-    const g = ease(Math.min(1, e / GATHER_MS));
-    // PRD §7.2: intensity ramps over the first ~1s so the hold charges up
-    const ramp = Math.min(1, e / 1000);
+    // PRD §7.2: intensity ramps over the first ~1s so the hold charges up. The
+    // input layer normally owns this; the elapsed-time fallback exists so a
+    // caller that forgets still gets a rattle rather than a frozen cup.
+    const ramp = this.shakeDrive != null ? this.shakeDrive : Math.min(1, e / 1000);
     this.ramp = ramp;
-    const amp = (0.014 + 0.055 * ramp) * g;
-    const spin = 0.0016 + 0.0075 * ramp;
+    const gIn = ease(clamp(e / GATHER_MS, 0, 1));
+    const gDrop = ease(clamp(
+      (e - GATHER_MS * CUP_SHAKE.dropFrom) / (GATHER_MS * CUP_SHAKE.dropSpan), 0, 1,
+    ));
+    const amp = (0.014 + 0.055 * ramp) * gIn;
+
+    // The cup goes FIRST: the pigs live in its frame this frame.
+    this.cupState.lift = Math.min(1, e / CUP_LIFT_MS);
+    this.cupState.tip = 0;
+    this.cupState.tilt = Math.min(1, e / CUP_LIFT_MS);
+    this.placeCup(amp * 0.8, now);
+
+    const cup = this.cup;
+    const H = cup?.userData?.height ?? 1.02;
+    const jit = CUP_SHAKE.jitterIdle + (CUP_SHAKE.jitterFull - CUP_SHAKE.jitterIdle) * ramp;
+    const spin = CUP_SHAKE.spinIdle + (CUP_SHAKE.spinFull - CUP_SHAKE.spinIdle) * ramp;
+
     for (let i = 0; i < this.pigs.length; i++) {
       const pig = this.pigs[i];
       const from = this.shakeFrom[i];
-      const cup = CUP[i];
       const ph = i * 2.3;
-      pig.p[0] = from.p[0] + (cup[0] - from.p[0]) * g + Math.sin(now * 0.041 + ph) * amp;
-      pig.p[1] = from.p[1] + (cup[1] - from.p[1]) * g + Math.sin(now * 0.053 + ph * 1.7) * amp * 0.7;
-      pig.p[2] = from.p[2] + (cup[2] - from.p[2]) * g + Math.cos(now * 0.037 + ph * 0.6) * amp;
+
+      // --- where the pig wants to be, in the cup's own frame -----------------
+      const slotY = CUP_SHAKE.slotY[i] ?? 0.4;
+      // a bounce: |sin| kicks off the bottom of the well rather than gliding
+      const bounce = Math.abs(Math.sin(now * (0.021 + 0.006 * ramp) + ph * 1.9));
+      let ly = slotY + (bounce - 0.5) * jit * CUP_SHAKE.jitterY * 2;
+      let lx = (CUP_SHAKE.slotX[i] ?? 0)
+        + Math.sin(now * 0.031 + ph) * jit
+        + Math.sin(now * 0.073 + ph * 2.7) * jit * 0.45;
+      let lz = (CUP_SHAKE.slotZ[i] ?? 0)
+        + Math.cos(now * 0.027 + ph * 1.3) * jit
+        + Math.cos(now * 0.067 + ph * 0.7) * jit * 0.45;
+      // the entry point of the scoop, and the drop into the slot
+      const entryY = H + CUP_SHAKE.entryY;
+      ly = entryY + (ly - entryY) * gDrop;
+      lx *= gDrop;
+      lz *= gDrop;
+      // …and containment: scale (don't clip) the lateral offset to fit
+      const maxR = Math.max(0.02, this.cupInnerR(ly) - CUP_SHAKE.wallPad);
+      const r = Math.hypot(lx, lz);
+      if (r > maxR) { const k = maxR / r; lx *= k; lz *= k; }
+
+      if (cup) {
+        this._cupPt.set(lx, ly, lz).applyMatrix4(cup.matrixWorld);
+      } else {
+        // no cup in this build: fall back to the old world-space rattle points
+        const c = CUP[i];
+        this._cupPt.set(c[0] + lx, c[1] + ly - slotY, c[2] + lz);
+      }
+
+      // --- blend out of the resting pose over the scoop ----------------------
+      pig.p[0] = from.p[0] + (this._cupPt.x - from.p[0]) * gIn;
+      pig.p[1] = from.p[1] + (this._cupPt.y - from.p[1]) * gIn;
+      pig.p[2] = from.p[2] + (this._cupPt.z - from.p[2]) * gIn;
+
       // rattle: two out-of-phase axis rotations, blended in as the pig is
-      // scooped up so it never snaps out of its resting attitude
+      // scooped up so it never snaps out of its resting attitude, then carried
+      // into the cup's own frame so a tilted cup tumbles its contents with it
       this._qa.setFromAxisAngle(this._axA, now * spin + ph);
       this._qb.setFromAxisAngle(this._axB, -now * spin * 1.37 + ph);
       this._qa.multiply(this._qb);
+      if (cup) {
+        cup.getWorldQuaternion(this._qd);
+        this._qa.premultiply(this._qd);
+      }
       this._qb.set(from.q[0], from.q[1], from.q[2], from.q[3]);
-      this._qc.slerpQuaternions(this._qb, this._qa, g);
+      this._qc.slerpQuaternions(this._qb, this._qa, gIn);
       pig.q[0] = this._qc.x; pig.q[1] = this._qc.y; pig.q[2] = this._qc.z; pig.q[3] = this._qc.w;
-      // Once a pig is deep enough into the cup it is genuinely out of sight, so
-      // stop drawing it — that is what the container BUYS, and it is also what
-      // keeps two 1.0 m pigs from interpenetrating inside a 1.24 m mouth.
-      pig.group.visible = g < CUP_SWALLOW;
-      if (pig.shadow) pig.shadow.visible = pig.group.visible;
+
+      // They stay DRAWN for the whole hold — that is must-fix 1. The contact
+      // patch does not: a shadow on the felt under a pig that is a metre up
+      // inside a cup is the same lie the cup's own map shadow was.
+      pig.group.visible = true;
+      pig.hideShadow = gIn > 0.35;
     }
-    // the cup lifts with them and rattles with the same amplitude
-    this.cupState.lift = Math.min(1, e / CUP_LIFT_MS);
-    this.cupState.tip = 0;
-    this.placeCup(amp * 0.8, now);
+
     this.cameraShake(0.018 * ramp, now);
     // spend the hold on the search the release is about to need (PRD §10)
     if (this.cache.needsRefill) this.cache.prefill(3);
@@ -1342,12 +1530,24 @@ const adapter = {
     if (!this.ready || this.mode !== 'shake') return;
     this.startTween(this.snapshot(), this.shakeFrom, RETURN_MS);
     // the pigs come back out of the cup, and the cup comes back down — with NO
-    // tip, because nothing was thrown
+    // tip, because nothing was thrown (hence tip0: whatever it actually is,
+    // which during a shake is 0; the old code hard-coded 1 and snapped the cup
+    // into a full pour on every cancelled tap)
     for (const pig of this.pigs) {
       pig.group.visible = true;
+      pig.hideShadow = false;
       if (pig.shadow) pig.shadow.visible = true;
     }
-    if (this.cup) this.cupPhase = { throwing: false, t0: performance.now(), lift0: this.cupState.lift };
+    if (this.cup) {
+      this.cupPhase = {
+        throwing: false,
+        t0: performance.now(),
+        lift0: this.cupState.lift,
+        tip0: this.cupState.tip,
+        tilt0: this.cupState.tilt,
+      };
+    }
+    this.shakeDrive = null;
     this.cameraShake(0);
   },
 
@@ -1489,11 +1689,18 @@ const adapter = {
     // over the same window the pigs use to leave it is the windup the round-2
     // review found missing, and it is what makes LAUNCH_MS read as a release
     // rather than as a teleport. `cupPhase` then walks it back down to the felt.
+    //
+    // `from` above is a snapshot of wherever the pigs actually are, which since
+    // must-fix 1 is INSIDE the cup — so LAUNCH_MS's blend into the recording's
+    // first frame is the pour, with no extra machinery (SPEC allows ≤150 ms and
+    // LAUNCH_MS is exactly 150).
     for (const pig of this.pigs) {
       pig.group.visible = true;
+      pig.hideShadow = false;
       if (pig.shadow) pig.shadow.visible = true;
     }
-    this.cupPhase = { throwing: true, t0: performance.now() };
+    this.shakeDrive = null;
+    this.cupPhase = { throwing: true, t0: performance.now(), tilt0: this.cupState.tilt };
     this.mode = 'replay';
     return new Promise((resolve) => {
       this._playDone = resolve;
@@ -1536,6 +1743,15 @@ const adapter = {
     this.deliverSettles(true);
     this.playState = null;
     this.mode = 'idle';
+    // The cup's throw+return is driven by the RENDER loop, so a starved renderer
+    // can leave it hanging in mid-air — MEASURED with the pane hidden: the toss
+    // resolved and the shaker was still up and still tilted at `tilt` 1.0. If its
+    // own wall-clock window has already elapsed, the frames it needed are never
+    // coming; put it on the felt. A skip tap that lands INSIDE that window keeps
+    // its animation, because there the frames are real.
+    if (this.cupPhase && performance.now() - this.cupPhase.t0 > CUP_TIP_MS + CUP_HOME_MS) {
+      this.cupHome();
+    }
     this.dirty = true;
     const done = this._playDone;
     this._playDone = null;
@@ -2737,6 +2953,10 @@ const dom = {
   newGameBtn: $('newGameBtn'),
   rulesToggle: $('rulesToggle'),
   rulesPanel: $('rulesPanel'),
+  // device-motion opt-in (SPEC "Shake interaction" 3). Hidden by default in the
+  // markup; game.js unhides it only where DeviceMotionEvent actually exists.
+  motionRow: $('motionRow'),
+  motionToggle: $('motionToggle'),
   // win
   winName: $('winName'),
   winDetail: $('winDetail'),
@@ -2791,7 +3011,7 @@ function addPlayerRow(name = '') {
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'remove-btn';
-  remove.textContent = '✕';
+  remove.append(icon('close', 15));
   remove.setAttribute('aria-label', 'Remove player');
   remove.addEventListener('click', () => {
     row.remove();
@@ -3387,85 +3607,490 @@ function bankPoints() {
 }
 
 /* =========================================================================
- * Hold-to-shake input (pointer + keyboard)
+ * Shake input — ONE pipeline, three sources
+ * (SPEC "Shake interaction" must-fixes 2 and 3)
  *
- * Mobile: hold anywhere in the pen. Desktop: hold the Go Hog Wild button
- * or hold Space. Min hold 250ms so a stray tap doesn't toss. Release
- * outside the pen still throws — the "up" listener lives on window.
+ * Mobile: hold anywhere in the pen. Desktop: hold the Go Hog Wild button or
+ * hold Space. Opt-in: shake the phone itself. Min hold 250 ms so a stray tap
+ * doesn't toss. Release outside the pen still throws.
+ *
+ * ------------------------------------------------------------------------
+ * THE MOBILE BUG (owner, real phone: "one tick of shake sound, no ongoing
+ * shake animation, no toss") AND ITS ROOT CAUSE.
+ *
+ * It was `window.addEventListener('pointercancel', cancelHold)`.
+ *
+ * A hold-to-shake gesture IS a long press, and a long press is a gesture the
+ * platform wants for itself: on Android Chrome and iOS Safari a press held past
+ * ~500 ms starts text selection / the callout menu, and the browser takes the
+ * pointer away by firing `pointercancel` — after which NO `pointerup` for that
+ * pointer ever arrives. The old code treated that as "the player let go with no
+ * intention to throw" and ran `cancelHold`, which stopped the rattle, tweened
+ * the pigs back and set `holdActive = false`. The finger was still on the glass.
+ * When it finally lifted, `endHold` early-returned on `!holdActive`, so there
+ * was no toss. That is the reported triad exactly, and it reproduces to the
+ * millisecond — MEASURED in Chrome mobile emulation on the pre-fix build,
+ * pointerdown → 'shaking', 500 ms later a `pointercancel` → 'ready', and a
+ * `pointerup` 900 ms after that → still 'ready', turn total unchanged.
+ *
+ * `touch-action: none` was NOT the missing piece and never could have been —
+ * it was already on `.pen-wrap` (verified in the computed style), and
+ * touch-action governs panning and pinch-zoom, not the long-press gesture.
+ *
+ * The fix is four things, and all four are load bearing:
+ *
+ *   1. STOP PROVOKING IT. `user-select: none` + `-webkit-touch-callout: none`
+ *      on the pen, its children and the hold button, plus a `contextmenu`
+ *      preventDefault on both shake targets, so the platform has no selection or
+ *      callout gesture to claim. (MEASURED before: the pen computed
+ *      `user-select: auto`, and the most selectable thing on the felt was the
+ *      result card's own text.)
+ *   2. A `pointercancel` IS NOT A RELEASE. It orphans the gesture instead: the
+ *      rattle, the cup and the haptics keep running, and the shake resolves as a
+ *      THROW — either when a real release signal finally shows up, or after
+ *      `ORPHAN_GRACE_MS`. A player who shook the pigs gets a toss. What is
+ *      forbidden is the silent nothing.
+ *   3. `setPointerCapture`, so a finger that drifts off the pen onto the result
+ *      card or the action bar keeps feeding the same gesture.
+ *   4. redundant release signals (`touchend`/`touchcancel`, `blur`, hidden
+ *      document) and a hard `HOLD_CAP_MS`, because the one thing worse than a
+ *      shake that dies early is a shake that never ends.
  * ==================================================================== */
 
 const MIN_HOLD_MS = 250;
 const RAMP_MS = 1000;
+/** A pointercancel is not a release, but it is also not forever: this is how
+ *  long the orphaned gesture keeps rattling before it resolves as a throw. */
+const ORPHAN_GRACE_MS = 900;
+/** No gesture legitimately lasts this long; something ate the release event. */
+const HOLD_CAP_MS = 12000;
+/** Haptic pulse cadence — slow at rest, fast flat out, so the phone buzzes for
+ *  the WHOLE hold instead of once (must-fix 2: "haptic pulse run CONTINUOUSLY"). */
+const HAPTIC_GAP_IDLE_MS = 260;
+const HAPTIC_GAP_FULL_MS = 95;
 
-let holdActive = false;
-let holdStart = 0;
-let rampRaf = null;
+/** Fallback pump period. See `beginShake`. */
+const SHAKE_PUMP_MS = 60;
 
-function startHold() {
-  if (state.turnState !== 'ready' || holdActive) return;
-  if (dom.body.classList.contains('mode-quick-only')) return;
-  holdActive = true;
-  holdStart = performance.now();
+const shake = {
+  active: false,
+  source: null,          // 'touch' | 'key' | 'motion'
+  t0: 0,
+  ramp: 0,
+  raf: null,
+  timer: null,
+  pointers: new Set(),   // every pointer currently down on a shake target
+  orphanAt: 0,           // when a pointercancel left us holding nothing
+  hapticAt: 0,
+  tosses: 0,             // dev/test counters
+  cancels: 0,
+  orphans: 0,
+};
+
+function shakeVisualsOff() {
+  dom.hogWildBtn.classList.remove('holding');
+  dom.holdFill.style.transform = 'scaleX(0)';
+}
+
+/**
+ * Start a shake from `source`, or return false if now is not the moment.
+ * Everything a shake needs to be CONTINUOUS is set up here and torn down in
+ * exactly one place (`stopShake`).
+ */
+function beginShake(source) {
+  if (shake.active) return false;
+  if (state.turnState !== 'ready') return false;
+  if (dom.body.classList.contains('mode-quick-only')) return false;
+  shake.active = true;
+  shake.source = source;
+  shake.t0 = performance.now();
+  shake.ramp = 0;
+  shake.orphanAt = 0;
+  shake.hapticAt = 0;
   setTurnState('shaking');
   initAudio();
   dom.hogWildBtn.classList.add('holding');
   // the gesture always works (PRD §7.3/§7.4) but prefers-reduced-motion means
   // it must not start a rattle
   if (!reducedMotion) adapter.startShake();
-  // the cup rattle: intensity is fed the same 0..1 hold ramp the fill bar uses,
-  // so what you hear IS how hard the pigs are being shaken (PRD §11)
+  // the cup rattle: intensity is fed the same 0..1 ramp the fill bar and the
+  // pigs use, so what you HEAR is how hard they are being shaken (PRD §11)
   shakeLoop(0);
-
-  const tick = () => {
-    if (!holdActive) return;
-    const elapsed = performance.now() - holdStart;
-    const ramp = Math.min(1, elapsed / RAMP_MS);
-    dom.holdFill.style.transform = `scaleX(${ramp})`;
-    shakeLoop(ramp);
-    rampRaf = requestAnimationFrame(tick);
-  };
-  rampRaf = requestAnimationFrame(tick);
+  /* TWO pumps, and the second one is not belt-and-braces.
+   *
+   * requestAnimationFrame is the right clock for the RENDER, and it is the wrong
+   * clock for a gesture: a throttled or occluded renderer stops it dead. MEASURED
+   * in this browser with the pane hidden — the touch was down, `turnState` stayed
+   * "shaking", and `ramp` sat at 0.00 for 27 SECONDS: no audio ramp, no haptics,
+   * and `HOLD_CAP_MS` never fired either, so the gesture could not even
+   * self-rescue. That is the same lesson SPEC's round-3 reveal notes learned about
+   * phase clocks, applied to input. The interval keeps the STATE MACHINE — audio
+   * intensity, haptic cadence, the orphan grace, the cap, the motion release — on
+   * the wall clock whatever the compositor is doing; rAF just makes it smooth
+   * when frames are actually being painted. `pumpShake` derives everything from
+   * `performance.now()`, so running it twice in a frame costs nothing.
+   */
+  shake.raf = requestAnimationFrame(shakeFrame);
+  shake.timer = setInterval(() => {
+    if (shake.active) pumpShake(performance.now());
+  }, SHAKE_PUMP_MS);
+  // …and only THEN pump frame zero. If this first pump decides the shake is
+  // already over, `stopShake` has to be able to find both pumps to clear them;
+  // pumping before they exist leaks the interval onto a dead gesture.
+  pumpShake(shake.t0);
+  return shake.active;
 }
 
-function endHold() {
-  if (!holdActive) return;
-  holdActive = false;
-  cancelAnimationFrame(rampRaf);
-  stopShakeLoop();
-  dom.hogWildBtn.classList.remove('holding');
-  dom.holdFill.style.transform = 'scaleX(0)';
+function shakeFrame(now) {
+  if (!shake.active) return;
+  shake.raf = requestAnimationFrame(shakeFrame);
+  pumpShake(now);
+}
 
-  const heldMs = performance.now() - holdStart;
-  if (heldMs < MIN_HOLD_MS) {
-    // Too short — treat as a cancelled tap, not a toss.
+/**
+ * One frame of a live shake: intensity → audio + pen + fill bar + haptics, then
+ * the release checks that no event is going to deliver for us.
+ *
+ * This is deliberately the ONLY place the ramp is computed. The touch ramp and
+ * the device-motion EMA are two ways of answering the same question, and the
+ * whole point of must-fix 3's "drives the SAME shake pipeline" is that after
+ * this line nothing downstream knows which one it got.
+ */
+function pumpShake(now) {
+  const elapsed = now - shake.t0;
+  const ramp = shake.source === 'motion'
+    ? motionIntensity()
+    : Math.min(1, elapsed / RAMP_MS);
+  shake.ramp = ramp;
+  dom.holdFill.style.transform = `scaleX(${ramp})`;
+  shakeLoop(ramp);
+  adapter.setShakeIntensity(ramp);
+  if (now >= shake.hapticAt) {
+    shakePulse(ramp);
+    shake.hapticAt = now
+      + HAPTIC_GAP_IDLE_MS + (HAPTIC_GAP_FULL_MS - HAPTIC_GAP_IDLE_MS) * ramp;
+  }
+
+  if (shake.source === 'motion') {
+    stepMotionShake(now);
+    return;
+  }
+  // A gesture whose release event never came. Both of these END it as a throw:
+  // the player did shake the pigs, and swallowing that is the bug.
+  if (shake.orphanAt && now - shake.orphanAt >= ORPHAN_GRACE_MS) { endShake(true); return; }
+  if (elapsed >= HOLD_CAP_MS) endShake(true);
+}
+
+/** Tear down everything `beginShake` started. Says nothing about the outcome. */
+function stopShake() {
+  shake.active = false;
+  shake.source = null;
+  shake.orphanAt = 0;
+  shake.pointers.clear();
+  if (shake.raf) cancelAnimationFrame(shake.raf);
+  shake.raf = null;
+  if (shake.timer) clearInterval(shake.timer);
+  shake.timer = null;
+  stopShakeLoop();
+  adapter.setShakeIntensity(null);
+  shakeVisualsOff();
+}
+
+/**
+ * Finish a shake. `toss` false — or a hold too short to have been meant —
+ * puts the pigs back; otherwise the pigs fly.
+ */
+function endShake(toss) {
+  if (!shake.active) return;
+  const heldMs = performance.now() - shake.t0;
+  const wasMotion = shake.source === 'motion';
+  stopShake();
+  // the sustain window belongs to the gesture that just ended (see onDeviceMotion)
+  if (wasMotion) motion.aboveMs = 0;
+  if (!toss || heldMs < MIN_HOLD_MS) {
+    shake.cancels++;
     adapter.cancelShake();
     setTurnState('ready');
     return;
   }
+  shake.tosses++;
+  if (wasMotion) { motion.throws++; motion.lastThrow = performance.now(); }
   haptic('toss');
   performToss();
 }
 
-function cancelHold() {
-  if (!holdActive) return;
-  holdActive = false;
-  cancelAnimationFrame(rampRaf);
-  stopShakeLoop();
-  dom.hogWildBtn.classList.remove('holding');
-  dom.holdFill.style.transform = 'scaleX(0)';
-  adapter.cancelShake();
-  setTurnState('ready');
+/** For every caller that used to say `cancelHold()`. */
+function cancelShakeInput() { endShake(false); }
+
+/* -------------------------------------------------------------- touch/mouse */
+
+function onShakeDown(e) {
+  // a right-click or a stylus barrel press is not a hold
+  if (typeof e.button === 'number' && e.button > 0) return;
+  if (e.pointerId != null) shake.pointers.add(e.pointerId);
+  // a finger came back: the gesture is no longer orphaned
+  shake.orphanAt = 0;
+  // Capture, so a finger that slides off the pen onto the card or the action
+  // bar still belongs to this gesture. Not fatal if the browser refuses.
+  try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+  e.preventDefault();
+  if (!shake.active) beginShake('touch');
+}
+
+function onPointerRelease(e) {
+  if (e?.pointerId != null) shake.pointers.delete(e.pointerId);
+  if (!shake.active || shake.source !== 'touch') return;
+  if (shake.pointers.size) return;   // another finger is still holding
+  endShake(true);
+}
+
+/**
+ * `pointercancel` — the platform taking the pointer away, NOT the player letting
+ * go. See the block comment at the top of this section: treating these as
+ * releases is the whole mobile bug. Keep shaking; `pumpShake` resolves it.
+ */
+function onPointerCancel(e) {
+  if (e?.pointerId != null) shake.pointers.delete(e.pointerId);
+  if (!shake.active || shake.source !== 'touch') return;
+  if (shake.pointers.size) return;
+  if (!shake.orphanAt) {
+    shake.orphanAt = performance.now();
+    shake.orphans++;
+  }
 }
 
 for (const target of [dom.penWrap, dom.hogWildBtn]) {
-  target.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    startHold();
+  target.addEventListener('pointerdown', onShakeDown);
+  // With capture in place these fire on the TARGET, not on window — but the
+  // window listeners below stay, because capture can be refused and a release
+  // outside the pen must still throw.
+  target.addEventListener('pointerup', onPointerRelease);
+  target.addEventListener('pointercancel', onPointerCancel);
+  // No long-press menu on either shake target, ever — not just while a shake is
+  // running, because the menu is raised by the press that STARTS one. Together
+  // with the CSS (`user-select`/`-webkit-touch-callout` on .pen-wrap and
+  // .hold-btn) this leaves the platform no gesture here to claim, which is the
+  // only way to stop the pointercancel rather than merely survive it.
+  target.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+window.addEventListener('pointerup', onPointerRelease);
+window.addEventListener('pointercancel', onPointerCancel);
+/* Touch events are the redundant channel. If the pointer stream was cancelled
+ * but the underlying touch still reports its end, that is a REAL release and the
+ * throw should not wait out the grace period. */
+window.addEventListener('touchend', () => {
+  if (shake.active && shake.source === 'touch' && shake.orphanAt) endShake(true);
+}, { passive: true });
+window.addEventListener('touchcancel', () => {
+  if (shake.active && shake.source === 'touch' && !shake.orphanAt) {
+    shake.orphanAt = performance.now();
+    shake.orphans++;
+  }
+}, { passive: true });
+/* A shake nobody can see must not decide a turn. The interval pump means an
+ * abandoned gesture WOULD eventually resolve itself through HOLD_CAP_MS — but it
+ * would resolve as a throw, and coming back to a spent turn you never saw is
+ * worse than coming back to the one you left. Cancel, explicitly. */
+window.addEventListener('blur', () => { if (shake.active) cancelShakeInput(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && shake.active) cancelShakeInput();
+});
+
+/* =========================================================================
+ * Device-motion shake (PRD §7.3 decision D3, SPEC "Shake interaction" 3)
+ *
+ * Opt-in, because a page that grabs the accelerometer unasked is rude and on
+ * iOS is not even allowed. The toggle hides itself where `DeviceMotionEvent`
+ * does not exist, and on iOS 13+ it goes through `requestPermission()` from
+ * inside the change event — which is a user gesture, which is the only place
+ * that call is permitted.
+ *
+ * The signal: |acceleration| with gravity removed, smoothed into an EMA whose
+ * weight is normalised per sample interval so a 30 Hz sensor and a 60 Hz one
+ * behave the same. `acceleration` is already gravity-free where the platform
+ * provides it; where it does not, `gravity` below is a slow low-pass of the raw
+ * vector, subtracted — which is the same thing computed by hand.
+ *
+ * The gesture: cross `on` and the pigs start rattling immediately at an
+ * intensity that tracks how hard you are shaking. Stay above threshold for
+ * `sustainMs` and then DROP below `off` and it is a throw. Drop before that and
+ * it was a bump, not a shake, so it cancels. `debounceMs` then locks the sensor
+ * out, so one enthusiastic shake is one toss and not five.
+ * ==================================================================== */
+
+const MOTION = {
+  on: 6.0,           // m/s² of gravity-free acceleration that reads as shaking
+  off: 3.2,          // …and what a release has to fall below (hysteresis)
+  full: 18.0,        // EMA that maps to intensity 1
+  alpha: 0.30,       // EMA weight per 60 Hz sample (~55 ms time constant)
+  sustainMs: 400,    // SPEC: sustained, THEN a drop, is a throw
+  debounceMs: 1500,  // …and one shake is one toss
+  staleMs: 350,      // no devicemotion this long = the phone stopped moving
+};
+
+const MOTION_KEY = 'hogwild.shakeMotion';
+
+const motion = {
+  supported: typeof window !== 'undefined' && typeof window.DeviceMotionEvent === 'function',
+  enabled: false,
+  listening: false,
+  ema: 0,
+  aboveMs: 0,
+  lastSample: 0,
+  lastEvent: 0,
+  lastThrow: 0,
+  gravity: { x: 0, y: 0, z: 0 },
+  throws: 0,
+  blocked: 0,      // bursts rejected by the debounce — the test page asserts on it
+  events: 0,
+};
+
+function motionIntensity() {
+  return clamp(motion.ema / MOTION.full, 0, 1);
+}
+
+/** |acceleration| in m/s², gravity removed whichever channel the platform gives. */
+function motionMagnitude(e) {
+  const a = e.acceleration;
+  if (a && (a.x != null || a.y != null || a.z != null)) {
+    return Math.hypot(a.x || 0, a.y || 0, a.z || 0);
+  }
+  const g = e.accelerationIncludingGravity;
+  if (!g) return 0;
+  const k = 0.08;   // slow: it must track gravity, not the shake
+  motion.gravity.x += ((g.x || 0) - motion.gravity.x) * k;
+  motion.gravity.y += ((g.y || 0) - motion.gravity.y) * k;
+  motion.gravity.z += ((g.z || 0) - motion.gravity.z) * k;
+  return Math.hypot(
+    (g.x || 0) - motion.gravity.x,
+    (g.y || 0) - motion.gravity.y,
+    (g.z || 0) - motion.gravity.z,
+  );
+}
+
+function onDeviceMotion(e) {
+  const now = performance.now();
+  /* A GAP IS NOT A DURATION. `aboveMs` is integrated from these samples, so the
+   * first sample after an idle sensor must not be credited with however long the
+   * sensor was idle — MEASURED against dev/shake-test.html's "too-short shake"
+   * check, where one stale 200 ms dt put `aboveMs` at 249 ms after 66 ms of real
+   * shaking and a 220 ms jolt sailed past the 400 ms sustain gate. A gap longer
+   * than `staleMs` means the phone was NOT moving, so the stream restarts. */
+  if (motion.lastSample && now - motion.lastSample > MOTION.staleMs) {
+    motion.lastSample = 0;
+    motion.aboveMs = 0;
+    motion.ema = 0;
+  }
+  const dt = motion.lastSample ? clamp(now - motion.lastSample, 1, 60) : 16.7;
+  motion.lastSample = now;
+  motion.lastEvent = now;
+  motion.events++;
+
+  const mag = motionMagnitude(e);
+  const a = 1 - Math.pow(1 - MOTION.alpha, dt / 16.7);
+  motion.ema += (mag - motion.ema) * a;
+
+  if (motion.ema >= MOTION.on) {
+    motion.aboveMs += dt;
+  } else if (motion.ema < MOTION.off && !(shake.active && shake.source === 'motion')) {
+    // The reset is gated on "no motion shake is running", and that gate is
+    // load bearing. Without it the very samples that REPORT the drop wipe the
+    // sustain they are supposed to be measured against, so `stepMotionShake`
+    // always saw aboveMs = 0 and every shake cancelled instead of throwing.
+    // (Caught by dev/shake-test.html's third check, which is why it exists.)
+    motion.aboveMs = 0;
+  }
+
+  if (!motion.enabled) return;
+  // A touch hold outruns the sensor: the player has their thumb on the glass and
+  // the phone is moving because of it. Don't fight the gesture that is already
+  // running (must-fix 3: "Must coexist with touch-hold").
+  if (shake.active) return;
+  if (motion.ema < MOTION.on) return;
+  if (now - motion.lastThrow < MOTION.debounceMs) { motion.blocked++; return; }
+  if (state.turnState !== 'ready') return;
+  beginShake('motion');
+}
+
+/**
+ * The release half of the motion gesture, run from `pumpShake` so it is on the
+ * same wall clock as everything else and cannot be missed just because the
+ * sensor went quiet.
+ */
+function stepMotionShake(now) {
+  const stale = now - motion.lastEvent > MOTION.staleMs;
+  if (!stale && motion.ema >= MOTION.off) return;   // still shaking
+  if (motion.aboveMs >= MOTION.sustainMs) endShake(true);
+  else endShake(false);
+}
+
+function syncMotionToggle() {
+  if (!dom.motionRow || !dom.motionToggle) return;
+  dom.motionRow.hidden = !motion.supported;
+  dom.motionToggle.checked = motion.enabled;
+}
+
+function saveMotionPref(on) {
+  try { localStorage.setItem(MOTION_KEY, on ? '1' : '0'); } catch { /* private mode */ }
+}
+function loadMotionPref() {
+  try { return localStorage.getItem(MOTION_KEY) === '1'; } catch { return false; }
+}
+
+/**
+ * @param {boolean} on
+ * @param {boolean} [ask] true when a user gesture is driving this, which is the
+ *   only time iOS will honour requestPermission()
+ * @returns {Promise<boolean>} whether motion shaking is on afterwards
+ */
+async function setMotionEnabled(on, ask = false) {
+  if (!motion.supported) return false;
+  if (on) {
+    const req = window.DeviceMotionEvent.requestPermission;
+    if (typeof req === 'function') {
+      if (!ask) { syncMotionToggle(); return false; }   // never prompt on boot
+      let granted = false;
+      try {
+        granted = (await req.call(window.DeviceMotionEvent)) === 'granted';
+      } catch (err) {
+        console.warn('[hog-wild] motion permission request failed', err);
+      }
+      if (!granted) {
+        motion.enabled = false;
+        saveMotionPref(false);
+        syncMotionToggle();
+        return false;
+      }
+    }
+    motion.enabled = true;
+    if (!motion.listening) {
+      window.addEventListener('devicemotion', onDeviceMotion);
+      motion.listening = true;
+    }
+  } else {
+    motion.enabled = false;
+    if (motion.listening) {
+      window.removeEventListener('devicemotion', onDeviceMotion);
+      motion.listening = false;
+    }
+    motion.ema = 0;
+    motion.aboveMs = 0;
+    if (shake.active && shake.source === 'motion') cancelShakeInput();
+  }
+  saveMotionPref(motion.enabled);
+  syncMotionToggle();
+  return motion.enabled;
+}
+
+if (dom.motionToggle) {
+  dom.motionToggle.addEventListener('change', (e) => {
+    setMotionEnabled(e.currentTarget.checked, true);
   });
 }
-// Release outside the pen still throws — listen on window, not the target.
-window.addEventListener('pointerup', () => endHold());
-window.addEventListener('pointercancel', cancelHold);
+syncMotionToggle();
+// A stored opt-in re-arms itself on load — except on iOS, where the permission
+// call needs a gesture, so the toggle simply comes back unchecked there.
+if (motion.supported && loadMotionPref()) setMotionEnabled(true, false);
 
 /* PRD §8.3 — SKIP. A tap during the tumble jumps to the end of it; a tap during
  * the camera reveal jumps to the end state of that. Neither touches the result:
@@ -3502,7 +4127,7 @@ window.addEventListener('keydown', (e) => {
       spaceHeld = true;
       // Space is the desktop tap: mid-toss or mid-reveal it skips (PRD §8.3),
       // and only otherwise does it start a hold
-      if (!requestSkipAll()) startHold();
+      if (!requestSkipAll()) beginShake('key');
     }
     return;
   }
@@ -3514,7 +4139,8 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'Space') {
     e.preventDefault();
     spaceHeld = false;
-    endHold();
+    // only OUR key hold ends here: a Space release must not stop a phone shake
+    if (shake.source === 'key') endShake(true);
   }
 });
 
@@ -3522,7 +4148,7 @@ dom.stopBtn.addEventListener('click', () => bankPoints());
 
 dom.quickTossBtn.addEventListener('click', () => {
   if (state.turnState !== 'ready') return;
-  cancelHold();
+  cancelShakeInput();
   initAudio();
   performToss({ quick: true });
 });
@@ -3585,7 +4211,12 @@ function showWin(winner) {
       const li = document.createElement('li');
       const marker = document.createElement('span');
       marker.className = 'marker';
-      marker.textContent = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+      // a drawn medal, tinted per place (SPEC "Iconography"): no emoji font, so the
+      // podium looks the same on every platform
+      if (i < 3) {
+        marker.classList.add(`p${i + 1}`);
+        marker.append(icon('medal', 19));
+      }
       const who = document.createElement('span');
       who.className = 'who';
       who.textContent = p.name;
@@ -3723,4 +4354,42 @@ window.hogwild = {
   force: (outcome) => { forcedOutcome = outcome; },
   skip: () => requestSkipAll(),
   reveal: { REVEAL, SETTLE, FACE, REVEAL_FX },
+  /* The shake pipeline, read-only, for dev/shake-test.html. It asserts on
+   * intensity, on the animation state, on the throw and on the debounce, and
+   * none of those are inspectable from the outside otherwise. */
+  shake: {
+    MOTION,
+    CUP_SHAKE,
+    get state() {
+      return {
+        active: shake.active,
+        source: shake.source,
+        ramp: shake.ramp,
+        tosses: shake.tosses,
+        cancels: shake.cancels,
+        orphans: shake.orphans,
+        turnState: state.turnState,
+        mode: adapter.mode,
+        cupTilt: adapter.cupState?.tilt ?? 0,
+        pigsVisible: (adapter.pigs || []).every((p) => p.group.visible),
+      };
+    },
+    get motion() {
+      return {
+        supported: motion.supported,
+        enabled: motion.enabled,
+        listening: motion.listening,
+        ema: motion.ema,
+        intensity: motionIntensity(),
+        aboveMs: motion.aboveMs,
+        events: motion.events,
+        throws: motion.throws,
+        blocked: motion.blocked,
+        debounceLeftMs: Math.max(
+          0, MOTION.debounceMs - (performance.now() - motion.lastThrow),
+        ),
+      };
+    },
+    enableMotion: (on) => setMotionEnabled(on, true),
+  },
 };

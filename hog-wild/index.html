@@ -187,8 +187,25 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     background:
         radial-gradient(120% 90% at 50% 15%, var(--felt-1) 0%, var(--felt-2) 100%);
     box-shadow:inset 0 0 0 2px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.35);
+    /* SPEC "Shake interaction" 2. `touch-action:none` was already here and was
+       never the mobile bug — it governs panning and pinch-zoom, and hold-to-shake
+       dies to the LONG-PRESS gesture instead: past ~500ms the platform starts
+       text selection / the callout menu and takes the pointer away with a
+       `pointercancel`. These three lines are what leave it nothing to take. */
     touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
     cursor:pointer;
+}
+/* the pen's own children inherit nothing here — touch-action and callout are
+   per-element, and the result card's text was the most selectable thing on the
+   felt */
+.pen-wrap *{
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
 }
 
 #penCanvas{
@@ -439,6 +456,13 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     flex:2 1 auto;
     overflow:hidden;
     background:var(--pink);
+    /* the same long-press hardening as the pen: `body` only sets
+       `touch-action:manipulation` here, which still lets a pan claim the
+       gesture, and a held button is as much a long press as a held pen */
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
 }
 .hold-btn .hold-fill{
     position:absolute; inset:0;
@@ -516,7 +540,11 @@ button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
     background:var(--bg-1);
 }
 .score-list li.current{ background:#3a6b56; box-shadow:inset 0 0 0 2px var(--gold); }
-.score-list .marker{ width:20px; flex-shrink:0; text-align:center; }
+.score-list .marker{ width:20px; flex-shrink:0; text-align:center; line-height:1; }
+/* the podium tints — one drawn medal, three colours, no emoji font */
+.score-list .marker.p1{ color:var(--gold); }
+.score-list .marker.p2{ color:#dae7e0; }
+.score-list .marker.p3{ color:#d79a6a; }
 .score-list .who{ flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .score-list .pts{ font-weight:800; font-size:1.1rem; color:var(--gold); flex-shrink:0; }
 
@@ -524,6 +552,64 @@ table.rules-table{ width:100%; border-collapse:collapse; font-size:.88rem; margi
 table.rules-table th, table.rules-table td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--panel-2); }
 table.rules-table th{ color:var(--ink-dim); font-size:.75rem; text-transform:uppercase; letter-spacing:1px; }
 table.rules-table td:last-child{ text-align:right; white-space:nowrap; font-weight:800; color:var(--gold); }
+
+/* ---------- settings switch (the device-motion opt-in) ---------- */
+
+.setting-row{
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid var(--panel-2);
+}
+.switch{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    cursor:pointer;
+    user-select:none;
+    -webkit-user-select:none;
+}
+/* the real checkbox stays in the a11y tree and keeps the keyboard, it just
+   isn't what gets painted */
+.switch input{
+    position:absolute;
+    width:1px; height:1px;
+    opacity:0;
+    pointer-events:none;
+}
+.switch-track{
+    position:relative;
+    flex:0 0 auto;
+    width:44px; height:26px;
+    margin-top:2px;
+    border-radius:13px;
+    /* --panel-2 was invisible against the panel it sits on; the off state has to
+       read as a switch that is OFF, not as absent chrome */
+    background:var(--bg-2);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
+    transition:background .16s ease;
+}
+.switch-knob{
+    position:absolute;
+    top:3px; left:3px;
+    width:20px; height:20px;
+    border-radius:50%;
+    background:#e6efe9;
+    box-shadow:0 1px 3px rgba(0,0,0,.45);
+    transition:transform .16s ease;
+}
+.switch input:checked + .switch-track{ background:var(--pink); }
+.switch input:checked + .switch-track .switch-knob{ transform:translateX(18px); }
+.switch input:focus-visible + .switch-track{ outline:2px solid var(--gold); outline-offset:2px; }
+.switch-text{ font-size:.92rem; font-weight:700; line-height:1.3; }
+.switch-text small{
+    display:block;
+    margin-top:3px;
+    font-size:.78rem;
+    font-weight:400;
+    color:var(--ink-dim);
+}
+.reduced-motion .switch-track,
+.reduced-motion .switch-knob{ transition:none; }
 
 /* ---------- win screen ---------- */
 
@@ -653,12 +739,12 @@ footer a{ color:var(--ink-dim); }
   </symbol>
   <!-- the toss: a pig on a flight arc. Replaces the DICE. -->
   <symbol id="i-toss" viewBox="0 0 24 24">
-    <path class="thin" stroke-dasharray="2 2.6" d="M2 20.5C3.4 13.4 6.6 9 11.4 7.6"/>
-    <path d="M12.4 14.1c0-2.6 2.2-4.5 4.9-4.5s4.9 1.9 4.9 4.5-2.2 4.7-4.9 4.7-4.9-2.1-4.9-4.7Z"/>
-    <path class="solid" d="M14 10.6l-1.9-2.7c-.2-.3.1-.6.4-.5l3 1Z"/>
-    <path class="solid" d="M20.6 10.6l1.9-2.7c.2-.3-.1-.6-.4-.5l-3 1Z"/>
-    <ellipse cx="17.3" cy="15.6" rx="2.2" ry="1.7"/>
-    <circle class="solid" cx="15.1" cy="12.6" r=".85"/>
+    <path stroke-dasharray="2.2 2.8" d="M1.8 21C3.1 14.6 5.6 10.6 9.4 8.6"/>
+    <path d="M10.6 13.6c0-3 2.6-5.2 5.7-5.2s5.7 2.2 5.7 5.2-2.6 5.5-5.7 5.5-5.7-2.5-5.7-5.5Z"/>
+    <path class="solid" d="M12.5 9.6 10.3 6.5c-.2-.4.1-.7.5-.6l3.4 1.2Z"/>
+    <path class="solid" d="M20.2 9.6l2.2-3.1c.2-.4-.1-.7-.5-.6l-3.4 1.2Z"/>
+    <ellipse cx="16.3" cy="15.4" rx="2.6" ry="2"/>
+    <circle class="solid" cx="13.6" cy="12.1" r=".95"/>
   </symbol>
   <!-- bank the points: a coin dropping into a slotted pot. Replaces the BANK. -->
   <symbol id="i-bank" viewBox="0 0 24 24">
@@ -710,6 +796,15 @@ footer a{ color:var(--ink-dim); }
     <circle cx="9" cy="8.4" r="3.2"/>
     <path d="M3.4 19.6c0-3.1 2.5-5.2 5.6-5.2s5.6 2.1 5.6 5.2"/>
     <path d="M16.1 5.6a3.2 3.2 0 0 1 0 6.1M17.2 14.7c2.1.5 3.4 2.3 3.4 4.9"/>
+  </symbol>
+  <!-- podium places on the win screen; tinted per place, so one glyph serves all -->
+  <symbol id="i-medal" viewBox="0 0 24 24">
+    <path d="M8.4 3.2 11 9.1M15.6 3.2 13 9.1"/>
+    <circle cx="12" cy="15.1" r="5.4"/>
+    <path class="thin" d="M12 12.1l1 2.1 2.2.3-1.6 1.6.4 2.2-2-1.1-2 1.1.4-2.2-1.6-1.6 2.2-.3Z"/>
+  </symbol>
+  <symbol id="i-close" viewBox="0 0 24 24">
+    <path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8"/>
   </symbol>
   <!-- quick toss: skip ahead -->
   <symbol id="i-forward" viewBox="0 0 24 24">
@@ -828,12 +923,27 @@ footer a{ color:var(--ink-dim); }
                 <tr><td><strong>Oinker</strong> — the pigs touch each other</td><td>Back to zero</td></tr>
             </tbody>
         </table>
-        <p class="hint" style="margin-bottom:0">
+        <p class="hint">
             Two different positions score the sum of both pigs. Keep tossing as long as you
             dare — every toss adds to your turn, but a <strong>Pig Out</strong> wipes the whole
             turn and an <strong>Oinker</strong> wipes your entire score. Bank to keep your
             points and pass the pigs along.
         </p>
+        <!-- Device-motion shake, PRD §7.3 decision D3 / SPEC "Shake interaction" 3.
+             Opt-in and `hidden` until game.js has confirmed DeviceMotionEvent
+             exists, so a desktop browser never advertises a sensor it has not
+             got. On iOS the checkbox's own change event is the user gesture
+             requestPermission() needs. -->
+        <div class="setting-row" id="motionRow" hidden>
+            <label class="switch" for="motionToggle">
+                <input type="checkbox" id="motionToggle">
+                <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
+                <span class="switch-text">
+                    Shake the phone to toss
+                    <small>Rattle your phone instead of holding the pen. Hold-to-shake keeps working.</small>
+                </span>
+            </label>
+        </div>
     </aside>
 </section>
 
