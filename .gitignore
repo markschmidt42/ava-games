@@ -3,3 +3,6 @@
 
 # Node
 node_modules/
+
+# Live build-progress dashboard (transient)
+_watch/

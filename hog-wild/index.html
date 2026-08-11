@@ -2,1193 +2,553 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Hog Wild</title>
 <meta name="description" content="Toss two pigs, push your luck, and bank your points before you go hog wild!">
-<meta name="theme-color" content="#1e3a2f">
+<meta name="theme-color" content="#14231c">
+<link rel="manifest" href="../manifest.webmanifest">
 
 <style>
-*{
-    box-sizing:border-box;
+:root{
+    --felt-1:#2f6b52;   --felt-2:#245240;
+    --bg-1:#14231c;     --bg-2:#0d1712;
+    --panel:#1e3a2e;    --panel-2:#27473a;
+    --ink:#f4fbf7;      --ink-dim:#a9c9b8;
+    --gold:#ffd54a;     --pink:#f291ac;
+    --danger:#ff5c7a;   --good:#5ddb92;
+    color-scheme: dark;
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+    height:100%;
+    overscroll-behavior:none;
 }
 
 body{
     margin:0;
-    font-family:Arial,Helvetica,sans-serif;
-    background:linear-gradient(170deg,#1e3a2f 0%,#16281f 60%,#20372b 100%);
-    background-attachment:fixed;
-    color:white;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(120% 100% at 50% 0%, var(--bg-2) 0%, var(--bg-1) 100%);
+    color:var(--ink);
     min-height:100vh;
     min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-header{
-    background:#265041;
-    text-align:center;
-    padding:10px;
-    box-shadow:0 4px 18px rgba(0,0,0,.35);
-}
-
-h1{
-    margin:0;
-    font-size:clamp(1.6rem,6vw,2.3rem);
-    letter-spacing:1px;
-}
-
-main{
-    max-width:720px;
-    margin:0 auto;
-    padding:16px 14px 40px;
-}
-
-/* ---------- panels & buttons ---------- */
-
-.panel{
-    background:#27473a;
-    border-radius:16px;
-    padding:16px;
-    margin-bottom:14px;
-}
-
-h2{
-    margin:0 0 12px;
-    font-size:1.15rem;
-}
+h1,h2,h3{ font-weight:800; margin:0; }
 
 button{
-    background:#e0457b;
-    color:white;
+    font-family:inherit;
+    background:var(--pink);
+    color:#2a1420;
     border:none;
     border-radius:12px;
     padding:12px 18px;
     font-size:16px;
-    font-weight:bold;
+    font-weight:800;
     cursor:pointer;
     -webkit-tap-highlight-color:transparent;
-    transition:transform .12s ease,background .15s ease;
+    transition:transform .12s ease, background .15s ease, opacity .15s ease;
+}
+button:hover:not(:disabled){ filter:brightness(1.08); }
+button:active:not(:disabled){ transform:scale(.96); }
+button:disabled{ opacity:.4; cursor:default; }
+button.secondary{ background:var(--panel-2); color:var(--ink); }
+button.big{ font-size:19px; padding:16px 20px; border-radius:16px; }
+button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
+
+.panel{
+    background:var(--panel);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.28);
 }
 
-button:hover:not(:disabled){
-    background:#c93a6b;
-}
-
-button:active:not(:disabled){
-    transform:scale(.96);
-}
-
-button:disabled{
-    opacity:.45;
-    cursor:default;
-}
-
-button.secondary{
-    background:#3f6555;
-}
-
-button.secondary:hover:not(:disabled){
-    background:#4d7a66;
-}
-
-button.big{
-    font-size:20px;
-    padding:16px 22px;
-}
+.screen{ flex:1; display:flex; flex-direction:column; min-height:0; }
+.screen[hidden]{ display:none; }
 
 /* ---------- setup ---------- */
 
-.player-row{
-    display:flex;
-    gap:8px;
-    align-items:center;
-    margin-bottom:8px;
+#screen-setup{ max-width:520px; width:100%; margin:0 auto; padding:18px 14px 40px; }
+
+.setup-title{
+    text-align:center;
+    font-size:clamp(1.7rem,7vw,2.3rem);
+    margin-bottom:18px;
 }
 
+.player-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
 .player-row input{
-    flex:1;
-    min-width:0;
-    background:#1b3529;
-    border:2px solid #3f6555;
+    flex:1; min-width:0;
+    background:var(--bg-1);
+    border:2px solid var(--panel-2);
     border-radius:10px;
     padding:11px 12px;
-    color:white;
+    color:var(--ink);
     font-size:16px;
 }
+.player-row input:focus{ outline:none; border-color:var(--gold); }
+.remove-btn{ background:var(--panel-2); color:var(--ink); padding:10px 13px; font-size:15px; flex-shrink:0; }
 
-.player-row input:focus{
-    outline:none;
-    border-color:#ffd54a;
+.target-options{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.target-options button{ flex:1; min-width:88px; background:var(--panel-2); color:var(--ink); }
+.target-options button.active{ background:var(--gold); color:#3a2c05; }
+#customTarget{
+    width:100%;
+    background:var(--bg-1);
+    border:2px solid var(--panel-2);
+    border-radius:10px;
+    padding:11px 12px;
+    color:var(--ink);
+    font-size:16px;
 }
+#customTarget:focus{ outline:none; border-color:var(--gold); }
 
-.remove-btn{
-    background:#3f6555;
-    padding:10px 13px;
-    font-size:15px;
-    flex-shrink:0;
-}
+.setup-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+.setup-actions button{ flex:1; min-width:130px; }
+.hint{ color:var(--ink-dim); font-size:.9rem; margin:10px 0 0; }
 
-.target-options{
+/* ---------- game screen ---------- */
+
+#screen-game{ position:relative; flex:1; min-height:0; }
+
+.top-chrome{
     display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-}
-
-.target-options button{
-    flex:1;
-    background:#3f6555;
-    min-width:90px;
-}
-
-.target-options button.active{
-    background:#ffd54a;
-    color:#22402f;
-}
-
-.setup-actions{
-    display:flex;
+    align-items:center;
+    justify-content:space-between;
     gap:10px;
-    flex-wrap:wrap;
-    margin-top:6px;
+    padding:10px 12px;
 }
-
-.setup-actions button{
-    flex:1;
-    min-width:130px;
-}
-
-.hint{
-    color:#a9c9b8;
-    font-size:.9rem;
-    margin:10px 0 0;
-}
-
-/* ---------- turn banner ---------- */
 
 .turn-banner{
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:12px;
-    background:#27473a;
+    flex:1;
+    background:var(--panel);
     border-radius:16px;
-    padding:14px 16px;
-    margin-bottom:14px;
+    padding:10px 16px;
 }
-
-.turn-who{
-    min-width:0;
-}
-
 .turn-label{
-    font-size:.78rem;
-    text-transform:uppercase;
-    letter-spacing:1.5px;
-    color:#a9c9b8;
-    margin:0 0 3px;
+    font-size:.72rem; text-transform:uppercase; letter-spacing:1.3px;
+    color:var(--ink-dim); margin:0 0 2px;
 }
-
 .turn-name{
-    font-size:clamp(1.25rem,5vw,1.7rem);
-    font-weight:bold;
-    margin:0;
-    color:#ffd54a;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
+    font-size:clamp(1.1rem,4.5vw,1.5rem); font-weight:800; margin:0;
+    color:var(--gold); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-
-.turn-points{
-    text-align:right;
-    flex-shrink:0;
-}
-
+.turn-points{ text-align:right; flex-shrink:0; }
 .turn-points .num{
-    font-size:clamp(1.9rem,8vw,2.6rem);
-    font-weight:bold;
-    line-height:1;
-    display:block;
-    transition:transform .15s ease;
+    font-size:clamp(1.7rem,7vw,2.3rem); font-weight:800; line-height:1;
+    display:block; transition:transform .15s ease;
 }
-
-.turn-points .num.bump{
-    animation:bump .4s ease;
-}
-
+.turn-points .num.bump{ animation:bump .4s ease; }
 @keyframes bump{
     0%{ transform:scale(1); }
-    45%{ transform:scale(1.35); color:#ffd54a; }
+    45%{ transform:scale(1.35); color:var(--gold); }
     100%{ transform:scale(1); }
 }
 
-/* ---------- pig arena ---------- */
+.icon-btn{
+    background:var(--panel-2);
+    color:var(--ink);
+    width:42px; height:42px;
+    border-radius:12px;
+    padding:0;
+    font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+}
 
-.arena{
+/* ---------- pen (3D canvas area) ---------- */
+
+.pen-wrap{
     position:relative;
-    background:#2f5b49;
-    border-radius:16px;
-    padding:10px 10px 4px;
-    margin-bottom:14px;
+    flex:1;
+    min-height:220px;
+    margin:0 12px 12px;
+    border-radius:20px;
     overflow:hidden;
+    background:
+        radial-gradient(120% 90% at 50% 15%, var(--felt-1) 0%, var(--felt-2) 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.35);
+    touch-action:none;
+    cursor:pointer;
 }
 
-.pigs{
-    display:flex;
-    justify-content:center;
-    align-items:flex-end;
-    gap:clamp(6px,3vw,28px);
-}
-
-.pig{
-    width:clamp(110px,34vw,168px);
-    height:auto;
+#penCanvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
     display:block;
-    transition:transform .25s ease;
 }
 
-.arena.rolling .pig{
-    animation:tumble .34s linear infinite;
-}
+.mode-quick-only #penCanvas{ display:none; }
 
-.arena.rolling .pig:nth-child(2){
-    animation-delay:-.17s;
-}
-
-@keyframes tumble{
-    0%{   transform:translateY(0) rotate(0deg); }
-    25%{  transform:translateY(-16px) rotate(120deg); }
-    50%{  transform:translateY(0) rotate(240deg); }
-    75%{  transform:translateY(-9px) rotate(300deg); }
-    100%{ transform:translateY(0) rotate(360deg); }
-}
-
-.arena.landed .pig{
-    animation:land .38s cubic-bezier(.34,1.56,.64,1);
-}
-
-@keyframes land{
-    0%{ transform:translateY(-22px) scale(1.1); }
-    60%{ transform:translateY(0) scale(.95); }
-    100%{ transform:translateY(0) scale(1); }
-}
-
-/* Oinker: the pigs end up in a heap, touching each other */
-.arena.oinker .pigs{
-    gap:0;
-}
-
-.arena.oinker .pig:first-child{
-    transform:translateX(22%) rotate(-14deg);
-    z-index:2;
-}
-
-.arena.oinker .pig:last-child{
-    transform:translateX(-22%) translateY(8%) rotate(9deg);
-}
-
-.pose-names{
-    display:flex;
+.pen-fallback{
+    position:absolute; inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
     justify-content:center;
-    gap:clamp(6px,3vw,28px);
-    margin-top:2px;
-}
-
-.pose-name{
-    width:clamp(110px,34vw,168px);
+    gap:8px;
     text-align:center;
-    font-size:.82rem;
-    font-weight:bold;
-    color:#cfe8db;
-    padding-bottom:6px;
+    padding:20px;
+    color:var(--ink-dim);
 }
+.mode-quick-only .pen-fallback{ display:flex; }
+.pen-fallback .emoji{ font-size:3.4rem; }
 
-.arena.oinker .pose-names{
-    visibility:hidden;
-}
-
-/* ---------- result message ---------- */
-
-.result{
-    text-align:center;
-    border-radius:14px;
-    padding:12px 14px;
-    margin-bottom:14px;
-    background:#27473a;
-    min-height:74px;
+.pen-overlay{
+    position:absolute; inset:0;
     display:flex;
     flex-direction:column;
-    justify-content:center;
-}
-
-.result-headline{
-    font-size:clamp(1.15rem,5vw,1.5rem);
-    font-weight:bold;
-    margin:0 0 4px;
-}
-
-.result-detail{
-    margin:0;
-    font-size:.92rem;
-    color:#cfe8db;
-}
-
-.result.good .result-headline{ color:#5ddb92; }
-.result.big  .result-headline{ color:#ffd54a; }
-.result.bad  .result-headline{ color:#ff8f6b; }
-.result.awful .result-headline{ color:#ff5c7a; }
-
-.result.flash{
-    animation:flash .5s ease;
-}
-
-@keyframes flash{
-    0%{ transform:scale(.94); }
-    50%{ transform:scale(1.03); }
-    100%{ transform:scale(1); }
-}
-
-/* ---------- actions ---------- */
-
-.actions{
-    display:flex;
-    gap:10px;
-    margin-bottom:14px;
-}
-
-.actions button{
-    flex:1;
-}
-
-/* ---------- scoreboard ---------- */
-
-.score-list{
-    list-style:none;
-    margin:0;
-    padding:0;
-}
-
-.score-list li{
-    display:flex;
     align-items:center;
+    justify-content:flex-end;
+    padding:16px;
+    pointer-events:none;
     gap:10px;
-    padding:9px 10px;
-    border-radius:10px;
-    margin-bottom:6px;
-    background:#1f3d31;
 }
 
-.score-list li.current{
-    background:#3a6b56;
-    box-shadow:inset 0 0 0 2px #ffd54a;
-}
-
-.score-list .marker{
-    width:20px;
-    flex-shrink:0;
+.pen-hint{
+    color:var(--ink-dim);
+    font-size:.95rem;
+    font-weight:700;
     text-align:center;
+    text-shadow:0 2px 6px rgba(0,0,0,.5);
+}
+.mode-quick-only .pen-hint{ display:none; }
+[data-turnstate="shaking"] .pen-hint,
+[data-turnstate="tossing"] .pen-hint,
+[data-turnstate="settling"] .pen-hint{ opacity:0; }
+
+.pose-labels{ display:flex; gap:24px; }
+.pose-label{
+    min-width:80px;
+    text-align:center;
+    font-weight:800;
+    font-size:.85rem;
+    color:var(--ink);
+    background:rgba(0,0,0,.32);
+    border-radius:10px;
+    padding:6px 10px;
 }
 
-.score-list .who{
-    flex:1;
-    min-width:0;
-    font-weight:bold;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}
-
-.score-list .pts{
-    font-weight:bold;
-    font-size:1.15rem;
-    color:#ffd54a;
-    flex-shrink:0;
-}
-
-.score-list .bar{
-    position:absolute;
-}
-
-/* ---------- how to play ---------- */
-
-details.rules{
-    background:#27473a;
-    border-radius:16px;
-    padding:0 16px;
-    margin-bottom:14px;
-}
-
-details.rules summary{
-    cursor:pointer;
-    padding:14px 0;
-    font-weight:bold;
-    font-size:1.05rem;
-}
-
-details.rules[open] summary{
-    margin-bottom:4px;
-}
-
-table.rules-table{
+.result-card{
     width:100%;
-    border-collapse:collapse;
-    font-size:.9rem;
-    margin-bottom:14px;
+    max-width:420px;
+    text-align:center;
+    background:rgba(15,26,20,.82);
+    backdrop-filter:blur(3px);
+    border-radius:14px;
+    padding:12px 16px;
+    pointer-events:none;
+}
+.result-card[hidden]{ display:none; }
+.result-headline{ font-size:clamp(1.1rem,4.5vw,1.4rem); font-weight:800; margin:0 0 3px; }
+.result-detail{ margin:0; font-size:.9rem; color:var(--ink-dim); }
+.result-card.good .result-headline{ color:var(--good); }
+.result-card.big  .result-headline{ color:var(--gold); }
+.result-card.bad  .result-headline{ color:#ff8f6b; }
+.result-card.awful .result-headline{ color:var(--danger); }
+
+/* ---------- action bar ---------- */
+
+.action-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:stretch;
+    gap:10px;
+    padding:0 12px 4px;
 }
 
-table.rules-table th,
-table.rules-table td{
-    text-align:left;
-    padding:7px 6px;
-    border-bottom:1px solid #3f6555;
+.hold-btn{
+    position:relative;
+    order:1;
+    flex:2 1 auto;
+    overflow:hidden;
+    background:var(--pink);
+}
+.hold-btn .hold-fill{
+    position:absolute; inset:0;
+    background:rgba(255,255,255,.35);
+    transform:scaleX(0);
+    transform-origin:left center;
+    pointer-events:none;
+}
+.hold-btn.holding{ filter:brightness(1.15); }
+.hold-btn span.label{ position:relative; }
+
+#stopBtn{ order:2; flex:1 1 auto; }
+
+#quickTossBtn{
+    order:3;
+    flex:1 1 100%;
+    background:none;
+    color:var(--ink-dim);
+    font-weight:700;
+    font-size:.88rem;
+    text-decoration:underline;
+    padding:6px 10px;
 }
 
-table.rules-table th{
-    color:#a9c9b8;
-    font-size:.78rem;
-    text-transform:uppercase;
-    letter-spacing:1px;
+/* reduced-motion / quick-only: Quick Toss becomes the primary, full-width
+   action on top; the hold gesture drops to a smaller, secondary control. */
+.reduced-motion #quickTossBtn,
+.mode-quick-only #quickTossBtn{
+    order:0;
+    flex:1 1 100%;
+    background:var(--pink);
+    color:#2a1420;
+    text-decoration:none;
+    font-size:19px;
+    padding:16px 20px;
+    border-radius:16px;
 }
+.reduced-motion .hold-btn,
+.mode-quick-only .hold-btn{
+    background:var(--panel-2);
+    color:var(--ink-dim);
+}
+.mode-quick-only .hold-btn{ pointer-events:none; }
 
-table.rules-table td:last-child{
-    text-align:right;
-    white-space:nowrap;
-    font-weight:bold;
-    color:#ffd54a;
+/* ---------- slide-up panels ---------- */
+
+.slide-panel{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    max-height:70vh;
+    overflow-y:auto;
+    background:var(--panel);
+    border-radius:20px 20px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow:0 -10px 30px rgba(0,0,0,.4);
+    z-index:20;
 }
+.slide-panel[hidden]{ display:none; }
+.slide-panel h2{ font-size:1.1rem; margin-bottom:10px; }
+
+.score-list{ list-style:none; margin:0 0 12px; padding:0; }
+.score-list li{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:10px; margin-bottom:6px;
+    background:var(--bg-1);
+}
+.score-list li.current{ background:#3a6b56; box-shadow:inset 0 0 0 2px var(--gold); }
+.score-list .marker{ width:20px; flex-shrink:0; text-align:center; }
+.score-list .who{ flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.score-list .pts{ font-weight:800; font-size:1.1rem; color:var(--gold); flex-shrink:0; }
+
+table.rules-table{ width:100%; border-collapse:collapse; font-size:.88rem; margin-bottom:12px; }
+table.rules-table th, table.rules-table td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--panel-2); }
+table.rules-table th{ color:var(--ink-dim); font-size:.75rem; text-transform:uppercase; letter-spacing:1px; }
+table.rules-table td:last-child{ text-align:right; white-space:nowrap; font-weight:800; color:var(--gold); }
 
 /* ---------- win screen ---------- */
 
-.win-box{
-    text-align:center;
-}
+#screen-win{ max-width:520px; width:100%; margin:auto; padding:18px 14px; }
+.win-box{ text-align:center; }
+.win-trophy{ font-size:4rem; display:block; }
+.win-name{ font-size:clamp(1.6rem,7vw,2.2rem); font-weight:800; color:var(--gold); margin:6px 0; }
 
-.win-trophy{
-    font-size:4rem;
-    display:block;
-    animation:bump .6s ease;
-}
+footer{ text-align:center; padding:12px; opacity:.6; font-size:.82rem; }
+footer a{ color:var(--ink-dim); }
 
-.win-name{
-    font-size:clamp(1.6rem,7vw,2.3rem);
-    font-weight:bold;
-    color:#ffd54a;
-    margin:6px 0;
-}
+.keyboard-hint{ display:none; }
 
-footer{
-    text-align:center;
-    padding:14px;
-    opacity:.7;
-    font-size:.85rem;
-}
+/* ---------- desktop ---------- */
 
-footer a{
-    color:#a9c9b8;
+@media (min-width:900px){
+    body{ padding-top:max(20px, env(safe-area-inset-top)); }
+
+    #screen-game{
+        max-width:1000px;
+        width:100%;
+        margin:0 auto;
+        display:grid;
+        grid-template-columns:1fr 300px;
+        grid-template-rows:auto 1fr auto;
+        gap:14px;
+        padding:0 16px 20px;
+    }
+    .top-chrome{ grid-column:1 / -1; padding:0; }
+    .pen-wrap{ grid-row:2; grid-column:1; margin:0; min-height:420px; }
+    .action-bar{ grid-row:3; grid-column:1; padding:0; }
+
+    .slide-panel#scoreboardPanel{
+        position:static;
+        grid-row:2 / span 2;
+        grid-column:2;
+        border-radius:16px;
+        max-height:none;
+        box-shadow:0 8px 24px rgba(0,0,0,.28);
+    }
+    .slide-panel#rulesPanel{
+        position:fixed;
+        max-width:480px;
+        left:50%;
+        transform:translateX(-50%);
+        border-radius:16px;
+        bottom:20px;
+    }
+    #scoreboardToggle{ display:none; }
+
+    .keyboard-hint{
+        display:block;
+        text-align:center;
+        color:var(--ink-dim);
+        font-size:.85rem;
+        margin-top:6px;
+    }
 }
 
 @media (prefers-reduced-motion:reduce){
-    .arena.rolling .pig,
-    .arena.landed .pig,
-    .result.flash,
     .turn-points .num.bump,
-    .win-trophy{
-        animation:none;
-    }
+    .win-trophy{ animation:none; }
+    button{ transition:none; }
 }
 </style>
-
 </head>
 <body>
 
-<header>
-<h1>🐷 Hog Wild</h1>
-</header>
-
-<main>
-
 <!-- ============ SETUP ============ -->
-<section id="setupScreen">
+<section id="screen-setup" class="screen">
+    <h1 class="setup-title">🐷 Hog Wild</h1>
 
-<div class="panel">
-<h2>Who's playing?</h2>
-<div id="playerRows"></div>
-<div class="setup-actions">
-<button class="secondary" onclick="addPlayerRow()">➕ Add Player</button>
-</div>
-</div>
+    <div class="panel">
+        <h2 style="margin-bottom:12px">Who's playing?</h2>
+        <div id="playerRows"></div>
+        <div class="setup-actions">
+            <button type="button" class="secondary" id="addPlayerBtn">➕ Add Player</button>
+        </div>
+    </div>
 
-<div class="panel">
-<h2>Play to…</h2>
-<div class="target-options" id="targetOptions">
-<button data-target="50">50 — Quick</button>
-<button data-target="100" class="active">100 — Classic</button>
-<button data-target="150">150 — Long</button>
-</div>
-</div>
+    <div class="panel">
+        <h2 style="margin-bottom:12px">Play to…</h2>
+        <div class="target-options" id="targetOptions">
+            <button type="button" data-target="50">50 — Quick</button>
+            <button type="button" data-target="100" class="active">100 — Classic</button>
+            <button type="button" data-target="150">150 — Long</button>
+        </div>
+        <input type="number" id="customTarget" placeholder="Custom target score" min="1" inputmode="numeric">
+    </div>
 
-<div class="panel">
-<button class="big" style="width:100%" onclick="startGame()">🎲 Start Game</button>
-<p class="hint" id="setupHint">Toss the pigs, stack up points, then bank them before a Pig Out wipes your turn.</p>
-</div>
-
+    <div class="panel">
+        <button type="button" class="big" id="startGameBtn" style="width:100%">🎲 Start Game</button>
+        <p class="hint" id="setupHint">Toss the pigs, stack up points, then bank them before a Pig Out wipes your turn.</p>
+    </div>
 </section>
 
 <!-- ============ GAME ============ -->
-<section id="gameScreen" style="display:none">
+<section id="screen-game" class="screen" hidden data-turnstate="ready">
 
-<div class="turn-banner">
-<div class="turn-who">
-<p class="turn-label">Now tossing</p>
-<p class="turn-name" id="currentName">—</p>
-</div>
-<div class="turn-points">
-<p class="turn-label">This turn</p>
-<span class="num" id="turnPoints">0</span>
-</div>
-</div>
+    <div class="top-chrome">
+        <div class="turn-banner">
+            <div>
+                <p class="turn-label">Now tossing</p>
+                <p class="turn-name" id="turnName">—</p>
+            </div>
+            <div class="turn-points">
+                <p class="turn-label">This turn</p>
+                <span class="num" id="turnPoints">0</span>
+            </div>
+        </div>
+        <button type="button" class="icon-btn" id="rulesToggle" aria-expanded="false" aria-label="How to play">📖</button>
+        <button type="button" class="icon-btn" id="scoreboardToggle" aria-expanded="false" aria-label="Scoreboard">🏆</button>
+        <button type="button" class="icon-btn" id="muteBtn" aria-label="Mute">🔊</button>
+    </div>
 
-<div class="arena" id="arena">
-<div class="pigs">
-<svg class="pig" id="pig0" viewBox="0 0 110 100" role="img" aria-labelledby="pig0Label"></svg>
-<svg class="pig" id="pig1" viewBox="0 0 110 100" role="img" aria-labelledby="pig1Label"></svg>
-</div>
-<div class="pose-names">
-<div class="pose-name" id="pig0Label">Ready</div>
-<div class="pose-name" id="pig1Label">Ready</div>
-</div>
-</div>
+    <div class="pen-wrap" id="penWrap">
+        <canvas id="penCanvas" aria-hidden="true"></canvas>
+        <div class="pen-fallback">
+            <span class="emoji">🐷🐷</span>
+            <p style="margin:0;font-weight:700">Quick Toss mode</p>
+            <p style="margin:0;font-size:.85rem">The 3D pen couldn't load — tossing works the same, just without the tumble.</p>
+        </div>
+        <div class="pen-overlay">
+            <div class="pose-labels" aria-live="off">
+                <div class="pose-label" id="poseLabel0">Ready</div>
+                <div class="pose-label" id="poseLabel1">Ready</div>
+            </div>
+            <p class="pen-hint" id="penHint">Hold to shake</p>
+            <div class="result-card" id="resultCard" aria-live="polite" hidden>
+                <p class="result-headline" id="resultHeadline">Tap Go Hog Wild to start!</p>
+                <p class="result-detail" id="resultDetail">Keep tossing to build up points — but bank them before you lose them.</p>
+            </div>
+        </div>
+    </div>
 
-<div class="result" id="result" aria-live="polite">
-<p class="result-headline" id="resultHeadline">Tap Toss Pigs to start!</p>
-<p class="result-detail" id="resultDetail">Keep tossing to build up points — but bank them before you lose them.</p>
-</div>
+    <div class="action-bar">
+        <button type="button" class="big hold-btn" id="hogWildBtn">
+            <span class="hold-fill" id="holdFill"></span>
+            <span class="label">🎲 Go Hog Wild</span>
+        </button>
+        <button type="button" class="big secondary" id="stopBtn" disabled>🏦 Stop</button>
+        <button type="button" id="quickTossBtn">Quick Toss (skip the animation)</button>
+    </div>
+    <p class="keyboard-hint">Hold <strong>Space</strong> to toss · <strong>Enter</strong> to stop</p>
 
-<div class="actions">
-<button class="big" id="rollBtn" onclick="rollPigs()">🎲 Toss Pigs</button>
-<button class="big secondary" id="bankBtn" onclick="bankPoints()">🏦 Bank</button>
-</div>
+    <aside class="slide-panel" id="scoreboardPanel" hidden>
+        <h2>Scoreboard <span style="font-weight:400;color:var(--ink-dim);font-size:.85rem">— first to <span id="targetLabel">100</span></span></h2>
+        <ul class="score-list" id="scoreList"></ul>
+        <button type="button" class="secondary" id="newGameBtn" style="width:100%">🔄 New Game</button>
+    </aside>
 
-<div class="panel">
-<h2>Scoreboard <span style="font-weight:normal;color:#a9c9b8;font-size:.9rem">— first to <span id="targetLabel">100</span></span></h2>
-<ul class="score-list" id="scoreList"></ul>
-<div class="setup-actions">
-<button class="secondary" onclick="requestNewGame()">🔄 New Game</button>
-</div>
-</div>
-
-<details class="rules">
-<summary>📖 How to play</summary>
-<table class="rules-table">
-<thead>
-<tr><th>How the pigs land</th><th>Points</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>Sider</strong> — both pigs on the same side</td><td>1</td></tr>
-<tr><td><strong>Razorback</strong> — on its back</td><td>5 <span style="color:#a9c9b8;font-weight:normal">(double 20)</span></td></tr>
-<tr><td><strong>Trotter</strong> — standing on all four feet</td><td>5 <span style="color:#a9c9b8;font-weight:normal">(double 20)</span></td></tr>
-<tr><td><strong>Snouter</strong> — leaning on snout and front feet</td><td>10 <span style="color:#a9c9b8;font-weight:normal">(double 40)</span></td></tr>
-<tr><td><strong>Leaning Jowler</strong> — on snout, ear and one foot</td><td>15 <span style="color:#a9c9b8;font-weight:normal">(double 60)</span></td></tr>
-<tr><td><strong>Pig Out</strong> — pigs on opposite sides</td><td>Lose the turn</td></tr>
-<tr><td><strong>Oinker</strong> — the pigs touch each other</td><td>Back to zero</td></tr>
-</tbody>
-</table>
-<p class="hint" style="margin-bottom:16px">
-Two different positions score the sum of both pigs. Keep tossing as long as you
-dare — every toss adds to your turn, but a <strong>Pig Out</strong> wipes the whole
-turn and an <strong>Oinker</strong> wipes your entire score. Bank to keep your
-points and pass the pigs along.
-</p>
-</details>
-
+    <aside class="slide-panel" id="rulesPanel" hidden>
+        <h2>📖 How to play</h2>
+        <table class="rules-table">
+            <thead><tr><th>How the pigs land</th><th>Points</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Sider</strong> — both pigs on the same side</td><td>1</td></tr>
+                <tr><td><strong>Razorback</strong> — on its back</td><td>5 <span style="color:var(--ink-dim);font-weight:400">(double 20)</span></td></tr>
+                <tr><td><strong>Trotter</strong> — standing on all four feet</td><td>5 <span style="color:var(--ink-dim);font-weight:400">(double 20)</span></td></tr>
+                <tr><td><strong>Snouter</strong> — leaning on snout and front feet</td><td>10 <span style="color:var(--ink-dim);font-weight:400">(double 40)</span></td></tr>
+                <tr><td><strong>Leaning Jowler</strong> — on snout, ear and one foot</td><td>15 <span style="color:var(--ink-dim);font-weight:400">(double 60)</span></td></tr>
+                <tr><td><strong>Pig Out</strong> — pigs on opposite sides</td><td>Lose the turn</td></tr>
+                <tr><td><strong>Oinker</strong> — the pigs touch each other</td><td>Back to zero</td></tr>
+            </tbody>
+        </table>
+        <p class="hint" style="margin-bottom:0">
+            Two different positions score the sum of both pigs. Keep tossing as long as you
+            dare — every toss adds to your turn, but a <strong>Pig Out</strong> wipes the whole
+            turn and an <strong>Oinker</strong> wipes your entire score. Bank to keep your
+            points and pass the pigs along.
+        </p>
+    </aside>
 </section>
 
 <!-- ============ WIN ============ -->
-<section id="winScreen" style="display:none">
-<div class="panel win-box">
-<span class="win-trophy">🏆</span>
-<p class="win-name" id="winName">—</p>
-<p id="winDetail" style="margin:0 0 18px;color:#cfe8db">wins!</p>
-<ul class="score-list" id="finalScores" style="text-align:left;margin-bottom:16px"></ul>
-<div class="setup-actions">
-<button onclick="playAgainSamePlayers()">🎲 Play Again</button>
-<button class="secondary" onclick="backToSetup()">👥 Change Players</button>
-</div>
-</div>
+<section id="screen-win" class="screen" hidden>
+    <div class="panel win-box">
+        <span class="win-trophy">🏆</span>
+        <p class="win-name" id="winName">—</p>
+        <p id="winDetail" style="margin:0 0 18px;color:var(--ink-dim)">wins!</p>
+        <ul class="score-list" id="finalScores" style="text-align:left;margin-bottom:16px"></ul>
+        <div class="setup-actions">
+            <button type="button" id="playAgainBtn">🎲 Play Again</button>
+            <button type="button" class="secondary" id="changePlayersBtn">👥 Change Players</button>
+        </div>
+    </div>
 </section>
-
-</main>
 
 <footer>
 Made by Ava ☀️ Summer of 2026 · <a href="../">All games</a>
 </footer>
 
-<script>
-
-/* =========================================================
-   Pig positions
-   The chance of each landing comes from published tallies of
-   thousands of real tosses — a pig lands on its side far more
-   often than it balances on its snout, which is what makes
-   pushing your luck feel right.
-   ========================================================= */
-
-const PIG_OUTCOMES = [
-    { key:"side-blank", name:"Sider",          chance:0.349, points:0,  spot:false, transform:"translate(110 0) scale(-1 1) rotate(96 55 56) translate(24 -6)" },
-    { key:"side-dot",   name:"Sider",          chance:0.302, points:0,  spot:true,  transform:"rotate(96 55 56) translate(24 -6)" },
-    { key:"razorback",  name:"Razorback",      chance:0.224, points:5,  spot:true,  transform:"rotate(180 55 56) translate(0 -20)" },
-    { key:"trotter",    name:"Trotter",        chance:0.088, points:5,  spot:true,  transform:"" },
-    { key:"snouter",    name:"Snouter",        chance:0.030, points:10, spot:true,  transform:"rotate(-42 55 56) translate(-6 10)" },
-    { key:"jowler",     name:"Leaning Jowler", chance:0.007, points:15, spot:true,  transform:"rotate(-66 55 56) translate(-10 14)" }
-];
-
-const DOUBLE_POINTS = { razorback:20, trotter:20, snouter:40, jowler:60 };
-
-// An Oinker (pigs landing against each other) is rare and independent of how
-// either pig would otherwise have landed, so it gets its own roll.
-const OINKER_CHANCE = 0.0038;
-
-const PIG_SVG = `
-<ellipse cx="57" cy="93" rx="34" ry="5" fill="rgba(0,0,0,.22)"/>
-<g class="pig-figure">
-    <g fill="#d98299">
-        <rect x="36" y="63" width="10" height="28" rx="5"/>
-        <rect x="63" y="63" width="10" height="28" rx="5"/>
-    </g>
-    <g fill="#bd2f6c">
-        <rect x="36" y="84" width="10" height="8" rx="4"/>
-        <rect x="63" y="84" width="10" height="8" rx="4"/>
-    </g>
-    <path d="M87 44 q11 -5 8 -12 q-3 -7 -9 -3" fill="none" stroke="#e896aa" stroke-width="5" stroke-linecap="round"/>
-    <ellipse cx="58" cy="52" rx="31" ry="21" fill="#f9a8b8"/>
-    <circle class="pig-spot" cx="65" cy="45" r="5.5" fill="#c9376f" opacity=".5"/>
-    <g fill="#f6bfcb">
-        <rect x="46" y="65" width="10" height="26" rx="5"/>
-        <rect x="72" y="65" width="10" height="26" rx="5"/>
-    </g>
-    <g fill="#e0457b">
-        <rect x="46" y="84" width="10" height="8" rx="4"/>
-        <rect x="72" y="84" width="10" height="8" rx="4"/>
-    </g>
-    <path d="M34 38 q-4 -13 6 -13 q7 0 6 11 z" fill="#e896aa"/>
-    <circle cx="29" cy="50" r="16" fill="#f9a8b8"/>
-    <ellipse cx="15" cy="56" rx="9" ry="7" fill="#f6bfcb"/>
-    <circle cx="12" cy="54" r="1.7" fill="#a82258"/>
-    <circle cx="17" cy="58" r="1.7" fill="#a82258"/>
-    <circle cx="25" cy="44" r="2.6" fill="#2b1a20"/>
-</g>`;
-
-/* ---------- state ---------- */
-
-let players = [];          // [{ name, score }]
-let currentIndex = 0;
-let turnPoints = 0;
-let targetScore = 100;
-let rolling = false;
-let gameOver = false;
-let audioCtx;
-
-/* =========================================================
-   Audio
-   ========================================================= */
-
-function getAudioCtx(){
-    if(!audioCtx){
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if(audioCtx.state === "suspended"){
-        audioCtx.resume();
-    }
-    return audioCtx;
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "cannon-es": "./vendor/cannon-es.js"
+  }
 }
-
-function playTone(freq, duration, type = "square", volume = 0.15, delay = 0){
-    try{
-        const ctx = getAudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        const startTime = ctx.currentTime + delay;
-        osc.start(startTime);
-        gain.gain.setValueAtTime(volume, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-        osc.stop(startTime + duration);
-    }catch(e){
-        /* audio is a nice-to-have — never let it break the game */
-    }
-}
-
-function playRattle(){
-    playTone(240 + Math.random() * 320, 0.05, "square", 0.07);
-}
-
-function playSmallScore(){
-    playTone(760, 0.12, "sine", 0.16);
-}
-
-function playGoodScore(){
-    playTone(700, 0.12, "sine", 0.17);
-    playTone(1050, 0.18, "sine", 0.17, 0.09);
-}
-
-function playBigScore(){
-    [660, 880, 1100, 1320].forEach((f, i) => playTone(f, 0.16, "sine", 0.18, i * 0.08));
-}
-
-function playPigOut(){
-    playTone(300, 0.18, "sawtooth", 0.18);
-    playTone(180, 0.32, "sawtooth", 0.18, 0.16);
-}
-
-function playOinker(){
-    playTone(200, 0.3, "sawtooth", 0.2);
-    playTone(150, 0.35, "sawtooth", 0.2, 0.26);
-    playTone(100, 0.5, "sawtooth", 0.2, 0.54);
-}
-
-function playBank(){
-    playTone(520, 0.1, "triangle", 0.16);
-    playTone(780, 0.16, "triangle", 0.16, 0.08);
-}
-
-function playWin(){
-    [523, 659, 784, 1047, 1319].forEach((f, i) => playTone(f, 0.24, "sine", 0.2, i * 0.14));
-}
-
-/* =========================================================
-   Setup screen
-   ========================================================= */
-
-function addPlayerRow(name = ""){
-    const rows = document.getElementById("playerRows");
-    const row = document.createElement("div");
-    row.className = "player-row";
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.maxLength = 14;
-    input.placeholder = "Player " + (rows.children.length + 1);
-    input.value = name;
-
-    const remove = document.createElement("button");
-    remove.className = "remove-btn";
-    remove.type = "button";
-    remove.textContent = "✕";
-    remove.setAttribute("aria-label", "Remove player");
-    remove.onclick = () => {
-        row.remove();
-        refreshPlaceholders();
-    };
-
-    row.appendChild(input);
-    row.appendChild(remove);
-    rows.appendChild(row);
-    refreshPlaceholders();
-}
-
-function refreshPlaceholders(){
-    [...document.querySelectorAll("#playerRows input")].forEach((input, i) => {
-        input.placeholder = "Player " + (i + 1);
-    });
-}
-
-function readPlayerNames(){
-    return [...document.querySelectorAll("#playerRows input")]
-        .map((input, i) => input.value.trim() || "Player " + (i + 1));
-}
-
-document.getElementById("targetOptions").addEventListener("click", event => {
-    const button = event.target.closest("button[data-target]");
-    if(!button) return;
-    targetScore = Number(button.dataset.target);
-    [...event.currentTarget.children].forEach(b => b.classList.toggle("active", b === button));
-});
-
-/* =========================================================
-   Pig rendering
-   ========================================================= */
-
-function paintPig(index, outcome){
-    const svg = document.getElementById("pig" + index);
-    svg.querySelector(".pig-figure").setAttribute("transform", outcome.transform);
-    svg.querySelector(".pig-spot").style.display = outcome.spot ? "" : "none";
-    document.getElementById("pig" + index + "Label").textContent = outcome.name;
-}
-
-function randomOutcome(){
-    const roll = Math.random();
-    let cumulative = 0;
-    for(const outcome of PIG_OUTCOMES){
-        cumulative += outcome.chance;
-        if(roll < cumulative) return outcome;
-    }
-    return PIG_OUTCOMES[PIG_OUTCOMES.length - 1];
-}
-
-/* =========================================================
-   Scoring
-   ========================================================= */
-
-function isSide(outcome){
-    return outcome.key.startsWith("side");
-}
-
-function scoreRoll(a, b){
-    if(isSide(a) && isSide(b)){
-        if(a.key === b.key){
-            return {
-                type:"sider",
-                points:1,
-                headline:"Sider! +1",
-                detail:"Both pigs landed the same way up."
-            };
-        }
-        return {
-            type:"pigout",
-            points:0,
-            headline:"Pig Out!",
-            detail:"Opposite sides — this turn's points are gone."
-        };
-    }
-
-    if(a.key === b.key){
-        const points = DOUBLE_POINTS[a.key];
-        return {
-            type:"double",
-            points:points,
-            headline:"Double " + a.name + "! +" + points,
-            detail:"Both pigs the same — that's worth way more than two."
-        };
-    }
-
-    const points = a.points + b.points;
-    const named = [a, b].filter(o => !isSide(o)).map(o => o.name).join(" + ");
-    return {
-        type:"mixed",
-        points:points,
-        headline:named + "! +" + points,
-        detail: isSide(a) || isSide(b)
-            ? "A pig on its side is worth nothing, but the other one counts."
-            : "Two different positions score the sum of both pigs."
-    };
-}
-
-/* =========================================================
-   Turn flow
-   ========================================================= */
-
-function rollPigs(){
-    if(rolling || gameOver) return;
-
-    rolling = true;
-    setActionsEnabled(false);
-
-    const arena = document.getElementById("arena");
-    arena.classList.remove("landed", "oinker");
-    arena.classList.add("rolling");
-
-    setResult("", "Tossing…", "");
-
-    let ticks = 0;
-    const spin = setInterval(() => {
-        paintPig(0, randomOutcome());
-        paintPig(1, randomOutcome());
-        playRattle();
-        ticks++;
-
-        if(ticks >= 12){
-            clearInterval(spin);
-            landPigs();
-        }
-    }, 80);
-}
-
-function landPigs(){
-    const arena = document.getElementById("arena");
-    arena.classList.remove("rolling");
-    arena.classList.add("landed");
-    rolling = false;
-
-    if(Math.random() < OINKER_CHANCE){
-        const pose = randomOutcome();
-        paintPig(0, pose);
-        paintPig(1, randomOutcome());
-        arena.classList.add("oinker");
-        resolveOinker();
-        return;
-    }
-
-    const a = randomOutcome();
-    const b = randomOutcome();
-    paintPig(0, a);
-    paintPig(1, b);
-
-    const result = scoreRoll(a, b);
-
-    if(result.type === "pigout"){
-        resolvePigOut(result);
-        return;
-    }
-
-    turnPoints += result.points;
-    updateTurnPoints(true);
-
-    const tone = result.type === "double" ? "big" : "good";
-    setResult(tone, result.headline, result.detail + " Turn total: " + turnPoints + ".");
-
-    if(result.type === "double"){
-        playBigScore();
-    }else if(result.points >= 5){
-        playGoodScore();
-    }else{
-        playSmallScore();
-    }
-
-    setActionsEnabled(true);
-}
-
-function resolvePigOut(result){
-    turnPoints = 0;
-    updateTurnPoints(false);
-    setResult("bad", result.headline, result.detail);
-    playPigOut();
-    endTurnAfterPause();
-}
-
-function resolveOinker(){
-    const player = players[currentIndex];
-    turnPoints = 0;
-    player.score = 0;
-    updateTurnPoints(false);
-    renderScoreboard();
-    setResult("awful", "Oinker!! 😱", "The pigs are touching — " + player.name + " goes all the way back to zero.");
-    playOinker();
-    endTurnAfterPause(1900);
-}
-
-function endTurnAfterPause(delay = 1500){
-    setActionsEnabled(false);
-    setTimeout(() => {
-        nextPlayer();
-        setActionsEnabled(true);
-    }, delay);
-}
-
-function bankPoints(){
-    if(rolling || gameOver) return;
-
-    const player = players[currentIndex];
-
-    if(turnPoints === 0){
-        setResult("", "Nothing to bank yet", "Toss the pigs at least once before banking.");
-        return;
-    }
-
-    player.score += turnPoints;
-    const banked = turnPoints;
-    turnPoints = 0;
-    updateTurnPoints(false);
-    renderScoreboard();
-    playBank();
-
-    if(player.score >= targetScore){
-        showWin(player);
-        return;
-    }
-
-    setResult("good", player.name + " banked " + banked + "!", "Now at " + player.score + " of " + targetScore + " points.");
-    setActionsEnabled(false);
-    setTimeout(() => {
-        nextPlayer(true);
-        setActionsEnabled(true);
-    }, 1200);
-}
-
-function nextPlayer(keepMessage = false){
-    currentIndex = (currentIndex + 1) % players.length;
-    turnPoints = 0;
-    updateTurnPoints(false);
-    resetPigs();
-    renderScoreboard();
-    document.getElementById("currentName").textContent = players[currentIndex].name;
-
-    if(!keepMessage){
-        setResult("", players[currentIndex].name + "'s turn!", "Toss the pigs when you're ready.");
-    }else{
-        setResult("", players[currentIndex].name + "'s turn!", "Toss the pigs when you're ready.");
-    }
-}
-
-/* =========================================================
-   Rendering
-   ========================================================= */
-
-function setActionsEnabled(enabled){
-    document.getElementById("rollBtn").disabled = !enabled;
-    document.getElementById("bankBtn").disabled = !enabled;
-}
-
-function updateTurnPoints(bump){
-    const el = document.getElementById("turnPoints");
-    el.textContent = turnPoints;
-    if(bump){
-        el.classList.remove("bump");
-        void el.offsetWidth;   // restart the animation
-        el.classList.add("bump");
-    }
-}
-
-function setResult(tone, headline, detail){
-    const box = document.getElementById("result");
-    box.className = "result" + (tone ? " " + tone : "");
-    document.getElementById("resultHeadline").textContent = headline;
-    document.getElementById("resultDetail").textContent = detail;
-    void box.offsetWidth;
-    box.classList.add("flash");
-}
-
-function resetPigs(){
-    const arena = document.getElementById("arena");
-    arena.classList.remove("rolling", "landed", "oinker");
-    paintPig(0, PIG_OUTCOMES[3]);   // both standing, waiting to be tossed
-    paintPig(1, PIG_OUTCOMES[3]);
-    document.getElementById("pig0Label").textContent = "Ready";
-    document.getElementById("pig1Label").textContent = "Ready";
-}
-
-function renderScoreboard(){
-    const list = document.getElementById("scoreList");
-    list.innerHTML = "";
-
-    players.forEach((player, i) => {
-        const item = document.createElement("li");
-        if(i === currentIndex && !gameOver) item.className = "current";
-
-        const marker = document.createElement("span");
-        marker.className = "marker";
-        marker.textContent = (i === currentIndex && !gameOver) ? "🐷" : "";
-
-        const who = document.createElement("span");
-        who.className = "who";
-        who.textContent = player.name;
-
-        const pts = document.createElement("span");
-        pts.className = "pts";
-        pts.textContent = player.score;
-
-        item.appendChild(marker);
-        item.appendChild(who);
-        item.appendChild(pts);
-        list.appendChild(item);
-    });
-}
-
-/* =========================================================
-   Game start / end
-   ========================================================= */
-
-function startGame(){
-    const names = readPlayerNames();
-
-    if(names.length < 2){
-        document.getElementById("setupHint").textContent =
-            "Add at least two players — somebody has to pass the pigs to!";
-        return;
-    }
-
-    players = names.map(name => ({ name:name, score:0 }));
-    currentIndex = 0;
-    turnPoints = 0;
-    gameOver = false;
-
-    document.getElementById("targetLabel").textContent = targetScore;
-    document.getElementById("currentName").textContent = players[0].name;
-    updateTurnPoints(false);
-    resetPigs();
-    renderScoreboard();
-    setResult("", players[0].name + " starts!", "Toss the pigs to begin.");
-    setActionsEnabled(true);
-
-    showScreen("gameScreen");
-}
-
-function showWin(player){
-    gameOver = true;
-    setActionsEnabled(false);
-    playWin();
-
-    document.getElementById("winName").textContent = player.name;
-    document.getElementById("winDetail").textContent =
-        "wins with " + player.score + " points!";
-
-    const list = document.getElementById("finalScores");
-    list.innerHTML = "";
-    [...players].sort((a, b) => b.score - a.score).forEach((p, i) => {
-        const item = document.createElement("li");
-        const marker = document.createElement("span");
-        marker.className = "marker";
-        marker.textContent = i === 0 ? "🥇" : (i === 1 ? "🥈" : (i === 2 ? "🥉" : ""));
-        const who = document.createElement("span");
-        who.className = "who";
-        who.textContent = p.name;
-        const pts = document.createElement("span");
-        pts.className = "pts";
-        pts.textContent = p.score;
-        item.appendChild(marker);
-        item.appendChild(who);
-        item.appendChild(pts);
-        list.appendChild(item);
-    });
-
-    showScreen("winScreen");
-}
-
-function playAgainSamePlayers(){
-    players.forEach(p => p.score = 0);
-    currentIndex = 0;
-    turnPoints = 0;
-    gameOver = false;
-
-    updateTurnPoints(false);
-    resetPigs();
-    renderScoreboard();
-    document.getElementById("currentName").textContent = players[0].name;
-    setResult("", players[0].name + " starts!", "Toss the pigs to begin.");
-    setActionsEnabled(true);
-    showScreen("gameScreen");
-}
-
-function backToSetup(){
-    gameOver = false;
-    showScreen("setupScreen");
-}
-
-function requestNewGame(){
-    const midGame = turnPoints > 0 || players.some(p => p.score > 0);
-    if(midGame && !confirm("Start a new game? The current scores will be lost.")) return;
-    backToSetup();
-}
-
-function showScreen(id){
-    ["setupScreen", "gameScreen", "winScreen"].forEach(name => {
-        document.getElementById(name).style.display = name === id ? "" : "none";
-    });
-    window.scrollTo(0, 0);
-}
-
-/* =========================================================
-   Boot
-   ========================================================= */
-
-window.onload = function(){
-    document.getElementById("pig0").innerHTML = PIG_SVG;
-    document.getElementById("pig1").innerHTML = PIG_SVG;
-    addPlayerRow();
-    addPlayerRow();
-    resetPigs();
-};
-
 </script>
+<script type="module" src="./game.js"></script>
 </body>
 </html>

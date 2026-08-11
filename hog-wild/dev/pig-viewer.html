@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hog Wild — pig viewer</title>
+<style>
+  :root {
+    --felt-1:#2f6b52; --felt-2:#245240;
+    --bg-1:#14231c; --bg-2:#0d1712;
+    --panel:#1e3a2e; --panel-2:#27473a;
+    --ink:#f4fbf7; --ink-dim:#a9c9b8;
+    --gold:#ffd54a; --pink:#f291ac;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(120% 90% at 50% 8%, var(--bg-1), var(--bg-2) 70%);
+    color: var(--ink);
+    font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #stage { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .hud {
+    position: fixed; left: 14px; top: 14px; z-index: 3;
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    border: 1px solid var(--panel-2);
+    border-radius: 16px; padding: 12px 14px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.42);
+    backdrop-filter: blur(9px);
+    max-width: min(64vw, 320px);
+  }
+  .hud h1 { margin: 0 0 6px; font-size: 15px; font-weight: 800; letter-spacing: .2px; }
+  .hud .meta { color: var(--ink-dim); font-size: 12px; margin-bottom: 9px; }
+  .hud .meta b { color: var(--gold); font-weight: 800; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
+  .keys kbd {
+    font: 700 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--panel-2); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 6px; padding: 0 6px; color: var(--ink);
+  }
+  .keys span { color: var(--ink-dim); }
+  .keys .on { color: var(--pink); font-weight: 700; }
+  #pose {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 3;
+    font-weight: 800; letter-spacing: .5px; font-size: 13px;
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    border: 1px solid var(--panel-2); border-radius: 999px; padding: 8px 18px;
+    box-shadow: 0 10px 26px rgba(0,0,0,.4);
+  }
+  #pose b { color: var(--gold); }
+  #err {
+    position: fixed; inset: auto 16px 16px 16px; z-index: 9;
+    background: #3a1420; border: 1px solid #ff5c7a; border-radius: 12px;
+    padding: 12px; font: 500 12px/1.5 ui-monospace, Menlo, monospace;
+    white-space: pre-wrap; display: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div class="hud">
+  <h1>Hog Wild · pig viewer</h1>
+  <div class="meta" id="meta">loading…</div>
+  <div class="keys" id="keys"></div>
+</div>
+<div id="pose">pose <b id="poseName">turntable</b></div>
+<pre id="err"></pre>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../vendor/three.module.js",
+    "cannon-es": "../vendor/cannon-es.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { buildScene, buildPen, buildPig, pigTriangles, buildContactShadow } from '../pig.js';
+import { PEN, POSE_KEYS, posePlacement, restHeight, poseQuaternion } from '../physics.js';
+
+const errEl = document.getElementById('err');
+window.addEventListener('error', (e) => {
+  errEl.style.display = 'block';
+  errEl.textContent += `${e.message}\n`;
+});
+
+const canvas = document.getElementById('c');
+const view = buildScene(canvas);
+view.scene.add(buildPen());
+
+const pigs = [buildPig({ dot: false }), buildPig({ dot: true })];
+view.scene.add(...pigs);
+
+// dev handles: this page exists to be poked at from a console / automation
+window.__hw = { THREE, view, pigs };
+
+const shadows = pigs.map(() => {
+  const s = buildContactShadow(0.55);
+  view.scene.add(s);
+  return s;
+});
+
+/* --- framing ------------------------------------------------------------- */
+const PEN_BOX = view.penBox;
+const CLOSE_BOX = new THREE.Box3(
+  new THREE.Vector3(-1.9, -0.02, -1.15),
+  new THREE.Vector3(1.9, 0.9, 1.15),
+);
+let close = true;
+let pitch = 46;
+function applyFraming() { view.frame(close ? CLOSE_BOX : PEN_BOX, { pitchDeg: pitch }); }
+applyFraming();
+
+/* --- state --------------------------------------------------------------- */
+let pose = null;              // null = free turntable
+let spin = true;
+let orbit = false;
+const LANE = 0.62;            // half the gap between the two pigs
+const t0 = performance.now();
+
+const keysEl = document.getElementById('keys');
+function row(k, label) {
+  keysEl.insertAdjacentHTML('beforeend', `<kbd>${k}</kbd><span data-k="${k}">${label}</span>`);
+}
+POSE_KEYS.forEach((p, i) => row(String(i + 1), p));
+row('0', 'free turntable');
+row('z', 'zoom: pigs / whole pen');
+row('space', 'pause spin');
+row('o', 'orbit camera');
+row('[ ]', 'camera pitch');
+
+function markActive() {
+  keysEl.querySelectorAll('span').forEach((s) => s.classList.remove('on'));
+  const k = pose === null ? '0' : String(POSE_KEYS.indexOf(pose) + 1);
+  const el = keysEl.querySelector(`span[data-k="${k}"]`);
+  if (el) el.classList.add('on');
+  document.getElementById('poseName').textContent = pose || 'turntable';
+}
+
+addEventListener('keydown', (e) => {
+  const n = Number(e.key);
+  if (e.key >= '1' && e.key <= '6') { pose = POSE_KEYS[n - 1]; }
+  else if (e.key === '0') { pose = null; }
+  else if (e.key === 'z') { close = !close; applyFraming(); }
+  else if (e.key === ' ') { spin = !spin; e.preventDefault(); }
+  else if (e.key === 'o') { orbit = !orbit; if (!orbit) applyFraming(); }
+  else if (e.key === '[') { pitch = Math.max(14, pitch - 4); applyFraming(); }
+  else if (e.key === ']') { pitch = Math.min(80, pitch + 4); applyFraming(); }
+  markActive();
+});
+markActive();
+
+document.getElementById('meta').innerHTML =
+  `<b>${pigTriangles().toLocaleString()}</b> triangles / pig · pen ${PEN.w}×${PEN.d} ` +
+  `· three r${THREE.REVISION}`;
+
+/* --- loop ---------------------------------------------------------------- */
+const camTarget = new THREE.Vector3(0, PEN.wallH * 0.28, -0.1);
+let yaw = 0, last = performance.now();
+
+function frameLoop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (spin) yaw += dt * 0.34;
+
+  pigs.forEach((pig, i) => {
+    const x = i === 0 ? -LANE : LANE;
+    const y = yaw + (i === 0 ? 0 : Math.PI * 0.55);
+    if (pose) {
+      const pl = posePlacement(pose, { yaw: y, at: [x, 0] });
+      pig.position.set(pl.position[0], pl.position[1], pl.position[2]);
+      pig.quaternion.set(pl.quaternion.x, pl.quaternion.y, pl.quaternion.z, pl.quaternion.w);
+    } else {
+      // free turntable: trotting attitude, lifted just clear of the felt so the
+      // whole silhouette reads, with a lazy bob
+      const q = poseQuaternion('trotter', y);
+      const h = restHeight(q, 0.002);
+      pig.position.set(x, h + 0.10 + Math.sin(now / 1400 + i * 2.1) * 0.022, 0);
+      pig.quaternion.set(q.x, q.y, q.z, q.w);
+    }
+    const s = shadows[i];
+    if (s) {
+      s.position.set(pig.position.x, 0.004, pig.position.z);
+      const lift = Math.max(0, pig.position.y - 0.30);
+      s.material.opacity = 0.8 * Math.max(0.12, 1 - lift * 3.2);
+      const k = 1 + lift * 0.7;
+      s.scale.set(k, k, 1);
+    }
+  });
+
+  if (orbit) {
+    const r = view.camera.position.clone().sub(camTarget);
+    const a = now / 6000;
+    const rad = Math.hypot(r.x, r.z);
+    view.camera.position.set(camTarget.x + Math.sin(a) * rad, view.camera.position.y, camTarget.z + Math.cos(a) * rad);
+    view.camera.lookAt(camTarget);
+  }
+
+  view.render();
+  requestAnimationFrame(frameLoop);
+}
+requestAnimationFrame(frameLoop);
+</script>
+</body>
+</html>
