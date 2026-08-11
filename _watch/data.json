@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-11T11:54:36.118Z",
+ "generatedAt": "2026-08-11T11:55:18.015Z",
  "plan": [
   {
    "wf": "WF-A · Foundation",
@@ -2741,7 +2741,7 @@
    "model": "opus",
    "done": false,
    "firstTs": "2026-08-11T11:00:11.841Z",
-   "lastTs": "2026-08-11T11:54:30.393Z",
+   "lastTs": "2026-08-11T11:55:10.694Z",
    "prompt": "You are working on the 3D game \"Hog Wild\" in /Users/mschmidt/source/ava-games/hog-wild/ (live at http://localhost:4173/hog-wild/ — server already running, do NOT start/stop servers).\nFIRST read /Users/mschmidt/source/ava-games/hog-wild/SPEC.md fully. The four node suites (dev/odds-test.mjs, collider-test.mjs, search-test.mjs, replay-test.mjs) must stay green.\nBROWSER RULE: create your OWN tab (tabs_create), always pass tabId, close it when done.\nReference photos: /Users/mschmidt/source/ava-games/reference-images/pass-the-pigs/. Dev pages: /hog-wild/dev/pig-viewer.html (keys 1-6 poses, qwertyui expressions, z zoom presets), /hog-wild/dev/audio-lab.html.\nYou may resculpt the VISUAL mesh (pig.js buildPigGeometry) freely — silhouette quality is a standing must-fix — but NEVER touch the physics collider (physics.js PIG_TUNING/makeParts), and preserve the visual/collider axis alignment, grounding (rest poses flush on the felt, verified in pig-viewer), the black -X flank dot, magenta hooves, ≤20k triangles, one draw call.\nDo not commit.\n\nMISSION: clear the ENTIRE surviving critic ledger. Read the issue list at /private/tmp/claude-501/-Users-mschmidt-source-ava-games/41c21d9b-c1d5-4fce-9abf-b96319c2a7ae/scratchpad/round3-issues.json (JSON; 11 must-fix + 3 should-fix, each with measured evidence). These have survived three rounds — they are real. Work them ALL, root causes not patches:\n- Reveal camera: must actually deliver the character shot (SPEC: 20-33px of eye) and never crop a revealed pig; re-derive the reveal rig from projected pig bounds + result-card safe area.\n- Chips/text layering: settled chips must never stack on the result card or point at off-frame pigs; define one layering policy and enforce it.\n- Particles: fix the soap-bubble look (blending/color/size against the felt — normal blending with warm opaque debris usually beats additive on green).\n- Board: zone luminance hierarchy must read green > rough > fringe with a soft outer falloff (fix material/light values, re-measure via readPixels like the critic did).\n- Pig: resculpt the slab (rounded barrel back, neck/cheek mass, break the bevel), add baked AO (vertex AO is fine), fix the ear reading as a hole, raise mouth/blush into the visible face region, keep the verified eye.\n- Replace UI emoji with drawn inline-SVG iconography (consistent stroke, the game's palette).\n- The 3 should-fixes too (reveal timing sync, result-card copy tightening, failure-card differentiation).\nVerify each fix the way the critic did — screenshots + readPixels measurements in your own tab, pig-viewer for the model work. All suites green. Return per-issue status with your measurements.",
    "says": [
     {
@@ -2770,11 +2770,6 @@
     }
    ],
    "tools": [
-    {
-     "ts": "2026-08-11T11:49:55.866Z",
-     "name": "mcp__Claude_Browser__javascript_tool",
-     "detail": ""
-    },
     {
      "ts": "2026-08-11T11:50:31.227Z",
      "name": "mcp__Claude_Browser__resize_window",
@@ -2817,6 +2812,11 @@
     },
     {
      "ts": "2026-08-11T11:54:03.510Z",
+     "name": "mcp__Claude_Browser__javascript_tool",
+     "detail": ""
+    },
+    {
+     "ts": "2026-08-11T11:54:59.713Z",
      "name": "mcp__Claude_Browser__javascript_tool",
      "detail": ""
     }
@@ -2868,7 +2868,7 @@
      }
     ]
    ],
-   "toolCount": 206,
+   "toolCount": 207,
    "screenshots": 17
   }
  ]
