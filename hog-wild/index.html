@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Hog Wild</title>
+<meta name="description" content="Toss two pigs, push your luck, and bank your points before you go hog wild!">
+<meta name="theme-color" content="#14231c">
+<link rel="manifest" href="../manifest.webmanifest">
+
+<style>
+:root{
+    --felt-1:#2f6b52;   --felt-2:#245240;
+    --bg-1:#14231c;     --bg-2:#0d1712;
+    --panel:#1e3a2e;    --panel-2:#27473a;
+    --ink:#f4fbf7;      --ink-dim:#a9c9b8;
+    --gold:#ffd54a;     --pink:#f291ac;
+    --danger:#ff5c7a;   --good:#5ddb92;
+    color-scheme: dark;
+}
+
+*{ box-sizing:border-box; }
+
+/* The `hidden` attribute is the ONLY thing that decides whether a screen or
+   panel is on stage, so it has to beat every layout rule in this file — and
+   several of those rules are id-selectors (`#screen-game{display:grid}` in the
+   desktop media query), which outrank any attribute/class selector. Without
+   `!important` a hidden screen keeps its display value, takes real layout
+   space, paints its absolutely-positioned children over the visible screen,
+   and stays keyboard-focusable and in the accessibility tree. */
+[hidden]{ display:none !important; }
+
+html,body{
+    height:100%;
+    overscroll-behavior:none;
+}
+
+body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(120% 100% at 50% 0%, var(--bg-2) 0%, var(--bg-1) 100%);
+    color:var(--ink);
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+h1,h2,h3{ font-weight:800; margin:0; }
+
+button{
+    font-family:inherit;
+    background:var(--pink);
+    color:#2a1420;
+    border:none;
+    border-radius:12px;
+    padding:12px 18px;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform .12s ease, background .15s ease, opacity .15s ease;
+}
+button:hover:not(:disabled){ filter:brightness(1.08); }
+button:active:not(:disabled){ transform:scale(.96); }
+button:disabled{ opacity:.4; cursor:default; }
+button.secondary{ background:var(--panel-2); color:var(--ink); }
+button.big{ font-size:19px; padding:16px 20px; border-radius:16px; }
+button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
+
+.panel{
+    background:var(--panel);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.28);
+}
+
+.screen{ flex:1; display:flex; flex-direction:column; min-height:0; }
+
+/* ---------- setup ---------- */
+
+#screen-setup{ max-width:520px; width:100%; margin:0 auto; padding:18px 14px 40px; }
+
+.setup-title{
+    text-align:center;
+    font-size:clamp(1.7rem,7vw,2.3rem);
+    margin-bottom:18px;
+}
+
+.player-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.player-row input{
+    flex:1; min-width:0;
+    background:var(--bg-1);
+    border:2px solid var(--panel-2);
+    border-radius:10px;
+    padding:11px 12px;
+    color:var(--ink);
+    font-size:16px;
+}
+.player-row input:focus{ outline:none; border-color:var(--gold); }
+.remove-btn{ background:var(--panel-2); color:var(--ink); padding:10px 13px; font-size:15px; flex-shrink:0; }
+
+.target-options{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.target-options button{ flex:1; min-width:88px; background:var(--panel-2); color:var(--ink); }
+.target-options button.active{ background:var(--gold); color:#3a2c05; }
+#customTarget{
+    width:100%;
+    background:var(--bg-1);
+    border:2px solid var(--panel-2);
+    border-radius:10px;
+    padding:11px 12px;
+    color:var(--ink);
+    font-size:16px;
+}
+#customTarget:focus{ outline:none; border-color:var(--gold); }
+
+.setup-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+.setup-actions button{ flex:1; min-width:130px; }
+.hint{ color:var(--ink-dim); font-size:.9rem; margin:10px 0 0; }
+
+/* ---------- game screen ---------- */
+
+#screen-game{ position:relative; flex:1; min-height:0; }
+
+.top-chrome{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 12px;
+}
+
+.turn-banner{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex:1;
+    background:var(--panel);
+    border-radius:16px;
+    padding:10px 16px;
+}
+.turn-label{
+    font-size:.72rem; text-transform:uppercase; letter-spacing:1.3px;
+    color:var(--ink-dim); margin:0 0 2px;
+}
+.turn-name{
+    font-size:clamp(1.1rem,4.5vw,1.5rem); font-weight:800; margin:0;
+    color:var(--gold); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.turn-points{ text-align:right; flex-shrink:0; }
+.turn-points .num{
+    font-size:clamp(1.7rem,7vw,2.3rem); font-weight:800; line-height:1;
+    display:block; transition:transform .15s ease;
+}
+.turn-points .num.bump{ animation:bump .4s ease; }
+@keyframes bump{
+    0%{ transform:scale(1); }
+    45%{ transform:scale(1.35); color:var(--gold); }
+    100%{ transform:scale(1); }
+}
+
+.icon-btn{
+    background:var(--panel-2);
+    color:var(--ink);
+    width:42px; height:42px;
+    border-radius:12px;
+    padding:0;
+    font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+}
+
+/* ---------- pen (3D canvas area) ---------- */
+
+.pen-wrap{
+    position:relative;
+    flex:1;
+    min-height:220px;
+    margin:0 12px 12px;
+    border-radius:20px;
+    overflow:hidden;
+    background:
+        radial-gradient(120% 90% at 50% 15%, var(--felt-1) 0%, var(--felt-2) 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.35);
+    touch-action:none;
+    cursor:pointer;
+}
+
+#penCanvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    display:block;
+}
+
+.mode-quick-only #penCanvas{ display:none; }
+
+.pen-fallback{
+    position:absolute; inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    text-align:center;
+    padding:20px;
+    color:var(--ink-dim);
+}
+.mode-quick-only .pen-fallback{ display:flex; }
+.pen-fallback .emoji{ font-size:3.4rem; }
+
+/* TWO layers over the felt, and they never fight.
+   Round-1 review: the top-of-canvas chip row, the projected per-pig chips, the
+   shake hint and the result card could all be on the felt at once, "with the hint
+   literally running through the chips and the pigs". Two of the four are gone —
+   the label row said the same words as the chips (see the markup) and the hint
+   moved down beside the buttons it describes. What is left is the projected
+   chips, which sit on their pigs, and the result card, which is a lower-third
+   band the reveal camera composes around (REVEAL.aimBias in game.js). */
+.pen-overlay{
+    position:absolute; inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-end;
+    padding:12px 16px 14px;
+    pointer-events:none;
+}
+.overlay-bottom{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    width:100%;
+}
+
+/* Visually hidden, still announced. */
+.sr-only{
+    position:absolute;
+    width:1px; height:1px;
+    margin:-1px; padding:0;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+    border:0;
+}
+
+/* A soft inner vignette so the felt disc fades into the panel edge instead of
+   being sliced off by it (round-1 review: "the board disc is cropped by the
+   canvas panel's hard straight edge"). */
+.pen-vignette{
+    position:absolute; inset:0;
+    pointer-events:none;
+    background:radial-gradient(128% 108% at 50% 42%,
+        rgba(0,0,0,0) 58%, rgba(4,10,8,.22) 84%, rgba(4,10,8,.46) 100%);
+    z-index:1;
+}
+
+/* The "hold to shake" hint used to be a THIRD text layer floating on the felt,
+   directly above the result card — the round-1 review found it "literally
+   running through the chips and the pigs". Input instructions belong next to the
+   input, so it moved to .keyboard-hint under the action bar, which already said
+   the same thing on desktop. Nothing is painted over the board now except the
+   per-pig chips and the lower-third card. */
+
+/* Per-pig settle chips (SPEC "Presentation model" beat 1). One per pig, glued
+   to that pig by game.js re-projecting its world position every frame — they
+   appear the moment THAT pig settles, without waiting for its partner. These are
+   now the ONLY per-pig labels in the game, so they earn a leader: the ::after
+   notch points down at the pig the chip is naming, which is the whole reason to
+   prefer them over a static row. */
+.pig-chip{
+    position:absolute; left:0; top:0;
+    transform:translate(-50%,-100%);
+    background:rgba(22,36,29,.93);
+    border:1px solid #3f6555;
+    border-radius:10px;
+    padding:3px 9px;
+    margin-top:-7px;
+    font-size:.78rem;
+    font-weight:800;
+    color:var(--gold);
+    white-space:nowrap;
+    pointer-events:none;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .22s ease;
+    box-shadow:0 4px 12px rgba(0,0,0,.35);
+    z-index:3;
+}
+/* The leader. `--lead` is written by game.js's projectChips: when the clamp has
+   to slide a chip away from the canvas edge, the notch slides the other way so it
+   still points at the pig instead of lying about where it is. `.below` flips the
+   notch to the top edge for a chip that had to drop onto its pig. */
+/* ROUND-3 REVIEW: "No chip shows the leader/notch the SPEC describes, so they
+   float over the pigs instead of pointing at them." The notch existed but was a
+   6 px triangle in the chip's own near-black fill against dark felt — invisible
+   at the size the reveal actually shows. It is bigger (9 px), it carries a
+   hairline STEM down to the pig so the connection survives the gap the chip's
+   -7px margin leaves, and both are drawn in the chip's border colour rather than
+   its fill so they read against the felt. */
+.pig-chip::after{
+    content:"";
+    position:absolute;
+    left:var(--lead,50%); top:100%;
+    transform:translateX(-50%);
+    border:9px solid transparent;
+    border-bottom-width:0;
+    border-top-color:#527f6b;
+}
+.pig-chip::before{
+    content:"";
+    position:absolute;
+    left:var(--lead,50%); top:100%;
+    width:2px; height:9px;
+    margin-top:7px;
+    transform:translateX(-50%);
+    background:linear-gradient(#527f6b, rgba(82,127,107,0));
+}
+.pig-chip.below::after{
+    top:auto; bottom:100%;
+    border-bottom-width:9px;
+    border-top-width:0;
+    border-top-color:transparent;
+    border-bottom-color:#527f6b;
+}
+.pig-chip.below::before{ display:none; }
+.pig-chip.show{ opacity:1; visibility:visible; }
+/* Its pig is off-frame or behind the camera — hide it rather than pinning it to
+   the canvas edge, where it names nothing and stacks on its partner. */
+.pig-chip.offscreen{ opacity:0; visibility:hidden; }
+.pig-chip.resettling{ opacity:.5; color:var(--ink-dim); }
+.pig-chip small{ color:var(--ink-dim); font-weight:600; }
+.mode-quick-only .pig-chip,
+.reduced-motion .pig-chip{ display:none; }
+
+/* A lower-third BAND, not a floating slab: the reveal camera biases its aim so
+   the pigs sit above it (REVEAL.aimBias), and keeping the card short and wide is
+   what keeps that bias small enough not to crop them. */
+.result-card{
+    width:100%;
+    max-width:460px;
+    text-align:center;
+    background:linear-gradient(rgba(11,20,15,.62), rgba(11,20,15,.90));
+    backdrop-filter:blur(4px);
+    border-radius:14px;
+    padding:9px 16px;
+    pointer-events:none;
+    z-index:2;
+}
+.result-headline{ font-size:clamp(1.1rem,4.5vw,1.4rem); font-weight:800; margin:0 0 3px; }
+.result-detail{ margin:0; font-size:.9rem; color:var(--ink-dim); }
+.result-card.good .result-headline{ color:var(--good); }
+.result-card.big  .result-headline{ color:var(--gold); }
+.result-card.bad  .result-headline{ color:#ff8f6b; }
+.result-card.awful .result-headline{ color:var(--danger); }
+
+/* ---------- action bar ---------- */
+
+.action-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:stretch;
+    gap:10px;
+    padding:0 12px 4px;
+}
+
+.hold-btn{
+    position:relative;
+    order:1;
+    flex:2 1 auto;
+    overflow:hidden;
+    background:var(--pink);
+}
+.hold-btn .hold-fill{
+    position:absolute; inset:0;
+    background:rgba(255,255,255,.35);
+    transform:scaleX(0);
+    transform-origin:left center;
+    pointer-events:none;
+}
+.hold-btn.holding{ filter:brightness(1.15); }
+.hold-btn span.label{ position:relative; }
+
+#stopBtn{ order:2; flex:1 1 auto; }
+
+#quickTossBtn{
+    order:3;
+    flex:1 1 100%;
+    background:none;
+    color:var(--ink-dim);
+    font-weight:700;
+    font-size:.88rem;
+    text-decoration:underline;
+    padding:6px 10px;
+}
+
+/* reduced-motion / quick-only: Quick Toss becomes the primary, full-width
+   action on top; the hold gesture drops to a smaller, secondary control. */
+.reduced-motion #quickTossBtn,
+.mode-quick-only #quickTossBtn{
+    order:0;
+    flex:1 1 100%;
+    background:var(--pink);
+    color:#2a1420;
+    text-decoration:none;
+    font-size:19px;
+    padding:16px 20px;
+    border-radius:16px;
+}
+.reduced-motion .hold-btn,
+.mode-quick-only .hold-btn{
+    background:var(--panel-2);
+    color:var(--ink-dim);
+}
+.mode-quick-only .hold-btn{ pointer-events:none; }
+
+/* ---------- slide-up panels ---------- */
+
+.slide-panel{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    max-height:70vh;
+    overflow-y:auto;
+    background:var(--panel);
+    border-radius:20px 20px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow:0 -10px 30px rgba(0,0,0,.4);
+    z-index:20;
+}
+.slide-panel h2{ font-size:1.1rem; margin-bottom:10px; }
+
+.score-list{ list-style:none; margin:0 0 12px; padding:0; }
+.score-list li{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:10px; margin-bottom:6px;
+    background:var(--bg-1);
+}
+.score-list li.current{ background:#3a6b56; box-shadow:inset 0 0 0 2px var(--gold); }
+.score-list .marker{ width:20px; flex-shrink:0; text-align:center; }
+.score-list .who{ flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.score-list .pts{ font-weight:800; font-size:1.1rem; color:var(--gold); flex-shrink:0; }
+
+table.rules-table{ width:100%; border-collapse:collapse; font-size:.88rem; margin-bottom:12px; }
+table.rules-table th, table.rules-table td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--panel-2); }
+table.rules-table th{ color:var(--ink-dim); font-size:.75rem; text-transform:uppercase; letter-spacing:1px; }
+table.rules-table td:last-child{ text-align:right; white-space:nowrap; font-weight:800; color:var(--gold); }
+
+/* ---------- win screen ---------- */
+
+#screen-win{ max-width:520px; width:100%; margin:auto; padding:18px 14px; }
+.win-box{ text-align:center; }
+.win-trophy{ font-size:4rem; display:block; }
+.win-name{ font-size:clamp(1.6rem,7vw,2.2rem); font-weight:800; color:var(--gold); margin:6px 0; }
+
+footer{ text-align:center; padding:12px; opacity:.6; font-size:.82rem; }
+footer a{ color:var(--ink-dim); }
+
+.keyboard-hint{
+    text-align:center;
+    color:var(--ink-dim);
+    font-size:.85rem;
+    font-weight:600;
+    margin:8px 0 0;
+    padding:0 12px;
+}
+.mode-quick-only .keyboard-hint{ display:none; }
+
+/* ---------- desktop ---------- */
+
+@media (min-width:900px){
+    body{ padding-top:max(20px, env(safe-area-inset-top)); }
+
+    #screen-game{
+        max-width:1000px;
+        width:100%;
+        margin:0 auto;
+        display:grid;
+        grid-template-columns:1fr 300px;
+        /* row 4 is the keyboard hint: without an explicit row it lands in the
+           implicit grid and overlaps the footer once the action bar grows to
+           two rows (reduced-motion promotes Quick Toss to its own row). */
+        grid-template-rows:auto 1fr auto auto;
+        gap:14px;
+        padding:0 16px 20px;
+    }
+    .top-chrome{ grid-column:1 / -1; padding:0; }
+    .pen-wrap{ grid-row:2; grid-column:1; margin:0; min-height:420px; }
+    .action-bar{ grid-row:3; grid-column:1; padding:0; }
+
+    .slide-panel#scoreboardPanel{
+        position:static;
+        grid-row:2 / span 2;
+        grid-column:2;
+        border-radius:16px;
+        max-height:none;
+        box-shadow:0 8px 24px rgba(0,0,0,.28);
+    }
+    .slide-panel#rulesPanel{
+        position:fixed;
+        max-width:480px;
+        left:50%;
+        transform:translateX(-50%);
+        border-radius:16px;
+        bottom:20px;
+    }
+    #scoreboardToggle{ display:none; }
+
+    .keyboard-hint{
+        grid-row:4;
+        grid-column:1;
+        margin:2px 0 0;
+    }
+}
+
+@media (prefers-reduced-motion:reduce){
+    .turn-points .num.bump,
+    .win-trophy{ animation:none; }
+    button{ transition:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP ============ -->
+<section id="screen-setup" class="screen">
+    <h1 class="setup-title">🐷 Hog Wild</h1>
+
+    <div class="panel">
+        <h2 style="margin-bottom:12px">Who's playing?</h2>
+        <div id="playerRows"></div>
+        <div class="setup-actions">
+            <button type="button" class="secondary" id="addPlayerBtn">➕ Add Player</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2 style="margin-bottom:12px">Play to…</h2>
+        <div class="target-options" id="targetOptions">
+            <button type="button" data-target="50">50 — Quick</button>
+            <button type="button" data-target="100" class="active">100 — Classic</button>
+            <button type="button" data-target="150">150 — Long</button>
+        </div>
+        <input type="number" id="customTarget" placeholder="Custom target score" min="1" inputmode="numeric">
+    </div>
+
+    <div class="panel">
+        <button type="button" class="big" id="startGameBtn" style="width:100%">🎲 Start Game</button>
+        <p class="hint" id="setupHint">Toss the pigs, stack up points, then bank them before a Pig Out wipes your turn.</p>
+    </div>
+</section>
+
+<!-- ============ GAME ============ -->
+<section id="screen-game" class="screen" hidden data-turnstate="ready">
+
+    <div class="top-chrome">
+        <div class="turn-banner">
+            <div>
+                <p class="turn-label">Now tossing</p>
+                <p class="turn-name" id="turnName">—</p>
+            </div>
+            <div class="turn-points">
+                <p class="turn-label">This turn</p>
+                <span class="num" id="turnPoints">0</span>
+            </div>
+        </div>
+        <button type="button" class="icon-btn" id="rulesToggle" aria-expanded="false" aria-label="How to play">📖</button>
+        <button type="button" class="icon-btn" id="scoreboardToggle" aria-expanded="false" aria-label="Scoreboard">🏆</button>
+        <button type="button" class="icon-btn" id="muteBtn" aria-label="Mute">🔊</button>
+    </div>
+
+    <div class="pen-wrap" id="penWrap">
+        <canvas id="penCanvas" aria-hidden="true"></canvas>
+        <div class="pen-fallback">
+            <span class="emoji">🐷🐷</span>
+            <p style="margin:0;font-weight:700">Quick Toss mode</p>
+            <p style="margin:0;font-size:.85rem">The 3D pen couldn't load — tossing works the same, just without the tumble.</p>
+        </div>
+        <div class="pig-chip" id="pigChip0" aria-hidden="true"></div>
+        <div class="pig-chip" id="pigChip1" aria-hidden="true"></div>
+        <div class="pen-overlay">
+            <!-- The pose names live here for screen readers ONLY.
+                 They used to be a visible chip row across the top of the pen,
+                 which said exactly the same words as the projected per-pig chips
+                 ("Side · blank" / "Trotter") without tracking the camera, showed
+                 "Ready" during the shake and "…" during flight, and — with the
+                 hint and the result card — put four text layers on the felt at
+                 once. The projected chips won: they point at the pig they are
+                 talking about. This live region keeps the information
+                 announced. -->
+            <p class="sr-only" id="poseLabels" aria-live="polite">
+                <span id="poseLabel0"></span> <span id="poseLabel1"></span>
+            </p>
+            <div class="overlay-bottom">
+                <div class="result-card" id="resultCard" aria-live="polite" hidden>
+                    <p class="result-headline" id="resultHeadline">Tap Go Hog Wild to start!</p>
+                    <p class="result-detail" id="resultDetail">Keep tossing to build up points — but bank them before you lose them.</p>
+                </div>
+            </div>
+        </div>
+        <div class="pen-vignette" aria-hidden="true"></div>
+    </div>
+
+    <div class="action-bar">
+        <button type="button" class="big hold-btn" id="hogWildBtn">
+            <span class="hold-fill" id="holdFill"></span>
+            <span class="label">🎲 Go Hog Wild</span>
+        </button>
+        <button type="button" class="big secondary" id="stopBtn" disabled>🏦 Stop</button>
+        <button type="button" id="quickTossBtn">Quick Toss (skip the animation)</button>
+    </div>
+    <p class="keyboard-hint" id="inputHint">Hold <strong>Space</strong> to toss · <strong>Enter</strong> to stop</p>
+
+    <aside class="slide-panel" id="scoreboardPanel" hidden>
+        <h2>Scoreboard <span style="font-weight:400;color:var(--ink-dim);font-size:.85rem">— first to <span id="targetLabel">100</span></span></h2>
+        <ul class="score-list" id="scoreList"></ul>
+        <button type="button" class="secondary" id="newGameBtn" style="width:100%">🔄 New Game</button>
+    </aside>
+
+    <aside class="slide-panel" id="rulesPanel" hidden>
+        <h2>📖 How to play</h2>
+        <table class="rules-table">
+            <thead><tr><th>How the pigs land</th><th>Points</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Sider</strong> — both pigs on the same side</td><td>1</td></tr>
+                <tr><td><strong>Razorback</strong> — on its back</td><td>5 <span style="color:var(--ink-dim);font-weight:400">(double 20)</span></td></tr>
+                <tr><td><strong>Trotter</strong> — standing on all four feet</td><td>5 <span style="color:var(--ink-dim);font-weight:400">(double 20)</span></td></tr>
+                <tr><td><strong>Snouter</strong> — leaning on snout and front feet</td><td>10 <span style="color:var(--ink-dim);font-weight:400">(double 40)</span></td></tr>
+                <tr><td><strong>Leaning Jowler</strong> — on snout, ear and one foot</td><td>15 <span style="color:var(--ink-dim);font-weight:400">(double 60)</span></td></tr>
+                <tr><td><strong>Pig Out</strong> — pigs on opposite sides</td><td>Lose the turn</td></tr>
+                <tr><td><strong>Oinker</strong> — the pigs touch each other</td><td>Back to zero</td></tr>
+            </tbody>
+        </table>
+        <p class="hint" style="margin-bottom:0">
+            Two different positions score the sum of both pigs. Keep tossing as long as you
+            dare — every toss adds to your turn, but a <strong>Pig Out</strong> wipes the whole
+            turn and an <strong>Oinker</strong> wipes your entire score. Bank to keep your
+            points and pass the pigs along.
+        </p>
+    </aside>
+</section>
+
+<!-- ============ WIN ============ -->
+<section id="screen-win" class="screen" hidden>
+    <div class="panel win-box">
+        <span class="win-trophy">🏆</span>
+        <p class="win-name" id="winName">—</p>
+        <p id="winDetail" style="margin:0 0 18px;color:var(--ink-dim)">wins!</p>
+        <ul class="score-list" id="finalScores" style="text-align:left;margin-bottom:16px"></ul>
+        <div class="setup-actions">
+            <button type="button" id="playAgainBtn">🎲 Play Again</button>
+            <button type="button" class="secondary" id="changePlayersBtn">👥 Change Players</button>
+        </div>
+    </div>
+</section>
+
+<footer>
+Made by Ava ☀️ Summer of 2026 · <a href="../">All games</a>
+</footer>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "cannon-es": "./vendor/cannon-es.js"
+  }
+}
+</script>
+<script type="module" src="./game.js"></script>
+<script src="/_watch/devnav.js" defer></script>
+</body>
+</html>
